@@ -2,14 +2,29 @@ import sys
 
 from collections import deque
 
+from typing import (
+    List,
+    Optional,
+)
+
 class Node:
 
-    def __init__(self, value, children=[], is_expression=False):
+    value: str
+    children: List['Node']
+    is_expression: bool
+
+    def __init__(
+        self,
+        value: str,
+        children: List['Node']=[],
+        is_expression: bool=False
+    ) -> None:
         self.value = value
+
         self.children = children
         self.is_expression = is_expression
 
-    def print(self):
+    def print(self) -> None:
 
         if self.value == None:
             sys.stdout.write("")
@@ -21,17 +36,20 @@ class Node:
 
             child.print()
 
-    def add_child(self, node):
+    def add_child(self, node: 'Node') -> None:
 
         self.children.append(node)
 
 class ParseTree:
 
-    def __init__(self, head=None):
+    head: Node
+
+    def __init__(self, head: Optional[Node] = None) -> None:
 
         self.head = head
 
-    def total_nodes(self):
+    '''
+    def total_nodes(self) -> int:
 
         unexplored_nodes = deque()
         unexplored_nodes.append(self.head)
@@ -44,8 +62,9 @@ class ParseTree:
             unexplored_nodes += current_node.children
 
         return count
+    '''
 
-    def print(self):
+    def pretty_print(self) -> None:
 
         sys.stdout.write("Printing parse Tree: " + "\n")
         if self.head:

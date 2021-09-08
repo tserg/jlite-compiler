@@ -179,9 +179,11 @@ class Lexer:
                 new_token = Token('CLASS_NAME', lexeme, lexeme_start_index, lexeme_start_line)
 
         elif lexeme_state in ['5']:
+            # Integer literals
             new_token = Token('INTEGER_LITERAL', lexeme, lexeme_start_index, lexeme_start_line)
 
         elif lexeme_state in ['11']:
+            # String literals
             new_token = Token('STRING_LITERAL', lexeme, lexeme_start_index, lexeme_start_line)
 
         elif lexeme_state in ['3', '18', '19', '21', '23', '24', '35',]:

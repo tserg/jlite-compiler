@@ -211,8 +211,6 @@ class Parser:
             t5 = self._eat("main", lexer)
             t6 = self._eat("(", lexer)
 
-            self.parse_tree.print()
-
             t7, lexer = self._fmllist_expression(lexer)
             t8 = self._eat(")", lexer)
             t9, lexer = self._mdbody_expression(lexer)
@@ -321,34 +319,27 @@ class Parser:
 
         try:
             print("fmllist expression entered")
+            current_lexer = copy.deepcopy(lexer)
+            t1, current_lexer = self._type_expression(current_lexer)
+            print("type expression exited, returning to fmllist expression")
+            t2 = self._eat("IDENTIFIER", current_lexer)
 
-            try:
-                current_lexer = copy.deepcopy(lexer)
-                t1, current_lexer = self._type_expression(current_lexer)
-                print("type expression exited, returning to fmllist expression")
-                t2 = self._eat("IDENTIFIER", current_lexer)
+            t3, current_lexer = self._kleene_closure_loop(self._fmlrest_expression, current_lexer)
 
-                t3, current_lexer = self._kleene_closure_loop(self._fmlrest_expression, current_lexer)
+            root_node = Node(
+                self._fmllist_expression.__name__,
+                [node for node in [t1, t2, t3] if isinstance(node, Node)],
+                True
+            )
 
-                root_node = Node(
-                    self._fmllist_expression.__name__,
-                    [node for node in [t1, t2, t3] if isinstance(node, Node)],
-                    True
-                )
-
-                return (
-                    root_node,
-                    current_lexer
-                )
-
-            except:
-                return (None, lexer)
-
-        except ParseError as e:
-            raise e
+            return (
+                root_node,
+                current_lexer
+            )
 
         except:
-            raise ParseError(self._fmllist_expression.__name__)
+            return (None, lexer)
+
 
     def _fmlrest_expression(self, lexer):
         print("fmlrest expression entered")
@@ -1352,8 +1343,8 @@ def __main__():
         sys.stdout.write(str(parser.parse_tree.head) + "\n")
         sys.stdout.write(str(parser.parse_tree.head.children) + "\n")
         sys.stdout.write(str(parser.parse_tree.head.children[0].children) + "\n")
-        sys.stdout.write(str(parser.parse_tree.print()) + "\n")
-        sys.stdout.write(str(parser.parse_tree.total_nodes()))
+        sys.stdout.write(str(parser.parse_tree.pretty_print()) + "\n")
+        #sys.stdout.write(str(parser.parse_tree.total_nodes()))
 
 if __name__ == "__main__":
 
