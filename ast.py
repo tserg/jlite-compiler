@@ -7,6 +7,23 @@ from typing import (
     Optional,
 )
 
+PRETTY_PRINT_KEYWORDS = {
+    'if',
+    'else',
+    'while',
+    'main',
+    'true',
+    'false',
+    'return',
+    'Void',
+    'String',
+    'Bool',
+    'Int',
+    'null',
+    'new',
+    'class',
+}
+
 class Node:
 
     value: str
@@ -16,25 +33,42 @@ class Node:
     def __init__(
         self,
         value: str,
+        level: int,
         children: List['Node']=[],
         is_expression: bool=False
     ) -> None:
         self.value = value
-
+        self.level = level
         self.children = children
         self.is_expression = is_expression
 
-    def print(self) -> None:
+    def print(self, symbol_table) -> None:
 
         if self.value == None:
             sys.stdout.write("")
 
         if not self.is_expression and self.value:
-            sys.stdout.write(self.value + " ")
+
+            if self.value in PRETTY_PRINT_KEYWORDS:
+                sys.stdout.write(self.value + " ")
+            elif self.value in symbol_table.keys():
+                sys.stdout.write(self.value + " ")
+            else:
+                sys.stdout.write(self.value)
+
+        if self.value in '{};':
+            sys.stdout.write("\n")
+
+        if self.value in '{':
+            sys.stdout.write("  " * (self.level+1))
+        elif self.value in '}':
+            sys.stdout.write("  " * (self.level))
+        elif self.value in ';':
+            sys.stdout.write("  " * (self.level))
 
         for child in self.children:
 
-            child.print()
+            child.print(symbol_table)
 
     def add_child(self, node: 'Node') -> None:
 
@@ -64,8 +98,8 @@ class ParseTree:
         return count
     '''
 
-    def pretty_print(self) -> None:
+    def pretty_print(self, symbol_table) -> None:
 
         sys.stdout.write("Printing parse Tree: " + "\n")
         if self.head:
-            self.head.print()
+            self.head.print(symbol_table)
