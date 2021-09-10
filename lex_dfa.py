@@ -468,5 +468,5 @@ FINAL_STATES: List[str] = [
     '35', # Operator '+*'
 ]
 
-COMMENT_INTERMEDIATE_STATES: List[str] = ['24', '26', '26a', '27']
+COMMENT_INTERMEDIATE_STATES: List[str] = ['26', '26a', '27']
 COMMENT_FINAL_STATES: List[str] = ['25', '28']
