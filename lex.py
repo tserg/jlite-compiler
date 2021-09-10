@@ -240,7 +240,7 @@ class Lexer:
         :return: a Token instance of the lexeme
         """
         # Checks if the given lexeme is a valid token
-        # If yes, instantiate a new Token instance
+        # If yes, create a new Token instance
         #print(lexeme)
         new_token = None
 
@@ -366,7 +366,10 @@ class Lexer:
 
             # Update current position of lexer
             if current_char == "\n":
-                sys.stdout.write("New line detected. Previous lexeme: " + previous_lexeme + "\n")
+
+                if self.debug:
+                    sys.stdout.write("New line detected. Previous lexeme: " + previous_lexeme + "\n")
+
                 index = 1
                 line += 1
             else:
@@ -544,7 +547,7 @@ class Lexer:
                         current_lexeme = ''
                         current_lexeme_state = '0'
 
-                        current_lexeme_start_index = index + 1
+                        current_lexeme_start_index = index
 
                     if current_char == "\n" and \
                         (previous_lexeme not in [';', '{', '}'] and \
@@ -584,7 +587,7 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        lex = Lexer(debug=True)
+        lex = Lexer(debug=False)
         lex.lex_content(f)
 
         sys.stdout.write(lex.get_tokens())
