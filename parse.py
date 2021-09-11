@@ -72,11 +72,13 @@ class Parser:
     lex: Lexer
     parse_tree: ParseTree
     symbol_table: dict
+    debug: bool
 
-    def __init__(self) -> None:
+    def __init__(self, debug: bool=False) -> None:
         self.lex = Lexer()
         self.parse_tree = ParseTree()
         self.symbol_table = {}
+        self.debug = debug
 
     def _lex_content(self, f) -> None:
         self.lex.lex_content(f)
@@ -93,17 +95,20 @@ class Parser:
         """
         if lexer.is_empty():
             return None
-        print("Eat")
+
         check_next_token = lexer.peek()
-        print("Next token: " + check_next_token.value)
+
+        if self.debug:
+            print("Checking next token to eat: " + check_next_token.value + "\n")
+
         if check_next_token == 'EOF':
             lexer.get_next_token_from_queue()
             return None
 
-        print("Checking for: " + supposed_token)
-        print(check_next_token.token_name)
         if check_next_token.token_name == supposed_token:
-            print("Current token is valld")
+            if self.debug:
+                print("Token eaten" + "\n")
+
             found_token = lexer.get_next_token_from_queue().value
 
             # Create node for found token
@@ -112,9 +117,6 @@ class Parser:
             return new_node
 
         raise InvalidExpressionError
-
-    def _concatenate_parsed(self, token_list) -> str:
-        return ''.join([t + " " for t in token_list])
 
     def _kleene_closure_loop(
         self,
@@ -132,7 +134,14 @@ class Parser:
         """
 
         try:
-            print("program expression going to kleene closure loop for expression: " + expression.__name__)
+
+            if self.debug:
+                sys.stdout.write((
+                    "Kleene closure loop triggered for expression: ")
+                    + expression.__name__
+                    + "\n"
+                )
+
             root_node, lexer = expression(lexer, level)
 
             if root_node:
@@ -141,7 +150,14 @@ class Parser:
 
                 while not repeat_ended:
                     current_lexer = copy.deepcopy(lexer)
-                    print("kleene closure repeat loop entered for expression: " + expression.__name__)
+
+                    if self.debug:
+                        sys.stdout.write(
+                            ("Kleene closure repeat loop entered for expression: ")
+                            + expression.__name__
+                            + "\n"
+                        )
+
                     try:
                         temp_node, current_lexer = expression(current_lexer, level)
                         root_node.add_child(temp_node)
@@ -149,7 +165,13 @@ class Parser:
 
                     except:
                         repeat_ended = True
-                        print("terminate kleene closure repeat loop")
+
+                        if self.debug:
+                            sys.stdout.write(
+                                ("Kleene closure repeat loop terminated for expression: ")
+                                + expression.__name__
+                                + "\n"
+                            )
         except:
             root_node = None
 
@@ -168,7 +190,12 @@ class Parser:
 
         while not repeat_ended:
             current_lexer = copy.deepcopy(lexer)
-            print("positive closure loop entered")
+            if self.debug:
+                sys.stdout.write(
+                    ("Positive closure loop triggered for expression: ")
+                    + expression.__name__
+                    + "\n"
+                )
             try:
                 temp_node, current_lexer = expression(current_lexer, level)
                 root_node.add_child(temp_node)
@@ -176,19 +203,32 @@ class Parser:
 
             except:
                 repeat_ended = True
-                print("terminate positive closure loop in " + expression.__name__)
+
+                if self.debug:
+                    sys.stdout.write(
+                        ("Positive closure loop terminated for expression: ")
+                        + expression.__name__
+                        + "\n"
+                    )
 
         return (root_node, lexer)
 
     def _program_expression(self, lexer):
 
         try:
-            print("program expression entered")
-
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._program_expression.__name__
+                    + "\n"
+                )
 
             t1, lexer = self._mainclass_expression(lexer, 0)
-            print("program expression - mainclass found")
-            t2, lexer = self._kleene_closure_loop(self._classdeclaration_expression, lexer, 0)
+            t2, lexer = self._kleene_closure_loop(
+                self._classdeclaration_expression,
+                lexer,
+                0
+            )
 
             root_node = Node(
                 self._program_expression.__name__,
@@ -209,6 +249,13 @@ class Parser:
 
         try:
 
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._mainclass_expression.__name__
+                    + "\n"
+                )
+
             t1 = self._eat("class", lexer, level)
             t2 = self._eat("CLASS_NAME", lexer, level)
             t3 = self._eat("{", lexer, level)
@@ -220,6 +267,9 @@ class Parser:
             t8 = self._eat(")", lexer, level+1)
             t9, lexer = self._mdbody_expression(lexer, level+1)
             t10 = self._eat("}", lexer, level)
+
+            if t2.value not in self.symbol_table.keys():
+                self.symbol_table[t2.value] = "IDENTIFIER"
 
             root_node = Node(
                 self._mainclass_expression.__name__,
@@ -242,6 +292,14 @@ class Parser:
     def _classdeclaration_expression(self, lexer, level):
 
         try:
+
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._classdeclaration_expression.__name__
+                    + "\n"
+                )
+
             t1 = self._eat("class", lexer, level)
             t2 = self._eat("CLASS_NAME", lexer, level)
             t3 = self._eat("{", lexer, level)
@@ -270,6 +328,14 @@ class Parser:
     def _vardecl_expression(self, lexer, level):
 
         try:
+
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._vardecl_expression.__name__
+                    + "\n"
+                )
+
             t1, lexer = self._type_expression(lexer, level)
             t2 = self._eat("IDENTIFIER", lexer, level)
             t3 = self._eat(";", lexer, level)
@@ -294,15 +360,21 @@ class Parser:
             raise ParseError(self._vardecl_expression.__name__)
 
     def _mddecl_expression(self, lexer, level):
-        print("mddecl expression entered")
+
         try:
+
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._mddecl_expression.__name__
+                    + "\n"
+                )
+
             t1, lexer = self._type_expression(lexer, level)
             t2 = self._eat("IDENTIFIER", lexer, level)
             t3 = self._eat("(", lexer, level)
 
-            print("mddecl expression going to fmllist expression")
             t4, lexer = self._fmllist_expression(lexer, level)
-
             t5 = self._eat(")", lexer, level)
 
             t6, lexer = self._mdbody_expression(lexer, level)
@@ -317,7 +389,6 @@ class Parser:
                 True
             )
 
-            print("mddecl expression exited")
             return (
                 root_node,
                 lexer
@@ -332,10 +403,14 @@ class Parser:
     def _fmllist_expression(self, lexer, level):
 
         try:
-            print("fmllist expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._fmllist_expression.__name__
+                    + "\n"
+                )
             current_lexer = copy.deepcopy(lexer)
             t1, current_lexer = self._type_expression(current_lexer, level)
-            print("type expression exited, returning to fmllist expression")
             t2 = self._eat("IDENTIFIER", current_lexer, level)
 
             t3, current_lexer = self._kleene_closure_loop(self._fmlrest_expression, current_lexer, level)
@@ -360,9 +435,16 @@ class Parser:
 
 
     def _fmlrest_expression(self, lexer, level):
-        print("fmlrest expression entered")
 
         try:
+
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._fmlrest_expression.__name__
+                    + "\n"
+                )
+
             t1 = self._eat(",", lexer, level)
             t2, lexer = self._type_expression(lexer, level)
             t3 = self._eat("IDENTIFIER", lexer, level)
@@ -388,7 +470,13 @@ class Parser:
     def _type_expression(self, lexer, level):
 
         try:
-            print("Type expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._type_expression.__name__
+                    + "\n"
+                )
+
             next_token = lexer.peek()
 
             if next_token.token_name == "Int":
@@ -418,7 +506,7 @@ class Parser:
                 [node for node in [t1] if isinstance(node, Node)],
                 True
             )
-            print("Terminating type expression")
+
             return (root_node, lexer)
 
         except:
@@ -426,12 +514,27 @@ class Parser:
 
     def _mdbody_expression(self, lexer, level):
 
-        print("mdbody expression entered")
-
         try:
+
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._mdbody_expression.__name__
+                    + "\n"
+                )
+
             t1 = self._eat("{", lexer, level)
-            t2, lexer = self._kleene_closure_loop(self._vardecl_expression, lexer, level+1)
-            t3, lexer = self._positive_closure_loop(self._stmt_expression, lexer, level+1)
+            t2, lexer = self._kleene_closure_loop(
+                self._vardecl_expression,
+                lexer,
+                level+1
+            )
+
+            t3, lexer = self._positive_closure_loop(
+                self._stmt_expression,
+                lexer,
+                level+1
+            )
 
             t4 = self._eat("}", lexer, level)
 
@@ -452,21 +555,39 @@ class Parser:
 
     def _stmt_expression(self, lexer, level):
         try:
-            print("stmt expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._stmt_expression.__name__
+                    + "\n"
+                )
+
             next_token = lexer.peek()
 
             if next_token.token_name == "if":
-                print("Type checking for if")
+
                 t1 = self._eat("if", lexer, level)
                 t2 = self._eat("(", lexer, level)
                 t3, lexer = self._exp_expression(lexer, level)
                 t4 = self._eat(")", lexer, level)
                 t5 = self._eat("{", lexer, level)
-                t6, lexer = self._positive_closure_loop(self._stmt_expression, lexer, level+1)
+
+                t6, lexer = self._positive_closure_loop(
+                    self._stmt_expression,
+                    lexer,
+                    level+1
+                )
+
                 t7 = self._eat("}", lexer, level)
                 t8 = self._eat("else", lexer, level)
                 t9 = self._eat("{", lexer, level)
-                t10, lexer = self._positive_closure_loop(self._stmt_expression, lexer, level+1)
+
+                t10, lexer = self._positive_closure_loop(
+                    self._stmt_expression,
+                    lexer,
+                    level+1
+                )
+
                 t11 = self._eat("}", lexer, level)
 
                 root_node = Node(
@@ -477,13 +598,19 @@ class Parser:
                 )
 
             elif next_token.token_name == "while":
-                print("Type checking for while")
+
                 t1 = self._eat("while", lexer, level)
                 t2 = self._eat("(", lexer, level)
                 t3, lexer = self._exp_expression(lexer, level)
                 t4 = self._eat(")", lexer, level)
                 t5 = self._eat("{", lexer, level)
-                t6, lexer = self._kleene_closure_loop(self._stmt_expression, lexer, level+1)
+
+                t6, lexer = self._kleene_closure_loop(
+                    self._stmt_expression,
+                    lexer,
+                    level+1
+                )
+
                 t7 = self._eat("}", lexer, level)
 
                 root_node = Node(
@@ -527,7 +654,6 @@ class Parser:
                 )
 
             elif next_token.token_name == "IDENTIFIER":
-                print("stmt expression - IDENTIFER entered")
 
                 t1 = self._eat("IDENTIFIER", lexer, level)
                 t2 = self._eat("=", lexer, level)
@@ -556,7 +682,7 @@ class Parser:
                 )
 
             else:
-                print("STMT expression going into atom expression")
+
                 t1, lexer = self._atom_expression(lexer, level)
                 t2, lexer = self._stmtbeta_expression(lexer, level)
 
@@ -574,18 +700,21 @@ class Parser:
             )
 
         except ParseError as e:
-            print("Type expression encountered exception")
             raise e
 
-        except Exception as f:
-            print("Type expression encountered exception")
-            print(f)
+        except:
             raise ParseError(self._type_expression.__name__)
 
     def _stmtalpha_expression(self, lexer, level):
 
         try:
-            print("stmt alpha expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._stmtalpha_expression.__name__
+                    + "\n"
+                )
+
             next_token = lexer.peek()
 
             if next_token.token_name == ";":
@@ -600,8 +729,6 @@ class Parser:
 
             else:
                 t1, lexer = self._exp_expression(lexer, level)
-
-                print("exp expression exited, returning to stmt alpha expression")
                 t2 = self._eat(";", lexer, level)
 
                 root_node = Node(
@@ -622,7 +749,13 @@ class Parser:
     def _stmtbeta_expression(self, lexer, level):
 
         try:
-            print("stmt beta expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._stmtbeta_expression.__name__
+                    + "\n"
+                )
+
             next_token = lexer.peek()
 
             if next_token.token_name == ".":
@@ -669,24 +802,32 @@ class Parser:
     def _exp_expression(self, lexer, level):
 
         try:
-            print("exp expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._exp_expression.__name__
+                    + "\n"
+                )
+
             try:
-                print("exp expression going to bexp")
+
                 t1, lexer = self._bexp_expression(lexer, level)
+
                 root_node = Node(
                     self._exp_expression.__name__,
                     level,
                     [node for node in [t1] if isinstance(node, Node)],
                     True
                 )
-                print("bexp expression found, returning to exp expression")
+
                 return (root_node, lexer)
+
             except:
-                print("exp expression left bexp for aexp")
+
                 try:
-                    print("exp expression going to aexp")
+
                     t1, lexer = self._aexp_expression(lexer, level)
-                    print("Aexp expression found in exp expression")
+
                     root_node = Node(
                         self._exp_expression.__name__,
                         level,
@@ -695,7 +836,7 @@ class Parser:
                     )
                     return (root_node, lexer)
                 except:
-                    print("exp expression going to sexp")
+
                     try:
                         t1, lexer = self._sexp_expression(lexer, level)
                         root_node = Node(
@@ -706,11 +847,10 @@ class Parser:
                         )
                         return (root_node, lexer)
                     except ParseError as e:
-                        print("exp expression unable to find match")
+
                         raise ParseError(self._exp_expression.__name__)
 
         except ParseError as e:
-            print("exp expression exciting with exception")
             raise e
 
         except:
@@ -719,12 +859,16 @@ class Parser:
     def _bexp_expression(self, lexer, level):
 
         try:
-            print("bexp expression entered")
-            t1, lexer = self._conj_expression(lexer, level)
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._bexp_expression.__name__
+                    + "\n"
+                )
 
-            print("conj expression resolved, returning to bexp expression")
+            t1, lexer = self._conj_expression(lexer, level)
             t2, lexer = self._bexpalpha_expression(lexer, level)
-            print("bexpalpha expression resolved, returning to bexp expression")
+
             root_node = Node(
                 self._bexp_expression.__name__,
                 level,
@@ -737,14 +881,20 @@ class Parser:
             )
 
         except ParseError as e:
-            print("bexp expression exited with exception")
             raise e
 
     def _bexpalpha_expression(self, lexer, level):
 
         try:
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._bexpalpha_expression.__name__
+                    + "\n"
+                )
+
             current_lexer = copy.deepcopy(lexer)
-            print("bexp alpha expression entered")
+
             t1 = self._eat("||", current_lexer, level)
             t2, current_lexer = self._conj_expression(current_lexer, level)
             t3, current_lexer = self._bexpalpha_expression(current_lexer, level)
@@ -762,18 +912,20 @@ class Parser:
             )
 
         except:
-            print("bexp alpha expression exited with exception")
             return (None, lexer)
 
     def _conj_expression(self, lexer, level):
 
         try:
-            print("conj expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._conj_expression.__name__
+                    + "\n"
+                )
             t1, lexer = self._rexp_expression(lexer, level)
-
-            print("rexp expression resolved, returning to conj expression")
             t2, lexer = self._conjalpha_expression(lexer, level)
-            print("conjalpha expression resolved, returning to conj expression")
+
             root_node = Node(
                 self._conj_expression.__name__,
                 level,
@@ -791,10 +943,16 @@ class Parser:
     def _conjalpha_expression(self, lexer, level):
 
         try:
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._conjalpha_expression.__name__
+                    + "\n"
+                )
+
             current_lexer = copy.deepcopy(lexer)
             t1 = self._eat("&&", current_lexer, level)
             t2, current_lexer = self._rexp_expression(current_lexer, level)
-            print("rexp expression resolved, returning to conjalpha expression")
             t3, current_lexer = self._conjalpha_expression(current_lexer, level)
 
             root_node = Node(
@@ -815,18 +973,42 @@ class Parser:
     def _rexp_expression(self, lexer, level):
 
         try:
-            print("rexp expression entered")
-            print("lexer next token: " + lexer.peek().value)
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._rexp_expression.__name__
+                    + "\n"
+                )
 
             try:
                 current_lexer = copy.deepcopy(lexer)
                 t1, current_lexer = self._aexp_expression(current_lexer, level)
-                print("aexp expression resolved, returning to rexp expression first time")
+
+                if self.debug:
+                    sys.stdout.write(
+                        ("aexp expression resolved, "
+                        "returning to rexp expression first time")
+                        + "\n"
+                    )
+
 
                 t2, current_lexer = self._bop_expression(current_lexer, level)
-                print("bop expression resolved, returning to rexp expression")
+
+                if self.debug:
+                    sys.stdout.write(
+                        ("bop expression resolved, "
+                        "returning to rexp expression")
+                        + "\n"
+                    )
+
                 t3, current_lexer = self._aexp_expression(current_lexer, level)
-                print("aexp expression resolved, returning to rexp expression second time")
+
+                if self.debug:
+                    sys.stdout.write(
+                        ("aexp expression resolved, "
+                        "returning to rexp expression second time")
+                        + "\n"
+                    )
 
                 root_node = Node(
                     self._rexp_expression.__name__,
@@ -841,7 +1023,12 @@ class Parser:
                 )
 
             except:
-                print("rexp expression (aexp bop aexp) encounted exception")
+                if self.debug:
+                    sys.stdout.write(
+                        "rexp expression (aexp bop aexp) encounted exception"
+                        + "\n"
+                    )
+
                 try:
                     current_lexer = copy.deepcopy(lexer)
                     t1, current_lexer = self._bgrd_expression(current_lexer, level)
@@ -866,7 +1053,12 @@ class Parser:
     def _bop_expression(self, lexer, level):
 
         try:
-            print("bop expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._bop_expression.__name__
+                    + "\n"
+                )
             next_token = lexer.peek()
 
             if next_token.token_name == "<":
@@ -888,7 +1080,6 @@ class Parser:
                 t1 = self._eat("!=", lexer, level)
 
             else:
-                print("bop expression exiting with exception")
                 raise ParseError(self._bop_expression.__name__)
 
             root_node = Node(
@@ -909,7 +1100,12 @@ class Parser:
     def _bgrd_expression(self, lexer, level):
 
         try:
-            print("bgrd expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._bgrd_expression.__name__
+                    + "\n"
+                )
             next_token = lexer.peek()
 
             if next_token.token_name == "!":
@@ -951,13 +1147,13 @@ class Parser:
             else:
                 try:
 
-                    print("Token after atom: " + lexer.peek(1).token_name)
                     if lexer.peek(1).token_name in "+-*/":
-                        print("bgrd should not handle")
+                        if self.debug:
+                            sys.stdout.write("bgrd expression should not handle" + "\n")
                         # Defer to _aexp or _sexp if any of these operators
                         # are after the atom
                         raise ParseError(self._bgrd_expression.__name__)
-                    print("bgrd expression going into atom expression")
+
                     t1, lexer = self._atom_expression(lexer, level)
                     root_node = Node(
                         self._bgrd_expression.__name__,
@@ -968,22 +1164,23 @@ class Parser:
                     return root_node, lexer
 
                 except:
-                    print("atom expression exited with exception, returning to bgrd expression")
                     raise ParseError(self._bgrd_expression.__name__)
+
         except:
             raise ParseError(self._bgrd_expression.__name__)
 
     def _aexp_expression(self, lexer, level):
 
         try:
-            print("aexp expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._aexp_expression.__name__
+                    + "\n"
+                )
 
             t1, lexer = self._term_expression(lexer, level)
-
-            print("term expression resolved, returning to aexp expression")
             t2, lexer, loop_count = self._aexpalpha_expression(lexer, level)
-
-            print("aexp expression found and exited")
 
             left_p = []
 
@@ -1008,9 +1205,18 @@ class Parser:
     def _aexpalpha_expression(self, lexer, level, loop_count=0):
 
         try:
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._aexpalpha_expression.__name__
+                    + "\n"
+                )
+
+                sys.stdout.write("aexp alpha expression entered" + "\n")
+                sys.stdout.write("Current loop count: " + str(loop_count) + "\n")
+
             current_lexer = copy.deepcopy(lexer)
-            print("aexp alpha expression entered")
-            print("Current loop count: " + str(loop_count))
+
             next_token = current_lexer.peek()
 
             if next_token.token_name == "+":
@@ -1020,7 +1226,6 @@ class Parser:
                 t1 = self._eat("-", current_lexer, level)
 
             else:
-                print("aexp alpha expression returns empty string")
                 return (None, current_lexer, loop_count)
 
             t2, current_lexer = self._term_expression(current_lexer, level)
@@ -1047,7 +1252,12 @@ class Parser:
     def _term_expression(self, lexer, level):
 
         try:
-            print("term expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._term_expression.__name__
+                    + "\n"
+                )
             t1, lexer = self._ftr_expression(lexer, level)
             t2, lexer, loop_count = self._termalpha_expression(lexer, level)
 
@@ -1063,9 +1273,6 @@ class Parser:
                 True
             )
 
-
-
-            print("term expression exited")
             return (
                 root_node,
                 lexer
@@ -1077,8 +1284,14 @@ class Parser:
     def _termalpha_expression(self, lexer, level, loop_count=0):
 
         try:
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._termalpha_expression.__name__
+                    + "\n"
+                )
+
             current_lexer = copy.deepcopy(lexer)
-            print("term alpha expression entered")
             next_token = current_lexer.peek()
 
             if next_token.token_name == "*":
@@ -1088,7 +1301,6 @@ class Parser:
                 t1 = self._eat("/", current_lexer, level)
 
             else:
-                print("term alpha expression returns empty string")
                 return (None, current_lexer, loop_count)
 
             t2, current_lexer = self._ftr_expression(current_lexer, level)
@@ -1115,16 +1327,28 @@ class Parser:
     def _ftr_expression(self, lexer, level):
 
         try:
-            print("ftr expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._ftr_expression.__name__
+                    + "\n"
+                )
             next_token = lexer.peek()
 
             if next_token.token_name == "INTEGER_LITERAL":
+
                 t1 = self._eat("INTEGER_LITERAL", lexer, level)
+                left_p = None
+                right_p = None
+
+                if next_token.value[0] == '-':
+                    left_p = Node('(', level)
+                    right_p = Node(')', level)
 
                 root_node = Node(
                     self._ftr_expression.__name__,
                     level,
-                    [node for node in [t1] if isinstance(node, Node)],
+                    [node for node in [left_p, t1, right_p] if isinstance(node, Node)],
                     True
                 )
 
@@ -1149,7 +1373,12 @@ class Parser:
             else:
 
                 try:
-                    print("ftr expression going to atom expression")
+                    if self.debug:
+                        sys.stdout.write(
+                            "ftr expression going to atom expression"
+                            + "\n"
+                        )
+
                     t1, lexer = self._atom_expression(lexer, level)
                     root_node = Node(
                         self._ftr_expression.__name__,
@@ -1157,7 +1386,13 @@ class Parser:
                         [node for node in [t1] if isinstance(node, Node)],
                         True
                     )
-                    print("atom expression completed, returning to atom expression")
+
+                    if self.debug:
+                        sys.stdout.write(
+                            "atom expression completed, returning to atom expression"
+                            + "\n"
+                        )
+
                     return root_node, lexer
 
                 except:
@@ -1169,15 +1404,31 @@ class Parser:
     def _sexp_expression(self, lexer, level):
 
         try:
-            print("sexp expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._sexp_expression.__name__
+                    + "\n"
+                )
+
             next_token = lexer.peek()
             if next_token.token_name == "STRING_LITERAL":
                 t1 = self._eat("STRING_LITERAL", lexer, level)
 
             else:
-                print("sexp going into atom expression")
+                if self.debug:
+                    sys.stdout.write(
+                        "sexp going into atom expression"
+                        + "\n"
+                    )
+
                 t1, lexer = self._atom_expression(lexer, level)
-                print("sexp found atom expression")
+
+                if self.debug:
+                    sys.stdout.write(
+                        "sexp found atom expression"
+                        + "\n"
+                    )
 
             t2, lexer = self._sexpalpha_expression(lexer, level)
 
@@ -1194,14 +1445,20 @@ class Parser:
             )
 
         except:
-            print("sexp expression exited with exception")
             raise ParseError(self._sexp_expression.__name__)
 
     def _sexpalpha_expression(self, lexer, level):
 
         try:
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._sexpalpha_expression.__name__
+                    + "\n"
+                )
+
             current_lexer = copy.deepcopy(lexer)
-            print("sexp alpha expression entered")
+
             t1 = self._eat("+", current_lexer, level)
             t2, current_lexer = self._sexp_expression(current_lexer, level)
             t3, current_lexer = self._sexpalpha_expression(current_lexer, level)
@@ -1225,9 +1482,13 @@ class Parser:
     def _atom_expression(self, lexer, level):
 
         try:
-            print("atom expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._atom_expression.__name__
+                    + "\n"
+                )
             next_token = lexer.peek()
-            print("atom expression - next token: " + next_token.token_name)
 
             if next_token.token_name == "this":
                 t1 = self._eat("this", lexer, level)
@@ -1302,7 +1563,7 @@ class Parser:
                 )
 
             elif next_token.token_name == "IDENTIFIER":
-                print("atom expression - IDENTIFER")
+
                 t1 = self._eat("IDENTIFIER", lexer, level)
                 t2, lexer = self._atomalpha_expression(lexer, level)
 
@@ -1315,7 +1576,7 @@ class Parser:
                     [node for node in [t1, t2] if isinstance(node, Node)],
                     True
                 )
-                print("atom expression - IDENTIFER exited")
+
                 return (
                     root_node,
                     lexer
@@ -1325,13 +1586,18 @@ class Parser:
                 raise ParseError(self._atom_expression.__name__)
 
         except:
-            print("atom expression exited with exception")
             raise ParseError(self._atom_expression.__name__)
 
     def _atomalpha_expression(self, lexer, level):
 
         try:
-            print("atom alpha expression entered")
+            if self.debug:
+                sys.stdout.write(
+                    "Entering expression: " + \
+                    self._atomalpha_expression.__name__
+                    + "\n"
+                )
+
             next_token = lexer.peek()
 
             if next_token.token_name == ".":
@@ -1375,7 +1641,6 @@ class Parser:
                 )
 
             else:
-                print("atom alpha expression returns empty string")
                 return (None, lexer)
 
         except:
@@ -1431,6 +1696,11 @@ class Parser:
 
         self.parse_tree.head = self._program_expression(self.lex)
 
+    def pretty_print(self) -> None:
+
+        sys.stdout.write("Parsed output: " + "\n\n")
+        self.parse_tree.pretty_print(self.symbol_table)
+
 def __main__():
 
     filepath = sys.argv[1]
@@ -1442,13 +1712,13 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        parser = Parser()
+        parser = Parser(debug=True)
         #sys.stdout.write(str(parser.parse(f) + "\n"))
         parser.parse(f)
-        sys.stdout.write(str(parser.parse_tree.head) + "\n")
-        sys.stdout.write(str(parser.parse_tree.head.children) + "\n")
-        sys.stdout.write(str(parser.parse_tree.head.children[0].children) + "\n")
-        sys.stdout.write(str(parser.parse_tree.pretty_print(parser.symbol_table)) + "\n")
+        #sys.stdout.write(str(parser.parse_tree.head) + "\n")
+        #sys.stdout.write(str(parser.parse_tree.head.children) + "\n")
+        #sys.stdout.write(str(parser.parse_tree.head.children[0].children) + "\n")
+        parser.pretty_print()
         sys.stdout.write(str(parser.symbol_table) + "\n")
         #sys.stdout.write(str(parser.parse_tree.total_nodes()))
 
