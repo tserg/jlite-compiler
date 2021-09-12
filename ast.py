@@ -7,24 +7,46 @@ from typing import (
     Optional,
 )
 
-PRETTY_PRINT_KEYWORDS = {
-    'if',
-    'else',
-    'while',
+PRETTY_PRINT_KEYWORDS_WITHOUT_SPACE = {
     'main',
     'true',
     'false',
+    'null',
+}
+
+PRETTY_PRINT_KEYWORDS_WITH_TRAILING_SPACE = {
     'return',
+    'class',
+    'new',
+    'if',
+    'else',
+    'while',
     'Void',
     'String',
     'Bool',
     'Int',
-    'null',
-    'new',
-    'class',
 }
 
 class Node:
+    """
+    Node instance for a valid expression
+
+    ...
+
+    Attributes
+    ----------
+    value: str
+    children: List['Node']
+    is_expression: bool
+
+    Methods
+    -------
+    print(symbol_table):
+        Prints the current value of the node, and its children.
+    add_child(node):
+        Adds a node to its children.
+
+    """
 
     value: str
     children: List['Node']
@@ -49,22 +71,22 @@ class Node:
 
         if not self.is_expression and self.value:
 
-            if self.value in PRETTY_PRINT_KEYWORDS:
+            if self.value in PRETTY_PRINT_KEYWORDS_WITH_TRAILING_SPACE or \
+                (symbol_table.get(self.value) == 'CLASS_NAME'):
                 sys.stdout.write(self.value + " ")
-            elif self.value in symbol_table.keys():
-                sys.stdout.write(self.value + " ")
+
             else:
                 sys.stdout.write(self.value)
 
-        if self.value in '{};':
-            sys.stdout.write("\n")
+            if self.value in '{};':
+                sys.stdout.write("\n")
 
-        if self.value in '{':
-            sys.stdout.write("  " * (self.level+1))
-        elif self.value in '}':
-            sys.stdout.write("  " * (self.level))
-        elif self.value in ';':
-            sys.stdout.write("  " * (self.level))
+            if self.value in '{':
+                sys.stdout.write("  " * (self.level+1))
+            elif self.value in '}':
+                sys.stdout.write("  " * (self.level))
+            elif self.value in ';':
+                sys.stdout.write("  " * (self.level))
 
         for child in self.children:
 
@@ -75,7 +97,21 @@ class Node:
         self.children.append(node)
 
 class ParseTree:
+    """
+    Parse tree instance constructed from a parsed file
 
+    ...
+
+    Attributes
+    ----------
+    head: Node
+
+    Methods
+    -------
+    pretty_print()
+        Prints the parse tree
+
+    """
     head: Node
 
     def __init__(self, head: Optional[Node] = None) -> None:
@@ -100,6 +136,8 @@ class ParseTree:
 
     def pretty_print(self, symbol_table) -> None:
 
-        sys.stdout.write("Printing parse Tree: " + "\n")
         if self.head:
             self.head.print(symbol_table)
+
+class AbstractSyntaxTree:
+    pass
