@@ -1,0 +1,24 @@
+class Main{
+  Void main(Int a){
+    println("Nothing goes here");
+    }
+  }
+class HelloWorld{
+  World w;
+  Int i;
+  String dummy(Bool a){
+    Int i;
+    Bool b;
+    if (!a){
+      i=(-1);
+      return i;
+      }
+    else {
+      b=true;
+      while (a&&b){
+        i=!j;
+        }
+      }
+    println("Hello World!");
+    }
+  }
