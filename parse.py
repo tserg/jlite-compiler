@@ -36,13 +36,16 @@ class ParseError(Exception):
     expression: str
     message: str
 
-    def __init__(self, expression: str='') -> None:
+    def __init__(self, expression: str, token: str, index:int, line: int) -> None:
         self.expression = expression
         self.message = "Invalid expression at: "
+        self.token = token
+        self.line = str(line)
+        self.index = str(index)
 
     def __str__(self) -> str:
 
-        return f'{self.message} {self.expression}'
+        return f'{self.message} {self.expression}. Unable to parse token {self.token} at index {self.index} of line {self.line}.'
 
 class InvalidExpressionError(Exception):
     """
@@ -262,9 +265,6 @@ class Parser:
         except ParseError as e:
             raise e
 
-        except:
-            raise ParseError(self._program_expression.__name__)
-
     def _mainclass_expression(self, lexer: Lexer, level: int):
 
         try:
@@ -307,7 +307,13 @@ class Parser:
             raise e
 
         except:
-            raise ParseError(self._mainclass_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._mainclass_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _classdeclaration_expression(self, lexer: Lexer, level: int):
 
@@ -343,7 +349,13 @@ class Parser:
             raise e
 
         except:
-            raise ParseError(self._classdeclaration_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._classdeclaration_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _vardecl_expression(self, lexer: Lexer, level: int):
 
@@ -376,8 +388,13 @@ class Parser:
             )
 
         except:
-
-            raise ParseError(self._vardecl_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._vardecl_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _mddecl_expression(self, lexer: Lexer, level: int):
 
@@ -418,7 +435,13 @@ class Parser:
             raise e
 
         except:
-            raise ParseError(self._mddecl_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._mddecl_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _fmllist_expression(self, lexer: Lexer, level: int):
 
@@ -485,7 +508,13 @@ class Parser:
             )
 
         except:
-            raise ParseError(self._fmlrest_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._fmlrest_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _type_expression(self, lexer: Lexer, level: int):
 
@@ -530,7 +559,13 @@ class Parser:
             return (root_node, lexer)
 
         except:
-            raise ParseError(self._type_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._type_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _mdbody_expression(self, lexer: Lexer, level: int):
 
@@ -571,7 +606,13 @@ class Parser:
             )
 
         except:
-            raise ParseError(self._fmlrest_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._fmlrest_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _stmt_expression(self, lexer: Lexer, level: int):
         try:
@@ -725,7 +766,13 @@ class Parser:
             raise e
 
         except:
-            raise ParseError(self._type_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._type_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _stmtbeta_expression(self, lexer: Lexer, level: int):
 
@@ -766,7 +813,13 @@ class Parser:
                 )
 
         except:
-            raise ParseError(self._stmtalpha_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._stmtalpha_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _stmtalpha_expression(self, lexer: Lexer, level: int):
 
@@ -819,7 +872,13 @@ class Parser:
                 )
 
         except:
-            raise ParseError(self._stmtalpha_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._stmtalpha_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _exp_expression(self, lexer: Lexer, level: int):
 
@@ -902,7 +961,14 @@ class Parser:
         except:
             if self.debug:
                 sys.stdout.write("Atom expression exception encountered, backtracking" + "\n")
-            raise ParseError(self._exp_expression.__name__)
+
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._exp_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _bexp_expression(self, lexer: Lexer, level: int):
 
@@ -915,12 +981,17 @@ class Parser:
                 )
 
             t1, lexer = self._conj_expression(lexer, level)
-            t2, lexer = self._bexpalpha_expression(lexer, level)
+            t2, lexer, loop_count = self._bexpalpha_expression(lexer, level)
+
+            left_p = []
+
+            if t2:
+                left_p = [Node("(", level) for i in range(loop_count)]
 
             root_node = Node(
                 self._bexp_expression.__name__,
                 level,
-                [node for node in [t1, t2] if isinstance(node, Node)],
+                [node for node in left_p + [t1, t2] if isinstance(node, Node)],
                 True
             )
             return (
@@ -931,7 +1002,7 @@ class Parser:
         except ParseError as e:
             raise e
 
-    def _bexpalpha_expression(self, lexer: Lexer, level: int):
+    def _bexpalpha_expression(self, lexer: Lexer, level: int, loop_count=0):
 
         try:
             if self.debug:
@@ -945,22 +1016,25 @@ class Parser:
 
             t1 = self._eat("||", current_lexer, level)
             t2, current_lexer = self._conj_expression(current_lexer, level)
-            t3, current_lexer = self._bexpalpha_expression(current_lexer, level)
+            t3, current_lexer, loop_count = self._bexpalpha_expression(current_lexer, level, loop_count+1)
+
+            right_p = Node(")", level)
 
             root_node = Node(
                 self._bexpalpha_expression.__name__,
                 level,
-                [node for node in [t1, t2, t3] if isinstance(node, Node)],
+                [node for node in [t1, t2, right_p, t3] if isinstance(node, Node)],
                 True
             )
 
             return (
                 root_node,
-                current_lexer
+                current_lexer,
+                loop_count
             )
 
         except:
-            return (None, lexer)
+            return (None, lexer, loop_count)
 
     def _conj_expression(self, lexer: Lexer, level: int):
 
@@ -972,12 +1046,17 @@ class Parser:
                     + "\n"
                 )
             t1, lexer = self._rexp_expression(lexer, level)
-            t2, lexer = self._conjalpha_expression(lexer, level)
+            t2, lexer, loop_count = self._conjalpha_expression(lexer, level)
+
+            left_p = []
+
+            if t2:
+                left_p = [Node("(", level) for i in range(loop_count)]
 
             root_node = Node(
                 self._conj_expression.__name__,
                 level,
-                [node for node in [t1, t2] if isinstance(node, Node)],
+                [node for node in left_p + [t1, t2] if isinstance(node, Node)],
                 True
             )
             return (
@@ -988,7 +1067,7 @@ class Parser:
         except ParseError as e:
             raise e
 
-    def _conjalpha_expression(self, lexer: Lexer, level: int):
+    def _conjalpha_expression(self, lexer: Lexer, level: int, loop_count=0):
 
         try:
             if self.debug:
@@ -1001,22 +1080,25 @@ class Parser:
             current_lexer = copy.deepcopy(lexer)
             t1 = self._eat("&&", current_lexer, level)
             t2, current_lexer = self._rexp_expression(current_lexer, level)
-            t3, current_lexer = self._conjalpha_expression(current_lexer, level)
+            t3, current_lexer, loop_count = self._conjalpha_expression(current_lexer, level, loop_count+1)
+
+            right_p = Node(")", level)
 
             root_node = Node(
                 self._conjalpha_expression.__name__,
                 level,
-                [node for node in [t1, t2, t3] if isinstance(node, Node)],
+                [node for node in [t1, t2, right_p, t3] if isinstance(node, Node)],
                 True
             )
 
             return (
                 root_node,
-                current_lexer
+                current_lexer,
+                loop_count
             )
 
         except:
-            return (None, lexer)
+            return (None, lexer, loop_count)
 
     def _rexp_expression(self, lexer: Lexer, level: int):
 
@@ -1091,12 +1173,18 @@ class Parser:
                     return (root_node, current_lexer)
 
                 except ParseError as e:
-                    raise ParseError(self._rexp_expression.__name__)
+                    raise e
 
-            raise ParseError(self._rexp_expression.__name__)
+            #raise ParseError(self._rexp_expression.__name__)
 
         except:
-            raise ParseError(self._rexp_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._rexp_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _bop_expression(self, lexer: Lexer, level: int):
 
@@ -1143,7 +1231,13 @@ class Parser:
             raise e
 
         except:
-            raise ParseError(self._bop_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._bop_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _bgrd_expression(self, lexer: Lexer, level: int):
 
@@ -1160,10 +1254,16 @@ class Parser:
                 t1 = self._eat("!", lexer, level)
                 t2, lexer = self._bgrd_expression(lexer, level)
 
+                not_left_p = Node('(', level)
+                not_right_p = Node(')', level)
+
+                bgrd_left_p = Node('(', level)
+                bgrd_right_p = Node(')', level)
+
                 root_node = Node(
                     self._bgrd_expression.__name__,
                     level,
-                    [node for node in [t1, t2] if isinstance(node, Node)],
+                    [node for node in [not_left_p, t1, not_right_p, bgrd_left_p, t2, bgrd_right_p] if isinstance(node, Node)],
                     True
                 )
 
@@ -1200,7 +1300,7 @@ class Parser:
                             sys.stdout.write("bgrd expression should not handle" + "\n")
                         # Defer to _aexp or _sexp if any of these operators
                         # are after the atom
-                        raise ParseError(self._bgrd_expression.__name__)
+                        raise InvalidExpressionError
 
                     t1, lexer = self._atom_expression(lexer, level)
                     root_node = Node(
@@ -1212,10 +1312,25 @@ class Parser:
                     return root_node, lexer
 
                 except:
-                    raise ParseError(self._bgrd_expression.__name__)
+                    last_consumed_token = lexer.get_last_consumed_token()
+                    raise ParseError(
+                        self._bgrd_expression.__name__,
+                        last_consumed_token.value,
+                        last_consumed_token.start_index,
+                        last_consumed_token.start_line
+                    )
+
+        except ParseError as e:
+            raise e
 
         except:
-            raise ParseError(self._bgrd_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._bgrd_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _aexp_expression(self, lexer: Lexer, level: int):
 
@@ -1267,7 +1382,14 @@ class Parser:
         except:
             if self.debug:
                 sys.stdout.write("AExp expression exception encountered, backtracking" + "\n")
-            raise ParseError(self._aexp_expression.__name__)
+
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._aexp_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _aexpalpha_expression(self, lexer: Lexer, level: int, loop_count: int=0):
 
@@ -1357,7 +1479,14 @@ class Parser:
         except:
             if self.debug:
                 sys.stdout.write("Term expression exception encountered, backtracking" + "\n")
-            raise ParseError(self._term_expression.__name__)
+
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._term_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _termalpha_expression(self, lexer: Lexer, level: int, loop_count: int=0):
 
@@ -1475,12 +1604,30 @@ class Parser:
                     return root_node, lexer
 
                 except:
-                    raise ParseError(self._ftr_expression.__name__)
+                    last_consumed_token = lexer.get_last_consumed_token()
+                    raise ParseError(
+                        self._ftr_expression.__name__,
+                        last_consumed_token.value,
+                        last_consumed_token.start_index,
+                        last_consumed_token.start_line
+                    )
+
+        except ParseError as e:
+            if self.debug:
+                sys.stdout.write("Ftr expression exception encountered, backtracking" + "\n")
+            raise e
 
         except:
             if self.debug:
                 sys.stdout.write("Ftr expression exception encountered, backtracking" + "\n")
-            raise ParseError(self._ftr_expression.__name__)
+
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._ftr_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _sexp_expression(self, lexer: Lexer, level: int):
 
@@ -1526,7 +1673,13 @@ class Parser:
             )
 
         except:
-            raise ParseError(self._sexp_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._sexp_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _sexpalpha_expression(self, lexer: Lexer, level: int):
 
@@ -1665,11 +1818,30 @@ class Parser:
                 )
 
             else:
-                raise ParseError(self._atom_expression.__name__)
+                last_consumed_token = lexer.get_last_consumed_token()
+                raise ParseError(
+                    self._atom_expression.__name__,
+                    last_consumed_token.value,
+                    last_consumed_token.start_index,
+                    last_consumed_token.start_line
+                )
+
+        except ParseError as e:
+            if self.debug:
+                sys.stdout.write("Atom expression exception encountered, backtracking" + "\n")
+            raise e
 
         except:
-            sys.stdout.write("Atom expression exception encountered, backtracking" + "\n")
-            raise ParseError(self._atom_expression.__name__)
+            if self.debug:
+                sys.stdout.write("Atom expression exception encountered, backtracking" + "\n")
+
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._atom_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def _atomalpha_expression(self, lexer: Lexer, level: int):
 
@@ -1771,7 +1943,13 @@ class Parser:
             raise e
 
         except:
-            raise ParseError(self._exprest_expression.__name__)
+            last_consumed_token = lexer.get_last_consumed_token()
+            raise ParseError(
+                self._exprest_expression.__name__,
+                last_consumed_token.value,
+                last_consumed_token.start_index,
+                last_consumed_token.start_line
+            )
 
     def parse(self, f) -> None:
 
@@ -1795,11 +1973,11 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        parser = Parser(debug=True)
+        parser = Parser(debug=False)
         parser.parse(f)
 
         parser.pretty_print()
-        sys.stdout.write(str(parser.parse_tree.total_nodes()))
+        #sys.stdout.write(str(parser.parse_tree.total_nodes()))
 
 if __name__ == "__main__":
 
