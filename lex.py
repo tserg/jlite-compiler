@@ -1,7 +1,9 @@
 import sys
 import os
 
-from collections import deque
+from collections import (
+    deque,
+)
 
 from typing import (
     Any,
@@ -123,17 +125,19 @@ class Lexer:
     -------
     _get_current_char_class(char)
         Returns the DFA classification of the current character
-    _scan_next_char(current_state, new_char)
-        Returns the key to traverse to based on the input character and the
+    _get_next_state(current_state, new_char)
+        Returns the next state to traverse to based on the input character and the
         current state in the DFA
-    _analyse_lexeme
+    _tokenise_lexeme(lexeme, lexeme_state, lexeme_start_index, lexeme_start_line)
         Tokenises a lexeme if it is in a final state in the DFA
-    lex_content
+    lex_content(f)
         Lexes the input file
-    add_token_to_queue(token)
+    _add_token_to_queue(token)
         Add a token to the token queue
     get_next_token_from_queue()
         Removes the token at the start of the queue and returns it
+    get_last_consumed_token()
+        Returns the last token that was removed from the queue
     peek()
         Retrieve the token at the start of the queue without removing
     is_empty()
@@ -144,16 +148,25 @@ class Lexer:
     """
 
     token_queue: Deque[Token]
+    last_consumed: Optional[Token]
     debug: bool
 
     def __init__(self, debug: bool=False) -> None:
         self.token_queue = deque()
         self.debug = debug
+        self.last_consumed = None
 
     def _get_current_char_class(
         self,
         char: str
     ) -> Optional[str]:
+        """
+        Helper function to read a character and determine the key to traverse on
+        for the DFA from the current state
+
+        :param str char: the character to read
+        :return: the key to traverse to based on the current state in the DFA
+        """
         # Returns class of current char
 
         if char in 'abcdefnrtx':
@@ -197,11 +210,11 @@ class Lexer:
 
         return None
 
-    def _scan_next_char(
+    def _get_next_state(
         self,
         current_state: str,
         new_char: str
-    ) -> Optional[str]:
+    ) -> Any:
         """
         Helper function to read a character and determine the new state to
         go to from the current state in the DFA
@@ -223,7 +236,7 @@ class Lexer:
         except:
             return None
 
-    def _analyse_lexeme(
+    def _tokenise_lexeme(
         self,
         lexeme: str,
         lexeme_state: str,
@@ -322,12 +335,22 @@ class Lexer:
 
         return new_token
 
+    def _add_token_to_queue(self, token: Token) -> None:
+        """
+        Add a token to the Lexer's queue
+
+        :param Token token: the token to be added to the queue
+        """
+        self.token_queue.append(token)
+
     def lex_content(self, f: TextIO) -> None:
         """
         Lexes the input file
 
         :param TextIO f: the input file
         """
+
+        completed = False
 
         index = 1
         line = 1
@@ -344,7 +367,7 @@ class Lexer:
         multiline_comment_count = 0
 
 
-        while True:
+        while not completed:
 
             # While file still has input, read the next character
             current_char = f.read(1)
@@ -386,7 +409,7 @@ class Lexer:
                     COMMENT_FINAL_STATES
                 ):
 
-                    token = self._analyse_lexeme(
+                    token = self._tokenise_lexeme(
                         current_lexeme,
                         current_lexeme_state,
                         current_lexeme_start_index,
@@ -394,7 +417,7 @@ class Lexer:
                     )
 
                     if token:
-                        self.add_token_to_queue(token)
+                        self._add_token_to_queue(token)
 
                 elif current_lexeme_state in COMMENT_INTERMEDIATE_STATES:
 
@@ -407,7 +430,7 @@ class Lexer:
                         )
                     )
 
-                self.add_token_to_queue(Token(
+                self._add_token_to_queue(Token(
                     'KEYWORD',
                     'EOF',
                     current_lexeme_start_index,
@@ -415,14 +438,14 @@ class Lexer:
                 ))
 
                 # Exit while loop on end of file
-                break
+                completed = True
 
             else:
                 if self.debug:
                     sys.stdout.write("Checking for char: " + current_char + \
                         " with current state " + current_lexeme_state + "\n")
 
-                new_lexeme_state = self._scan_next_char(
+                new_lexeme_state = self._get_next_state(
                     current_lexeme_state,
                     current_char
                 )
@@ -500,7 +523,7 @@ class Lexer:
                         # Add existing lexeme if it is a final state and
                         # not a comment
 
-                        token = self._analyse_lexeme(
+                        token = self._tokenise_lexeme(
                             current_lexeme,
                             current_lexeme_state,
                             current_lexeme_start_index,
@@ -508,7 +531,7 @@ class Lexer:
                         )
 
                         if token:
-                            self.add_token_to_queue(token)
+                            self._add_token_to_queue(token)
 
                             # Set previous lexeme to current lexeme and
                             # update previous lexeme state
@@ -539,7 +562,7 @@ class Lexer:
                     current_lexeme_start_index = index
                     current_lexeme_start_line = line
 
-                    current_lexeme_state = self._scan_next_char('0', current_char)
+                    current_lexeme_state = self._get_next_state('0', current_char)
 
                     if not current_lexeme_state:
                         # Reset current lexeme if it is invalid move
@@ -559,19 +582,48 @@ class Lexer:
                             .format(current_lexeme_start_line-1)
                         )
 
-    def add_token_to_queue(self, token: Token) -> None:
-        self.token_queue.append(token)
-
     def get_next_token_from_queue(self) -> Token:
-        return self.token_queue.popleft()
+        """
+        Pops the next token from the Lexer's queue and return the value.
+        The last consumed token is updated to the popped token.
+
+        :return The token on the left of the Lexer's queue
+        """
+        next_token = self.token_queue.popleft()
+        self.last_consumed = next_token
+        return next_token
+
+    def get_last_consumed_token(self) -> Optional[Token]:
+        """
+        Returns the last consumed token.
+
+        :return The token that was last removed from the left of the Lexer's queue
+        """
+        return self.last_consumed
 
     def peek(self, count: int=0) -> Token:
+        """
+        Reads the next token from the Lexer's queue and return the value without popping.
+
+        :return The token on the left of the Lexer's queue
+        """
         return self.token_queue[count]
 
     def is_empty(self) -> bool:
+        """
+        Checks if the Lexer's queue is empty
+
+        :return Boolean value for whether Lexer's queue is empty
+        """
         return len(self.token_queue) == 0
 
     def get_tokens(self) -> str:
+        """
+        Returns all tokens in the Lexer's queue as a string, with each token
+        separated by a line break.
+
+        :return A string of token values
+        """
         tokens = "".join([token.__str__() + "\n" for token in self.token_queue])
         return tokens
 
