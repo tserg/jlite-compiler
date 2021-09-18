@@ -206,6 +206,14 @@ class Parser:
         lexer: Lexer,
         level: int
     ) -> Any:
+        """
+        Helper function to execute the positive closure on a given expression
+
+        :param Callable expression: the expression with positive closure
+        :param Lexer lexer: the lexer at the current state
+        :return: tuple of the expression(s) found and the lexer in the state
+            after the positive closure
+        """
 
         root_node, lexer = expression(lexer, level)
 
@@ -547,6 +555,13 @@ class Parser:
                     self.symbol_table[t1.value] = "CLASS_NAME"
 
             else:
+                last_consumed_token = lexer.get_last_consumed_token()
+                raise ParseError(
+                    self._type_expression.__name__,
+                    last_consumed_token.value,
+                    last_consumed_token.start_index,
+                    last_consumed_token.start_line
+                )
                 raise ParseError(self._type_expression.__name__)
 
             root_node = Node(
@@ -557,6 +572,9 @@ class Parser:
             )
 
             return (root_node, lexer)
+
+        except ParseError as e:
+            raise e
 
         except:
             last_consumed_token = lexer.get_last_consumed_token()
@@ -949,9 +967,9 @@ class Parser:
                             True
                         )
                         return (root_node, current_lexer)
-                    except ParseError as e:
 
-                        raise ParseError(self._exp_expression.__name__)
+                    except ParseError as e:
+                        raise e
 
         except ParseError as e:
             if self.debug:
@@ -1216,7 +1234,13 @@ class Parser:
                 t1 = self._eat("!=", lexer, level)
 
             else:
-                raise ParseError(self._bop_expression.__name__)
+                last_consumed_token = lexer.get_last_consumed_token()
+                raise ParseError(
+                    self._bop_expression.__name__,
+                    last_consumed_token.value,
+                    last_consumed_token.start_index,
+                    last_consumed_token.start_line
+                )
 
             root_node = Node(
                 self._bop_expression.__name__,
@@ -1355,8 +1379,7 @@ class Parser:
             next_token_2 = lexer.peek(1)
 
             if next_token_1.value in ['-', '+'] and next_token_2.token_name == 'STRING_LITERAL':
-                raise ParseError(self._aexp_expression.__name__)
-
+                raise InvalidExpressionError
 
             if self.debug:
                 sys.stdout.write("AExpalpha expression found, returned to AExp expression" + "\n")
@@ -1952,12 +1975,20 @@ class Parser:
             )
 
     def parse(self, f) -> None:
+        """
+        Lexes the input file into a stream of tokens, then parses using recursive descent parsing
 
-        self.lex.lex_content(f)
+        :param TextIO f: the input file
+        """
+
+        self._lex_content(f)
 
         self.parse_tree = ParseTree(self._program_expression(self.lex))
 
     def pretty_print(self) -> None:
+        """
+        Prints the parsed file
+        """
 
         sys.stdout.write("Parsed output: " + "\n\n")
         self.parse_tree.pretty_print(self.symbol_table)

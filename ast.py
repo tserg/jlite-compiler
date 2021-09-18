@@ -114,7 +114,7 @@ class ParseTree:
     """
     head: Node
 
-    def __init__(self, head: Optional[Node] = None) -> None:
+    def __init__(self, head: Node) -> None:
 
         self.head = head
 

@@ -148,13 +148,12 @@ class Lexer:
     """
 
     token_queue: Deque[Token]
-    last_consumed: Optional[Token]
+    last_consumed: Token
     debug: bool
 
     def __init__(self, debug: bool=False) -> None:
         self.token_queue = deque()
         self.debug = debug
-        self.last_consumed = None
 
     def _get_current_char_class(
         self,
@@ -593,7 +592,7 @@ class Lexer:
         self.last_consumed = next_token
         return next_token
 
-    def get_last_consumed_token(self) -> Optional[Token]:
+    def get_last_consumed_token(self) -> Token:
         """
         Returns the last consumed token.
 
