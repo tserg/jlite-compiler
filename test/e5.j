@@ -38,5 +38,5 @@ class CountToTen {
      Count countToTen() {
 	 	return 10;
 	 }
-  
+
 }

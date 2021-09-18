@@ -11,14 +11,14 @@ class CountToTen{
   String dummy(Bool a){
     Int i;
     Bool b;
-    if (!a){
-      i=(-1);
+    if ((!)(a)){
+      i=((-1)+5);
       return i;
       }
     else {
       b=true;
-      while (a&&b){
-        i=!j;
+      while ((a&&b)){
+        i=(!)(j);
         }
       }
     return this.countToTen();

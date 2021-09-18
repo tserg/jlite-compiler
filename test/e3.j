@@ -11,7 +11,7 @@
 	 	Bool a;
 		Int b;
 
-	    while(a){
+	    whilae(a){
 
 	       b = b + 1 * 2;
 		   y = y + "hi";
