@@ -183,7 +183,7 @@ class Lexer:
         elif char in '0123456789':
             return '0-9'
 
-        elif char in '-+/*=;&| .,"':
+        elif char in '-+/*=;&| .,"_':
             return char
 
         elif char == '\\':
@@ -638,7 +638,7 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        lex = Lexer(debug=False)
+        lex = Lexer(debug=True)
         lex.lex_content(f)
 
         sys.stdout.write(lex.get_tokens())

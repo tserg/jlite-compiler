@@ -1071,10 +1071,13 @@ class Parser:
             if t2:
                 left_p = [Node("(", level) for i in range(loop_count)]
 
+            rexp_left_p = Node("(", level)
+            rexp_right_p = Node(")", level)
+
             root_node = Node(
                 self._conj_expression.__name__,
                 level,
-                [node for node in left_p + [t1, t2] if isinstance(node, Node)],
+                [node for node in left_p + [rexp_left_p, t1, rexp_right_p, t2] if isinstance(node, Node)],
                 True
             )
             return (
@@ -1102,10 +1105,13 @@ class Parser:
 
             right_p = Node(")", level)
 
+            rexp_left_p = Node("(", level)
+            rexp_right_p = Node(")", level)
+
             root_node = Node(
                 self._conjalpha_expression.__name__,
                 level,
-                [node for node in [t1, t2, right_p, t3] if isinstance(node, Node)],
+                [node for node in [t1, rexp_left_p, t2, rexp_right_p, right_p, t3] if isinstance(node, Node)],
                 True
             )
 
@@ -1224,7 +1230,7 @@ class Parser:
             elif next_token.token_name == "<=":
                 t1 = self._eat("<=", lexer, level)
 
-            elif next_token.token_name == ">":
+            elif next_token.token_name == ">=":
                 t1 = self._eat(">=", lexer, level)
 
             elif next_token.token_name == "==":
@@ -2004,7 +2010,7 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        parser = Parser(debug=False)
+        parser = Parser(debug=True)
         parser.parse(f)
 
         parser.pretty_print()
