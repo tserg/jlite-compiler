@@ -11,10 +11,10 @@
 	 	Bool a;
 		Int b;
 
-	    whilae(a){
+	    while(a){
 
 	       b = b + 1 * 2;
-		   y = y + "hi";
+		   y = y + "hi" + " there";
 		   if (b<=x) {
 		   		a=false;
 		   } else {
