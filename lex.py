@@ -18,7 +18,6 @@ from typing import (
 from lex_dfa import (
     DFA,
     FINAL_STATES,
-    FINAL_STATE_TO_TOKEN_NAME,
     COMMENT_INTERMEDIATE_STATES,
     COMMENT_FINAL_STATES,
 )
@@ -314,7 +313,7 @@ class Lexer:
             '3', '13', '14', '16', '17', '18', '19', '21', '23', '24', '35',
         ]:
             # Operators
-            #token_name = FINAL_STATE_TO_TOKEN_NAME[lexeme_state][lexeme]
+
             new_token = Token(
                 lexeme,
                 lexeme,

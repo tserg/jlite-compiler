@@ -1126,11 +1126,13 @@ class Parser:
                         + "\n"
                     )
 
-                t1.add_sibling(t2)
-                t2.add_sibling(t3)
+
+                binop_node = BinOpNode(t2.value, 'binOp')
+                binop_node.set_left_operand(t1)
+                binop_node.set_right_operand(t3)
 
                 return (
-                    t1,
+                    binop_node,
                     current_lexer
                 )
 
@@ -1342,10 +1344,10 @@ class Parser:
             next_token = current_lexer.peek()
 
             if next_token.token_name == "+":
-                t1 = self._eat("+", current_lexer, 'binOp')
+                t1 = self._eat("+", current_lexer, 'arithmeticOp')
 
             elif next_token.token_name == "-":
-                t1 = self._eat("-", current_lexer, 'binOp')
+                t1 = self._eat("-", current_lexer, 'arithmeticOp')
 
             else:
                 return (left_node, current_lexer)
@@ -1577,10 +1579,10 @@ class Parser:
 
             current_lexer = copy.deepcopy(lexer)
 
-            t1 = self._eat("+", current_lexer, 'binOp')
+            t1 = self._eat("+", current_lexer, 'stringOp')
             t2, current_lexer = self._sexp_expression(current_lexer)
 
-            t1 = ArithmeticOpNode(t1.value, 'arithmeticOp')
+            t1 = ArithmeticOpNode(t1.value, 'stringOp')
             t1.set_left_operand(left_node)
             t1.set_right_operand(t2)
 
@@ -1819,10 +1821,10 @@ class Parser:
 
     def pretty_print(self) -> None:
         """
-        Prints the parsed file
+        Prints the AST of the parsed file
         """
 
-        sys.stdout.write("Parsed output: " + "\n\n")
+        sys.stdout.write("Printing AST: " + "\n\n")
         self.ast.pretty_print()
 
 def __main__():
