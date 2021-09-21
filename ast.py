@@ -5,6 +5,7 @@ from collections import deque
 from typing import (
     List,
     Optional,
+    Any,
 )
 
 PRETTY_PRINT_KEYWORDS_WITHOUT_SPACE = {
@@ -139,5 +140,558 @@ class ParseTree:
         if self.head:
             self.head.print(symbol_table)
 
+class ASTNode:
+    """
+    Node instance for a valid expression
+
+    ...
+
+    Attributes
+    ----------
+    value: str
+    children: List['Node']
+    is_expression: bool
+
+    Methods
+    -------
+    print(symbol_table):
+        Prints the current value of the node, and its children.
+    add_child(node):
+        Adds a node to its children.
+
+    """
+
+    value: str
+    type: str
+    child: Any
+    sibling: Any
+
+    def __init__(
+        self,
+        value: str,
+        type: str='leaf',
+        child: Optional[Any]=None,
+        sibling: Optional[Any]=None
+    ) -> None:
+        self.value = value
+        self.type = type
+        self.child = child
+        self.sibling = sibling
+
+
+    def add_child(self, node: Any):
+
+        self.child = node
+
+    def add_sibling(self, node: Any):
+
+        self.sibling = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        if self.value:
+
+            if self.type == "INTEGER_LITERAL" and self.value[0] == '-':
+                sys.stdout.write('(' + self.value + ')')
+            else:
+                sys.stdout.write(self.value)
+
+        if self.child:
+            sys.stdout.write(' ')
+            self.child.pretty_print()
+
+
+        sys.stdout.write(delimiter)
+        if self.sibling:
+
+            sys.stdout.write(preceding)
+            self.sibling.pretty_print(delimiter, preceding)
+
+
+class ArithmeticOpNode(ASTNode):
+
+    left_operand: ASTNode
+    right_operand: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_left_operand(self, node: ASTNode):
+        self.left_operand = node
+
+    def set_right_operand(self, node: ASTNode):
+        self.right_operand = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write(preceding + '(')
+        self.left_operand.pretty_print()
+        sys.stdout.write(self.value)
+        self.right_operand.pretty_print()
+        sys.stdout.write(')')
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class BinOpNode(ASTNode):
+
+    left_operand: ASTNode
+    right_operand: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_left_operand(self, node: ASTNode):
+        self.left_operand = node
+
+    def set_right_operand(self, node: ASTNode):
+        self.right_operand = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write(preceding + '(')
+        self.left_operand.pretty_print()
+        sys.stdout.write(')')
+
+        sys.stdout.write(self.value)
+
+        sys.stdout.write(preceding + '(')
+        self.right_operand.pretty_print()
+        sys.stdout.write(')')
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class AssignmentNode(ASTNode):
+
+    identifier: ASTNode
+    assigned_value: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_identifier(self, node: ASTNode):
+        self.identifier = node
+
+    def set_assigned_value(self, node: ASTNode):
+        self.assigned_value = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write(preceding)
+        self.identifier.pretty_print()
+        sys.stdout.write('=')
+        self.assigned_value.pretty_print()
+        sys.stdout.write(';\n')
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class InstanceNode(ASTNode):
+
+    atom: ASTNode
+    identifier: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_atom(self, node: ASTNode):
+        self.atom = node
+
+    def set_identifier(self, node: ASTNode):
+        self.identifier = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        self.atom.pretty_print()
+        sys.stdout.write('.')
+        self.identifier.pretty_print()
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class ClassInstanceNode(ASTNode):
+
+    class_name: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_class_name(self, node: ASTNode):
+        self.class_name = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write('new ')
+        self.class_name.pretty_print()
+        sys.stdout.write('()')
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class ReturnNode(ASTNode):
+
+    return_value: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.return_value = None
+
+    def set_return_value(self, node: ASTNode):
+        self.return_value = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write(preceding + self.value)
+        if self.return_value:
+            sys.stdout.write(' ')
+            self.return_value.pretty_print()
+        sys.stdout.write(';\n')
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class MainClassNode(ASTNode):
+
+    class_name: ASTNode
+    fml_list: ASTNode
+    mdbody: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_class_name(self, node: ASTNode):
+        self.class_name = node
+
+    def set_fml_list(self, node: ASTNode):
+        self.fml_list = node
+
+    def set_mdbody(self, node: ASTNode):
+        self.mdbody = node
+
+    def pretty_print(self):
+
+        sys.stdout.write("class " + self.class_name.value + "{ \n  Void main")
+
+        sys.stdout.write('(')
+        if self.fml_list:
+            self.fml_list.pretty_print()
+
+        sys.stdout.write(')')
+
+        if self.mdbody:
+            self.mdbody.pretty_print(preceding='  ')
+
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        sys.stdout.write("\n}\n")
+
+        if self.sibling:
+            self.sibling.pretty_print()
+
+class MdBodyNode(ASTNode):
+
+    vardecl: ASTNode
+    stmt: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_vardecl(self, node: ASTNode):
+        self.vardecl = node
+
+    def set_stmt(self, node: ASTNode):
+        self.stmt = node
+
+    def pretty_print(self, delimiter:str='', preceding:str=''):
+
+        sys.stdout.write(preceding + '{\n')
+        if self.vardecl:
+            sys.stdout.write(preceding + '  ')
+            self.vardecl.pretty_print(delimiter=';\n', preceding=preceding + '  ')
+
+        sys.stdout.write('\n')
+        self.stmt.pretty_print(preceding=preceding + '  ')
+
+
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding + '  ')
+
+        sys.stdout.write('\n' + preceding+'}')
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding + '  ')
+
+class ClassDeclNode(ASTNode):
+
+    class_name: ASTNode
+    var_decl: ASTNode
+    mddecl: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_class_name(self, node: ASTNode):
+        self.class_name = node
+
+    def set_var_decl(self, node: ASTNode):
+        self.var_decl = node
+
+    def set_mddecl(self, node: ASTNode):
+        self.mddecl = node
+
+    def pretty_print(self):
+        sys.stdout.write("class " + self.class_name.value + "{ \n" + '  ')
+        self.var_decl.pretty_print(delimiter=';\n', preceding='  ')
+        self.mddecl.pretty_print(delimiter=';\n', preceding='  ')
+
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding='  ')
+
+        sys.stdout.write("\n}\n")
+
+        if self.sibling:
+            self.sibling.pretty_print()
+
+class MdDeclNode(ASTNode):
+
+    identifier: ASTNode
+    fml_list: ASTNode
+    mdbody: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_identifier(self, node: ASTNode):
+        self.identifier = node
+
+    def set_fml_list(self, node: ASTNode):
+        self.fml_list = node
+
+    def set_mdbody(self, node: ASTNode):
+        self.mdbody = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write(preceding + self.value + ' ')
+        self.identifier.pretty_print()
+        sys.stdout.write('(')
+        if self.fml_list:
+            self.fml_list.pretty_print(delimiter=',')
+        sys.stdout.write(')')
+        self.mdbody.pretty_print(delimiter=';\n', preceding=preceding)
+
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding=preceding)
+
+        sys.stdout.write('\n')
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class IfElseNode(ASTNode):
+
+    condition: ASTNode
+    if_expression: ASTNode
+    else_expression: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_condition(self, node: ASTNode):
+        self.condition = node
+
+    def set_if_expression(self, node: ASTNode):
+        self.if_expression = node
+
+    def set_else_expression(self, node: ASTNode):
+        self.else_expression = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write(preceding + 'if (')
+        self.condition.pretty_print()
+        sys.stdout.write(') {\n')
+
+        self.if_expression.pretty_print(preceding=preceding+'  ')
+        sys.stdout.write(preceding + '}' + ' else {\n')
+        self.else_expression.pretty_print(preceding=preceding+'  ')
+
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        sys.stdout.write(preceding + '}' + '\n')
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class WhileNode(ASTNode):
+
+    expression: ASTNode
+    statement: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_expression(self, node: ASTNode):
+        self.expression = node
+
+    def set_statement(self, node: ASTNode):
+        self.statement = node
+
+    def pretty_print(self, delimiter:str='', preceding:str =''):
+        sys.stdout.write(preceding + 'while (')
+        self.expression.pretty_print()
+        sys.stdout.write(') {\n')
+        self.statement.pretty_print(delimiter, preceding+'  ')
+
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        sys.stdout.write('\n' + preceding + '}' + '\n')
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class ReadLnNode(ASTNode):
+
+    identifier: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_identifier(self, node: ASTNode):
+        self.identifier = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write(preceding + 'readln(')
+        self.identifier.pretty_print()
+        sys.stdout.write(');\n')
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class PrintLnNode(ASTNode):
+
+    expression: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_expression(self, node: ASTNode):
+        self.expression = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        if self.expression:
+            sys.stdout.write(preceding + 'println(')
+            self.expression.pretty_print()
+            sys.stdout.write(');\n')
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class FmlNode(ASTNode):
+
+    identifier: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def set_identifier(self, node: ASTNode):
+        self.identifier = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write(self.type + ' ')
+        self.identifier.pretty_print()
+
+        if self.sibling:
+            sys.stdout.write(', ')
+            self.sibling.pretty_print()
+
+class ExpListNode(ASTNode):
+
+    expression: ASTNode
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.expression = None
+
+    def set_expression(self, node: ASTNode):
+        self.expression = node
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write('(')
+
+        if self.expression:
+            self.expression.pretty_print(',', preceding)
+
+        sys.stdout.write(')')
+
+class NegationNode(ASTNode):
+
+    negated_expression: ASTNode
+
+    def __init__(self, negated_expression: ASTNode, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.negated_expression = negated_expression
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write('(!)(')
+
+        self.negated_expression.pretty_print()
+        sys.stdout.write(')')
+
+        if self.child:
+            self.child.pretty_print()
+
+        if self.sibling:
+            self.sibling.pretty_print()
+
 class AbstractSyntaxTree:
-    pass
+
+    head: Node
+
+    def __init__(self, head: ASTNode) -> None:
+
+        self.head = head
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        if self.head:
+            self.head.pretty_print()

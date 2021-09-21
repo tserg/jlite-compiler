@@ -638,7 +638,7 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        lex = Lexer(debug=True)
+        lex = Lexer(debug=False)
         lex.lex_content(f)
 
         sys.stdout.write(lex.get_tokens())
