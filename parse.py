@@ -91,7 +91,7 @@ class Parser:
     """
 
     lex: Lexer
-    parse_tree: ParseTree
+    ast: AbstractSyntaxTree
     symbol_table: dict
     debug: bool
 
@@ -103,7 +103,12 @@ class Parser:
     def _lex_content(self, f) -> None:
         self.lex.lex_content(f)
 
-    def _eat(self, expected_token: str, lexer: Lexer, type: str=None) -> Any:
+    def _eat(
+        self,
+        expected_token: str,
+        lexer: Lexer,
+        type: str=None
+    ) -> Any:
         """
         Checks if the token matches the supposed token.
         If yes, call advance(). Otherwise, return error.
@@ -655,6 +660,7 @@ class Parser:
             )
 
     def _stmt_expression(self, lexer: Lexer):
+        root_node: Any
         try:
             if self.debug:
                 sys.stdout.write(
@@ -799,7 +805,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _stmtbeta_expression(self, lexer: Lexer, left_node: Node):
+    def _stmtbeta_expression(self, lexer: Lexer, left_node: ASTNode):
 
         try:
             if self.debug:
@@ -844,7 +850,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _stmtalpha_expression(self, lexer: Lexer, atom_node: Node):
+    def _stmtalpha_expression(self, lexer: Lexer, atom_node: ASTNode):
 
         try:
             if self.debug:
@@ -870,7 +876,7 @@ class Parser:
 
                 root_node = AssignmentNode('=', 'assignment')
                 root_node.set_identifier(instance_node)
-                root_node.set_expression(t4)
+                root_node.set_assigned_value(t4)
 
                 return (
                     root_node,
@@ -993,7 +999,7 @@ class Parser:
         except ParseError as e:
             raise e
 
-    def _bexpalpha_expression(self, lexer: Lexer, left_node: Node):
+    def _bexpalpha_expression(self, lexer: Lexer, left_node: ASTNode):
 
         try:
             if self.debug:
@@ -1047,7 +1053,7 @@ class Parser:
         except ParseError as e:
             raise e
 
-    def _conjalpha_expression(self, lexer: Lexer, left_node: Node):
+    def _conjalpha_expression(self, lexer: Lexer, left_node: ASTNode):
 
         try:
             if self.debug:
@@ -1319,7 +1325,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _aexpalpha_expression(self, lexer: Lexer, left_node: Node):
+    def _aexpalpha_expression(self, lexer: Lexer, left_node: ASTNode):
 
         try:
             if self.debug:
@@ -1355,13 +1361,8 @@ class Parser:
 
             t3, current_lexer = self._aexpalpha_expression(current_lexer, t1)
 
-            if t3:
-                root_node = t3
-            else:
-                root_node = t1
-
             return (
-                root_node,
+                t3,
                 current_lexer,
             )
 
@@ -1402,7 +1403,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _termalpha_expression(self, lexer: Lexer, left_node: Node):
+    def _termalpha_expression(self, lexer: Lexer, left_node: ASTNode):
 
         try:
             if self.debug:
@@ -1564,7 +1565,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _sexpalpha_expression(self, lexer: Lexer, left_node: Node):
+    def _sexpalpha_expression(self, lexer: Lexer, left_node: ASTNode):
 
         try:
             if self.debug:
@@ -1691,7 +1692,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _atomalpha_expression(self, lexer: Lexer, left_node: Node):
+    def _atomalpha_expression(self, lexer: Lexer, left_node: ASTNode):
 
         try:
             if self.debug:
@@ -1765,13 +1766,14 @@ class Parser:
             t1, lexer = self._exp_expression(lexer)
             t2, lexer = self._kleene_closure_loop(self._exprest_expression, lexer)
 
+            explist_node = ExpListNode('ExpList', 'expression_list')
+
             if t1:
                 explist_node.set_expression(t1)
 
             if t2:
                 t1.add_sibling(t2)
 
-            explist_node = ExpListNode('ExpList', 'expression_list')
 
             return (
                 explist_node, lexer
@@ -1813,7 +1815,7 @@ class Parser:
 
         self._lex_content(f)
 
-        self.parse_tree = AbstractSyntaxTree(self._program_expression(self.lex))
+        self.ast = AbstractSyntaxTree(self._program_expression(self.lex))
 
     def pretty_print(self) -> None:
         """
@@ -1821,7 +1823,7 @@ class Parser:
         """
 
         sys.stdout.write("Parsed output: " + "\n\n")
-        self.parse_tree.pretty_print()
+        self.ast.pretty_print()
 
 def __main__():
 

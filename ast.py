@@ -210,16 +210,16 @@ class ASTNode:
 
 class ArithmeticOpNode(ASTNode):
 
-    left_operand: ASTNode
-    right_operand: ASTNode
+    left_operand: Any
+    right_operand: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_left_operand(self, node: ASTNode):
+    def set_left_operand(self, node: Any):
         self.left_operand = node
 
-    def set_right_operand(self, node: ASTNode):
+    def set_right_operand(self, node: Any):
         self.right_operand = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -238,16 +238,16 @@ class ArithmeticOpNode(ASTNode):
 
 class BinOpNode(ASTNode):
 
-    left_operand: ASTNode
-    right_operand: ASTNode
+    left_operand: Any
+    right_operand: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_left_operand(self, node: ASTNode):
+    def set_left_operand(self, node: Any):
         self.left_operand = node
 
-    def set_right_operand(self, node: ASTNode):
+    def set_right_operand(self, node: Any):
         self.right_operand = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -270,16 +270,16 @@ class BinOpNode(ASTNode):
 
 class AssignmentNode(ASTNode):
 
-    identifier: ASTNode
-    assigned_value: ASTNode
+    identifier: Any
+    assigned_value: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_identifier(self, node: ASTNode):
+    def set_identifier(self, node: Any):
         self.identifier = node
 
-    def set_assigned_value(self, node: ASTNode):
+    def set_assigned_value(self, node: Any):
         self.assigned_value = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -298,16 +298,16 @@ class AssignmentNode(ASTNode):
 
 class InstanceNode(ASTNode):
 
-    atom: ASTNode
-    identifier: ASTNode
+    atom: Any
+    identifier: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_atom(self, node: ASTNode):
+    def set_atom(self, node: Any):
         self.atom = node
 
-    def set_identifier(self, node: ASTNode):
+    def set_identifier(self, node: Any):
         self.identifier = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -324,12 +324,12 @@ class InstanceNode(ASTNode):
 
 class ClassInstanceNode(ASTNode):
 
-    class_name: ASTNode
+    class_name: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_class_name(self, node: ASTNode):
+    def set_class_name(self, node: Any):
         self.class_name = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -346,13 +346,13 @@ class ClassInstanceNode(ASTNode):
 
 class ReturnNode(ASTNode):
 
-    return_value: ASTNode
+    return_value: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.return_value = None
 
-    def set_return_value(self, node: ASTNode):
+    def set_return_value(self, node: Any):
         self.return_value = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -371,20 +371,20 @@ class ReturnNode(ASTNode):
 
 class MainClassNode(ASTNode):
 
-    class_name: ASTNode
-    fml_list: ASTNode
-    mdbody: ASTNode
+    class_name: Any
+    fml_list: Any
+    mdbody: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_class_name(self, node: ASTNode):
+    def set_class_name(self, node: Any):
         self.class_name = node
 
-    def set_fml_list(self, node: ASTNode):
+    def set_fml_list(self, node: Any):
         self.fml_list = node
 
-    def set_mdbody(self, node: ASTNode):
+    def set_mdbody(self, node: Any):
         self.mdbody = node
 
     def pretty_print(self):
@@ -411,16 +411,16 @@ class MainClassNode(ASTNode):
 
 class MdBodyNode(ASTNode):
 
-    vardecl: ASTNode
-    stmt: ASTNode
+    vardecl: Any
+    stmt: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_vardecl(self, node: ASTNode):
+    def set_vardecl(self, node: Any):
         self.vardecl = node
 
-    def set_stmt(self, node: ASTNode):
+    def set_stmt(self, node: Any):
         self.stmt = node
 
     def pretty_print(self, delimiter:str='', preceding:str=''):
@@ -445,20 +445,20 @@ class MdBodyNode(ASTNode):
 
 class ClassDeclNode(ASTNode):
 
-    class_name: ASTNode
-    var_decl: ASTNode
-    mddecl: ASTNode
+    class_name: Any
+    var_decl: Any
+    mddecl: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_class_name(self, node: ASTNode):
+    def set_class_name(self, node: Any):
         self.class_name = node
 
-    def set_var_decl(self, node: ASTNode):
+    def set_var_decl(self, node: Any):
         self.var_decl = node
 
-    def set_mddecl(self, node: ASTNode):
+    def set_mddecl(self, node: Any):
         self.mddecl = node
 
     def pretty_print(self):
@@ -477,20 +477,20 @@ class ClassDeclNode(ASTNode):
 
 class MdDeclNode(ASTNode):
 
-    identifier: ASTNode
-    fml_list: ASTNode
-    mdbody: ASTNode
+    identifier: Any
+    fml_list: Any
+    mdbody: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_identifier(self, node: ASTNode):
+    def set_identifier(self, node: Any):
         self.identifier = node
 
-    def set_fml_list(self, node: ASTNode):
+    def set_fml_list(self, node: Any):
         self.fml_list = node
 
-    def set_mdbody(self, node: ASTNode):
+    def set_mdbody(self, node: Any):
         self.mdbody = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -514,20 +514,20 @@ class MdDeclNode(ASTNode):
 
 class IfElseNode(ASTNode):
 
-    condition: ASTNode
-    if_expression: ASTNode
-    else_expression: ASTNode
+    condition: Any
+    if_expression: Any
+    else_expression: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_condition(self, node: ASTNode):
+    def set_condition(self, node: Any):
         self.condition = node
 
-    def set_if_expression(self, node: ASTNode):
+    def set_if_expression(self, node: Any):
         self.if_expression = node
 
-    def set_else_expression(self, node: ASTNode):
+    def set_else_expression(self, node: Any):
         self.else_expression = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -551,16 +551,16 @@ class IfElseNode(ASTNode):
 
 class WhileNode(ASTNode):
 
-    expression: ASTNode
-    statement: ASTNode
+    expression: Any
+    statement: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_expression(self, node: ASTNode):
+    def set_expression(self, node: Any):
         self.expression = node
 
-    def set_statement(self, node: ASTNode):
+    def set_statement(self, node: Any):
         self.statement = node
 
     def pretty_print(self, delimiter:str='', preceding:str =''):
@@ -580,12 +580,12 @@ class WhileNode(ASTNode):
 
 class ReadLnNode(ASTNode):
 
-    identifier: ASTNode
+    identifier: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_identifier(self, node: ASTNode):
+    def set_identifier(self, node: Any):
         self.identifier = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -602,12 +602,12 @@ class ReadLnNode(ASTNode):
 
 class PrintLnNode(ASTNode):
 
-    expression: ASTNode
+    expression: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_expression(self, node: ASTNode):
+    def set_expression(self, node: Any):
         self.expression = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -625,12 +625,12 @@ class PrintLnNode(ASTNode):
 
 class FmlNode(ASTNode):
 
-    identifier: ASTNode
+    identifier: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def set_identifier(self, node: ASTNode):
+    def set_identifier(self, node: Any):
         self.identifier = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -644,13 +644,13 @@ class FmlNode(ASTNode):
 
 class ExpListNode(ASTNode):
 
-    expression: ASTNode
+    expression: Any
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.expression = None
 
-    def set_expression(self, node: ASTNode):
+    def set_expression(self, node: Any):
         self.expression = node
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
@@ -664,9 +664,9 @@ class ExpListNode(ASTNode):
 
 class NegationNode(ASTNode):
 
-    negated_expression: ASTNode
+    negated_expression: Any
 
-    def __init__(self, negated_expression: ASTNode, *args, **kwargs):
+    def __init__(self, negated_expression: Any, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.negated_expression = negated_expression
 
@@ -685,9 +685,9 @@ class NegationNode(ASTNode):
 
 class AbstractSyntaxTree:
 
-    head: Node
+    head: Any
 
-    def __init__(self, head: ASTNode) -> None:
+    def __init__(self, head: Any) -> None:
 
         self.head = head
 
