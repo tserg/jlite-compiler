@@ -296,6 +296,12 @@ class BinOpNode(ASTNode):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
+class RelOpNode(BinOpNode):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+
 class AssignmentNode(ASTNode):
 
     identifier: Any
@@ -563,9 +569,29 @@ class NegationNode(ASTNode):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
+        sys.stdout.write('(-')
+        self.negated_expression.pretty_print()
+        sys.stdout.write(')')
+
+        if self.child:
+            self.child.pretty_print()
+
+        if self.sibling:
+            self.sibling.pretty_print()
+
+class ComplementNode(ASTNode):
+
+    complement_expression: Any
+
+    def __init__(self, complement_expression: Any, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.complement_expression = complement_expression
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
         sys.stdout.write('(!)(')
 
-        self.negated_expression.pretty_print()
+        self.complement_expression.pretty_print()
         sys.stdout.write(')')
 
         if self.child:

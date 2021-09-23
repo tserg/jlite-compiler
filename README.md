@@ -96,6 +96,7 @@ The `ASTNode` class is inherited by the following classes for specific statement
 - `MdDeclNode`: Declaration of a method
 - `ArithmeticOpNode`: Arithmetic operations with a left operand and a right operand
 - `BinOpNode`: Binary operations with a left operand and a right operand
+- `RelOpNode`: Relational operators with a left operand and a right operand. Inherits from `BinOpNode`.
 - `AssignmentNode`: Assignment operation
 - `InstanceNode`: Reference to an instance
 - `ClassInstanceNode`: Declaration of a new object of a class
@@ -105,6 +106,7 @@ The `ASTNode` class is inherited by the following classes for specific statement
 - `ReadLnNode`: Read line operation
 - `PrintLnNode`: Print line operation
 - `ExpListNode`: Expression list
+- `ComplementNode`: Complement operation
 - `NegationNode`: Negation operation
 
 The `pretty_print()` function prints the abstract syntax tree in a recursive manner by traversing from the root node. The generic `ASTNode` class will traverse its child (and sub-childs) before its sibling.

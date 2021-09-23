@@ -1007,7 +1007,7 @@ class Parser:
             t1 = self._eat("||", current_lexer)
             t2, current_lexer = self._conj_expression(current_lexer)
 
-            t1 = BinOpNode(t1.value, 'binOp')
+            t1 = BinOpNode(t1.value, 'Bool')
             t1.set_left_operand(left_node)
             t1.set_right_operand(t2)
 
@@ -1060,7 +1060,7 @@ class Parser:
             t1 = self._eat("&&", current_lexer)
             t2, current_lexer = self._rexp_expression(current_lexer)
 
-            t1 = BinOpNode(t1.value, 'binOp')
+            t1 = BinOpNode(t1.value, 'Bool')
             t1.set_left_operand(left_node)
             t1.set_right_operand(t2)
 
@@ -1120,7 +1120,7 @@ class Parser:
                     )
 
 
-                binop_node = BinOpNode(t2.value, 'binOp')
+                binop_node = RelOpNode(t2.value, 'Bool')
                 binop_node.set_left_operand(t1)
                 binop_node.set_right_operand(t3)
 
@@ -1223,10 +1223,10 @@ class Parser:
                 t1 = self._eat("!", lexer)
                 t2, lexer = self._bgrd_expression(lexer)
 
-                negation_node = NegationNode(
-                    negated_expression=t2,
+                negation_node = ComplementNode(
+                    complement_expression=t2,
                     value='!',
-                    type='negation')
+                    type='Bool')
 
                 t1 = negation_node
 
@@ -1460,13 +1460,13 @@ class Parser:
                 return (t1, lexer)
 
             elif next_token.token_name == "-":
-                t1 = self._eat("-", lexer)
+                self._eat("-", lexer)
                 t2, lexer = self._ftr_expression(lexer)
 
-                t2.value = "-" + t2.value
+                negation_node = NegationNode('-', 'Int', t2)
 
                 return (
-                    t2,
+                    negation_node,
                     lexer
                 )
 
