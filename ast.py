@@ -117,7 +117,7 @@ class MainClassNode(ASTNode):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        sys.stdout.write("class " + self.class_name.value + "{ \n  Void main")
+        sys.stdout.write("class " + self.class_name + "{ \n  Void main")
 
         sys.stdout.write('(')
         if self.arguments:

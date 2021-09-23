@@ -17,7 +17,7 @@ class CountToTen {
 
 	  Int j;
 
-	  while (j<10) {
+	  while (j<(2+3+4)) {
 	  	println(j);
 		i = i+j;
 	  }

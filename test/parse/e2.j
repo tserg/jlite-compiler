@@ -1,6 +1,6 @@
 class Main {
 
-Void main(){
+Void main(Int x){
 
    Int i;
    Int s;
@@ -11,12 +11,13 @@ Void main(){
 
       // just a test comment
 	  i = 0;
-	  s = 11 + 2 * 3 / 4 + 6- 5 - 7 * 8;
+	  s = 11 + 2 * -3 / 4 + 6- 5 - 7 * 8;
       result = "\x08\x25";
       /* and another one over here
       */
    }
    println("the result is " + result);
+   a = this.getCompute();
 }
 
 }

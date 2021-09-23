@@ -332,7 +332,7 @@ class Parser:
                 self.symbol_table[class_name.value] = "IDENTIFIER"
 
             main_class_node = MainClassNode()
-            main_class_node.set_class_name(class_name)
+            main_class_node.set_class_name(class_name.value)
             main_class_node.set_arguments(args)
             main_class_node.set_variable_declarations(var_decl)
             main_class_node.set_statements(stmt)
