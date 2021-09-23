@@ -107,7 +107,7 @@ class Parser:
         self,
         expected_token: str,
         lexer: Lexer,
-        type: str=None
+        type: str=''
     ) -> Any:
         """
         Checks if the token matches the supposed token.
@@ -137,10 +137,7 @@ class Parser:
             found_token = lexer.get_next_token_from_queue()
 
             # Create node for found token
-            if type:
-                new_node = ASTNode(found_token.value, type)
-            else:
-                new_node = ASTNode(found_token.value, found_token.token_name)
+            new_node = ASTNode(found_token.value, type)
 
 
             return new_node
@@ -308,14 +305,14 @@ class Parser:
                     + "\n"
                 )
 
-            t1 = self._eat("class", lexer)
-            t2 = self._eat("CLASS_NAME", lexer)
-            t3 = self._eat("{", lexer)
-            t4 = self._eat("Void", lexer)
-            t5 = self._eat("main", lexer)
-            t6 = self._eat("(", lexer)
+            self._eat("class", lexer)
+            class_name = self._eat("CLASS_NAME", lexer)
+            self._eat("{", lexer)
+            self._eat("Void", lexer)
+            self._eat("main", lexer)
+            self._eat("(", lexer)
 
-            t7, lexer = self._fmllist_expression(lexer)
+            args, lexer = self._fmllist_expression(lexer)
 
             if self.debug:
                 sys.stdout.write(
@@ -327,17 +324,18 @@ class Parser:
                 sys.stdout.write(lexer.peek(1).value)
                 sys.stdout.write(lexer.peek(2).value)
 
-            t8 = self._eat(")", lexer)
-            t9, lexer = self._mdbody_expression(lexer)
-            t10 = self._eat("}", lexer)
+            self._eat(")", lexer)
+            var_decl, stmt, lexer = self._mdbody_expression(lexer)
+            self._eat("}", lexer)
 
-            if t2.value not in self.symbol_table.keys():
-                self.symbol_table[t2.value] = "IDENTIFIER"
+            if class_name.value not in self.symbol_table.keys():
+                self.symbol_table[class_name.value] = "IDENTIFIER"
 
-            main_class_node = MainClassNode('class', 'mainClass')
-            main_class_node.set_class_name(t2)
-            main_class_node.set_fml_list(t7)
-            main_class_node.set_mdbody(t9)
+            main_class_node = MainClassNode()
+            main_class_node.set_class_name(class_name)
+            main_class_node.set_arguments(args)
+            main_class_node.set_variable_declarations(var_decl)
+            main_class_node.set_statements(stmt)
 
             return (
                 main_class_node,
@@ -367,9 +365,9 @@ class Parser:
                     + "\n"
                 )
 
-            t1 = self._eat("class", lexer)
+            self._eat("class", lexer)
             t2 = self._eat("CLASS_NAME", lexer)
-            t3 = self._eat("{", lexer)
+            self._eat("{", lexer)
             t4, lexer = self._kleene_closure_loop(self._vardecl_expression, lexer)
 
             if self.debug:
@@ -381,16 +379,16 @@ class Parser:
                 sys.stdout.write("MdDecl expression found, returned to ClassDecl." + "\n")
                 sys.stdout.write("Next token in ClassDecl: " + lexer.peek().value +"\n")
 
-            t6 = self._eat("}", lexer)
+            self._eat("}", lexer)
 
             classdecl_node = ClassDeclNode('class', 'classDecl')
-            classdecl_node.set_class_name(t2)
+            classdecl_node.set_class_name(t2.value)
 
             if t4:
-                classdecl_node.set_var_decl(t4)
+                classdecl_node.set_variable_declarations(t4)
 
             if t5:
-                classdecl_node.set_mddecl(t5)
+                classdecl_node.set_method_declarations(t5)
 
             return (
                 classdecl_node,
@@ -422,15 +420,15 @@ class Parser:
 
             t1, lexer = self._type_expression(lexer)
             t2 = self._eat("IDENTIFIER", lexer)
-            t3 = self._eat(";", lexer)
-
-            t1.add_child(t2)
+            self._eat(";", lexer)
 
             if t2.value not in self.symbol_table.keys():
                 self.symbol_table[t2.value] = "IDENTIFIER"
 
+            var = VarDeclNode(t2.value, t1.value)
+
             return (
-                t1,
+                var,
                 lexer
             )
 
@@ -456,21 +454,23 @@ class Parser:
 
             t1, lexer = self._type_expression(lexer)
             t2 = self._eat("IDENTIFIER", lexer)
-            t3 = self._eat("(", lexer)
+            self._eat("(", lexer)
 
-            t4, lexer = self._fmllist_expression(lexer)
-            t5 = self._eat(")", lexer)
+            args, lexer = self._fmllist_expression(lexer)
+            self._eat(")", lexer)
 
-            t6, lexer = self._mdbody_expression(lexer)
+            var_decl, stmt, lexer = self._mdbody_expression(lexer)
 
             if t2.value not in self.symbol_table.keys():
                 self.symbol_table[t2.value] = "IDENTIFIER"
 
             root_node = MdDeclNode(t1.value, 'MdDecl')
 
-            root_node.set_identifier(t2)
-            root_node.set_fml_list(t4)
-            root_node.set_mdbody(t6)
+            root_node.set_method_name(t2.value)
+            root_node.set_return_type(t1.value)
+            root_node.set_arguments(args)
+            root_node.set_variable_declarations(var_decl)
+            root_node.set_statements(stmt)
 
             return (
                 root_node,
@@ -502,8 +502,7 @@ class Parser:
             t1, current_lexer = self._type_expression(current_lexer)
             t2 = self._eat("IDENTIFIER", current_lexer)
 
-            type_node = FmlNode(t1.value, t1.type)
-            type_node.set_identifier(t2)
+            type_node = ArgumentNode(t2.value, t1.value)
 
             t3, current_lexer = self._kleene_closure_loop(self._fmlrest_expression, current_lexer)
 
@@ -536,15 +535,14 @@ class Parser:
                     + "\n"
                 )
 
-            t1 = self._eat(",", lexer)
+            self._eat(",", lexer)
             t2, lexer = self._type_expression(lexer)
             t3 = self._eat("IDENTIFIER", lexer)
 
             if t3.value not in self.symbol_table.keys():
                 self.symbol_table[t3.value] = "IDENTIFIER"
 
-            type_node = FmlNode(t2.value, t2.type)
-            type_node.set_identifier(t3)
+            type_node = ArgumentNode(t3.value, t2.value)
 
             if self.debug:
                 sys.stdout.write("FmlRest expression - next token: " + lexer.peek().value + "\n")
@@ -628,7 +626,7 @@ class Parser:
                     + "\n"
                 )
 
-            t1 = self._eat("{", lexer)
+            self._eat("{", lexer)
             t2, lexer = self._kleene_closure_loop(
                 self._vardecl_expression,
                 lexer
@@ -639,14 +637,11 @@ class Parser:
                 lexer
             )
 
-            t4 = self._eat("}", lexer)
-
-            root_node = MdBodyNode('MdBody', 'methodBody')
-            root_node.set_vardecl(t2)
-            root_node.set_stmt(t3)
+            self._eat("}", lexer)
 
             return (
-                root_node,
+                t2, # variable declarations
+                t3, # statements
                 lexer
             )
 
@@ -673,24 +668,22 @@ class Parser:
 
             if next_token.token_name == "if":
 
-                t1 = self._eat("if", lexer)
+                self._eat("if", lexer)
+                self._eat("(", lexer)
+                condition, lexer = self._exp_expression(lexer)
+                self._eat(")", lexer)
+                self._eat("{", lexer)
 
-
-                t2 = self._eat("(", lexer)
-                t3, lexer = self._exp_expression(lexer)
-                t4 = self._eat(")", lexer)
-                t5 = self._eat("{", lexer)
-
-                t6, lexer = self._positive_closure_loop(
+                if_expression, lexer = self._positive_closure_loop(
                     self._stmt_expression,
                     lexer
                 )
 
-                t7 = self._eat("}", lexer)
-                t8 = self._eat("else", lexer)
-                t9 = self._eat("{", lexer)
+                self._eat("}", lexer)
+                self._eat("else", lexer)
+                self._eat("{", lexer)
 
-                t10, lexer = self._positive_closure_loop(
+                else_expression, lexer = self._positive_closure_loop(
                     self._stmt_expression,
                     lexer
                 )
@@ -698,36 +691,36 @@ class Parser:
                 t11 = self._eat("}", lexer)
 
                 root_node = IfElseNode('if', 'ifElse')
-                root_node.set_condition(t3)
-                root_node.set_if_expression(t6)
-                root_node.set_else_expression(t10)
+                root_node.set_condition(condition)
+                root_node.set_if_expression(if_expression)
+                root_node.set_else_expression(else_expression)
 
             elif next_token.token_name == "while":
 
-                t1 = self._eat("while", lexer)
-                t2 = self._eat("(", lexer)
-                t3, lexer = self._exp_expression(lexer)
-                t4 = self._eat(")", lexer)
-                t5 = self._eat("{", lexer)
+                self._eat("while", lexer)
+                self._eat("(", lexer)
+                condition, lexer = self._exp_expression(lexer)
+                self._eat(")", lexer)
+                self._eat("{", lexer)
 
-                t6, lexer = self._kleene_closure_loop(
+                while_expression, lexer = self._kleene_closure_loop(
                     self._stmt_expression,
                     lexer
                 )
 
-                t7 = self._eat("}", lexer)
+                self._eat("}", lexer)
 
                 root_node = WhileNode('while', 'while')
-                root_node.set_expression(t3)
-                root_node.set_statement(t6)
+                root_node.set_condition(condition)
+                root_node.set_while_expression(while_expression)
 
             elif next_token.token_name == "readln":
 
-                t1 = self._eat("readln", lexer)
-                t2 = self._eat("(", lexer)
+                self._eat("readln", lexer)
+                self._eat("(", lexer)
                 t3 = self._eat("IDENTIFIER", lexer)
-                t4 = self._eat(")", lexer)
-                t5 = self._eat(";", lexer)
+                self._eat(")", lexer)
+                self._eat(";", lexer)
 
                 if t3.value not in self.symbol_table.keys():
                     self.symbol_table[t3.value] = "IDENTIFIER"
@@ -737,11 +730,11 @@ class Parser:
 
             elif next_token.token_name == "println":
 
-                t1 = self._eat("println", lexer)
-                t2 = self._eat("(", lexer)
+                self._eat("println", lexer)
+                self._eat("(", lexer)
                 t3, lexer = self._exp_expression(lexer)
-                t4 = self._eat(")", lexer)
-                t5 = self._eat(";", lexer)
+                self._eat(")", lexer)
+                self._eat(";", lexer)
 
                 root_node = PrintLnNode('println', 'println')
                 root_node.set_expression(t3)
@@ -749,9 +742,9 @@ class Parser:
             elif next_token.token_name == "IDENTIFIER":
 
                 t1 = self._eat("IDENTIFIER", lexer)
-                t2 = self._eat("=", lexer)
+                self._eat("=", lexer)
                 t3, lexer = self._exp_expression(lexer)
-                t4 = self._eat(";", lexer)
+                self._eat(";", lexer)
 
                 if t1.value not in self.symbol_table.keys():
                     self.symbol_table[t1.value] = "IDENTIFIER"
@@ -775,7 +768,7 @@ class Parser:
                     if t2.child.child:
                         sys.stdout.write("Stmt beta expression found. Index 2: " + t2.child.child.value + "\n")
 
-                return_node = ReturnNode(t2.value, 'return')
+                return_node = ReturnNode('return', 'return')
                 return_node.set_return_value(t2.child)
 
 
@@ -805,7 +798,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _stmtbeta_expression(self, lexer: Lexer, left_node: ASTNode):
+    def _stmtbeta_expression(self, lexer: Lexer, left_node: Any):
 
         try:
             if self.debug:
@@ -818,7 +811,7 @@ class Parser:
             next_token = lexer.peek()
 
             if next_token.token_name == ";":
-                t1 = self._eat(";", lexer)
+                self._eat(";", lexer)
 
                 return left_node, lexer
 
@@ -832,7 +825,7 @@ class Parser:
                     if t1.child:
                         sys.stdout.write('Exp expression index 1: ' + t1.child.value + "\n")
 
-                t2 = self._eat(";", lexer)
+                self._eat(";", lexer)
 
                 left_node.add_child(t1)
 
@@ -863,11 +856,11 @@ class Parser:
             next_token = lexer.peek()
 
             if next_token.token_name == ".":
-                t1 = self._eat(".", lexer)
+                self._eat(".", lexer)
                 t2 = self._eat("IDENTIFIER", lexer)
-                t3 = self._eat("=", lexer)
+                self._eat("=", lexer)
                 t4, lexer = self._exp_expression(lexer)
-                t5 = self._eat(";", lexer)
+                self._eat(";", lexer)
 
 
                 instance_node = InstanceNode('instance', 'thisInstance')
@@ -885,10 +878,10 @@ class Parser:
 
             else:
 
-                t1 = self._eat("(", lexer)
+                self._eat("(", lexer)
                 t2, lexer = self._explist_expression(lexer)
-                t3 = self._eat(")", lexer)
-                t4 = self._eat(";", lexer)
+                self._eat(")", lexer)
+                self._eat(";", lexer)
 
                 if t2:
                     atom_node.add_child(t2)
@@ -999,7 +992,7 @@ class Parser:
         except ParseError as e:
             raise e
 
-    def _bexpalpha_expression(self, lexer: Lexer, left_node: ASTNode):
+    def _bexpalpha_expression(self, lexer: Lexer, left_node: Any):
 
         try:
             if self.debug:
@@ -1053,7 +1046,7 @@ class Parser:
         except ParseError as e:
             raise e
 
-    def _conjalpha_expression(self, lexer: Lexer, left_node: ASTNode):
+    def _conjalpha_expression(self, lexer: Lexer, left_node: Any):
 
         try:
             if self.debug:
@@ -1238,10 +1231,10 @@ class Parser:
                 t1 = negation_node
 
             elif next_token.token_name == "true":
-                t1 = self._eat("true", lexer)
+                t1 = self._eat("true", lexer, 'Bool')
 
             elif next_token.token_name == "false":
-                t1 = self._eat("false", lexer)
+                t1 = self._eat("false", lexer, 'Bool')
 
             else:
                 try:
@@ -1327,7 +1320,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _aexpalpha_expression(self, lexer: Lexer, left_node: ASTNode):
+    def _aexpalpha_expression(self, lexer: Lexer, left_node: Any):
 
         try:
             if self.debug:
@@ -1344,17 +1337,17 @@ class Parser:
             next_token = current_lexer.peek()
 
             if next_token.token_name == "+":
-                t1 = self._eat("+", current_lexer, 'arithmeticOp')
+                t1 = self._eat("+", current_lexer)
 
             elif next_token.token_name == "-":
-                t1 = self._eat("-", current_lexer, 'arithmeticOp')
+                t1 = self._eat("-", current_lexer)
 
             else:
                 return (left_node, current_lexer)
 
             t2, current_lexer = self._term_expression(current_lexer)
 
-            t1 = ArithmeticOpNode(t1.value, 'arithmeticOp')
+            t1 = ArithmeticOpNode(t1.value)
             t1.set_left_operand(left_node)
             t1.set_right_operand(t2)
 
@@ -1405,7 +1398,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _termalpha_expression(self, lexer: Lexer, left_node: ASTNode):
+    def _termalpha_expression(self, lexer: Lexer, left_node: Any):
 
         try:
             if self.debug:
@@ -1429,7 +1422,7 @@ class Parser:
 
             t2, current_lexer = self._ftr_expression(current_lexer)
 
-            t1 = ArithmeticOpNode(t1.value, 'arithmeticOp')
+            t1 = ArithmeticOpNode(t1.value)
             t1.set_left_operand(left_node)
             t1.set_right_operand(t2)
 
@@ -1462,7 +1455,7 @@ class Parser:
 
             if next_token.token_name == "INTEGER_LITERAL":
 
-                t1 = self._eat("INTEGER_LITERAL", lexer)
+                t1 = self._eat("INTEGER_LITERAL", lexer, 'Int')
 
                 return (t1, lexer)
 
@@ -1534,7 +1527,7 @@ class Parser:
 
             next_token = lexer.peek()
             if next_token.token_name == "STRING_LITERAL":
-                t1 = self._eat("STRING_LITERAL", lexer)
+                t1 = self._eat("STRING_LITERAL", lexer, 'String')
 
             else:
                 if self.debug:
@@ -1567,7 +1560,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _sexpalpha_expression(self, lexer: Lexer, left_node: ASTNode):
+    def _sexpalpha_expression(self, lexer: Lexer, left_node: Any):
 
         try:
             if self.debug:
@@ -1579,10 +1572,16 @@ class Parser:
 
             current_lexer = copy.deepcopy(lexer)
 
-            t1 = self._eat("+", current_lexer, 'stringOp')
-            t2, current_lexer = self._sexp_expression(current_lexer)
+            t1 = self._eat("+", current_lexer)
 
-            t1 = ArithmeticOpNode(t1.value, 'stringOp')
+            next_token = current_lexer.peek()
+            if next_token.token_name == "STRING_LITERAL":
+                t2 = self._eat("STRING_LITERAL", current_lexer, 'String')
+
+            else:
+                t2, current_lexer = self._atom_expression(current_lexer)
+
+            t1 = ArithmeticOpNode(t1.value)
             t1.set_left_operand(left_node)
             t1.set_right_operand(t2)
 
@@ -1627,10 +1626,10 @@ class Parser:
                     sys.stdout.write('Atom expression - class found' + "\n")
 
 
-                t3 = self._eat("(", lexer)
-                t4 = self._eat(")", lexer)
+                self._eat("(", lexer)
+                self._eat(")", lexer)
 
-                class_instance_node = ClassInstanceNode('new', 'newClassInstance')
+                class_instance_node = ClassInstanceNode()
                 class_instance_node.set_class_name(t2)
 
                 t5, lexer = self._atomalpha_expression(lexer, class_instance_node)
@@ -1640,9 +1639,9 @@ class Parser:
                     self.symbol_table[t2.value] = "CLASS_NAME"
 
             elif next_token.token_name == "(":
-                t1 = self._eat("(", lexer)
+                self._eat("(", lexer)
                 t2, lexer = self._exp_expression(lexer)
-                t3 = self._eat(")", lexer)
+                self._eat(")", lexer)
                 t4, lexer = self._atomalpha_expression(lexer, t2)
 
                 root_node = t4
@@ -1694,7 +1693,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _atomalpha_expression(self, lexer: Lexer, left_node: ASTNode):
+    def _atomalpha_expression(self, lexer: Lexer, left_node: Any):
 
         try:
             if self.debug:
@@ -1708,7 +1707,7 @@ class Parser:
 
             if next_token.token_name == ".":
                 current_lexer = copy.deepcopy(lexer)
-                t1 = self._eat(".", current_lexer)
+                self._eat(".", current_lexer)
 
                 if self.debug:
                     sys.stdout.write("Atomalpha expression: '.' eaten. \n")
@@ -1743,13 +1742,13 @@ class Parser:
 
             elif next_token.token_name == "(":
                 current_lexer = copy.deepcopy(lexer)
-                t1 = self._eat("(", current_lexer)
+                self._eat("(", current_lexer)
                 t2, current_lexer = self._explist_expression(current_lexer)
 
                 if t2:
                     left_node.add_child(t2)
 
-                t3 = self._eat(")", current_lexer)
+                self._eat(")", current_lexer)
                 t4, current_lexer = self._atomalpha_expression(current_lexer, t2)
 
 
@@ -1788,7 +1787,7 @@ class Parser:
     def _exprest_expression(self, lexer: Lexer):
 
         try:
-            t1 = self._eat(",", lexer)
+            self._eat(",", lexer)
             t2, lexer = self._exp_expression(lexer)
 
             return (
@@ -1823,8 +1822,6 @@ class Parser:
         """
         Prints the AST of the parsed file
         """
-
-        sys.stdout.write("Printing AST: " + "\n\n")
         self.ast.pretty_print()
 
 def __main__():
