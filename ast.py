@@ -39,8 +39,8 @@ class ASTNode:
 
     def __init__(
         self,
-        value: str,
-        type: str='leaf',
+        value: str='',
+        type: str='',
         child: Optional[Any]=None,
         sibling: Optional[Any]=None
     ) -> None:
@@ -75,7 +75,7 @@ class ASTNode:
         """
         if self.value:
 
-            if self.type == "INTEGER_LITERAL" and self.value[0] == '-':
+            if self.type == "Int" and self.value[0] == '-':
                 sys.stdout.write('(' + self.value + ')')
             else:
                 sys.stdout.write(self.value)
@@ -93,38 +93,53 @@ class ASTNode:
 
 class MainClassNode(ASTNode):
 
-    class_name: Any
-    fml_list: Any
-    mdbody: Any
+    class_name: str
+    arguments: Any
+    variable_declarations: Any
+    statements: Any
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.value = 'class'
+        self.type = 'mainClass'
 
     def set_class_name(self, node: Any) -> None:
         self.class_name = node
 
-    def set_fml_list(self, node: Any) -> None:
-        self.fml_list = node
+    def set_arguments(self, node: Any) -> None:
+        self.arguments = node
 
-    def set_mdbody(self, node: Any) -> None:
-        self.mdbody = node
+    def set_variable_declarations(self, node: Any) -> None:
+        self.variable_declarations = node
+
+    def set_statements(self, node: Any) -> None:
+        self.statements = node
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write("class " + self.class_name.value + "{ \n  Void main")
 
         sys.stdout.write('(')
-        if self.fml_list:
-            self.fml_list.pretty_print()
+        if self.arguments:
+            self.arguments.pretty_print()
 
         sys.stdout.write(')')
 
-        if self.mdbody:
-            self.mdbody.pretty_print(preceding='  ')
+        sys.stdout.write(preceding + '{\n')
+        if self.variable_declarations:
+            self.variable_declarations.pretty_print(delimiter=';\n', preceding='    ')
+
+        sys.stdout.write('\n')
+        self.statements.pretty_print(preceding='    ')
+
+        if self.child:
+            self.child.pretty_print(preceding='  ')
+
+        sys.stdout.write('\n' + '  ' +'}')
 
 
         if self.child:
-            self.child.pretty_print(delimiter, preceding)
+            self.child.pretty_print()
 
         sys.stdout.write("\n}\n")
 
@@ -133,26 +148,26 @@ class MainClassNode(ASTNode):
 
 class ClassDeclNode(ASTNode):
 
-    class_name: Any
-    var_decl: Any
-    mddecl: Any
+    class_name: str
+    variable_declarations: Any
+    method_declarations: Any
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def set_class_name(self, node: Any) -> None:
-        self.class_name = node
+    def set_class_name(self, class_name: str) -> None:
+        self.class_name = class_name
 
-    def set_var_decl(self, node: Any) -> None:
-        self.var_decl = node
+    def set_variable_declarations(self, node: Any) -> None:
+        self.variable_declarations = node
 
-    def set_mddecl(self, node: Any) -> None:
-        self.mddecl = node
+    def set_method_declarations(self, node: Any) -> None:
+        self.method_declarations = node
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
-        sys.stdout.write("class " + self.class_name.value + "{ \n" + '  ')
-        self.var_decl.pretty_print(delimiter=';\n', preceding='  ')
-        self.mddecl.pretty_print(delimiter=';\n', preceding='  ')
+        sys.stdout.write("class " + self.class_name + "{ \n")
+        self.variable_declarations.pretty_print(delimiter=';\n', preceding='  ')
+        self.method_declarations.pretty_print(delimiter=';\n', preceding='  ')
 
 
         if self.child:
@@ -163,67 +178,52 @@ class ClassDeclNode(ASTNode):
         if self.sibling:
             self.sibling.pretty_print()
 
-class MdBodyNode(ASTNode):
+class MdDeclNode(ASTNode):
 
-    vardecl: Any
-    stmt: Any
+    method_name: str
+    return_type: str
+    arguments: Any
+    variable_declarations: Any
+    statements: Any
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def set_vardecl(self, node: Any) -> None:
-        self.vardecl = node
+    def set_method_name(self, method_name: str) -> None:
+        self.method_name = method_name
 
-    def set_stmt(self, node: Any) -> None:
-        self.stmt = node
+    def set_return_type(self, return_type: str) -> None:
+        self.return_type = return_type
 
-    def pretty_print(self, delimiter:str='', preceding:str='') -> None:
+    def set_arguments(self, node: Any) -> None:
+        self.arguments = node
+
+    def set_variable_declarations(self, node: Any) -> None:
+        self.variable_declarations = node
+
+    def set_statements(self, node: Any) -> None:
+        self.statements = node
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        sys.stdout.write(preceding + self.return_type + ' ' + self.method_name)
+
+        sys.stdout.write('(')
+        if self.arguments:
+            self.arguments.pretty_print(delimiter=',')
+        sys.stdout.write(')')
 
         sys.stdout.write(preceding + '{\n')
-        if self.vardecl:
-            sys.stdout.write(preceding + '  ')
-            self.vardecl.pretty_print(delimiter=';\n', preceding=preceding + '  ')
+        if self.variable_declarations:
+            self.variable_declarations.pretty_print(delimiter=';\n', preceding=preceding + '  ')
 
         sys.stdout.write('\n')
-        self.stmt.pretty_print(preceding=preceding + '  ')
+        self.statements.pretty_print(preceding=preceding + '  ')
 
         if self.child:
             self.child.pretty_print(delimiter, preceding + '  ')
 
         sys.stdout.write('\n' + preceding+'}')
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding + '  ')
-
-
-
-class MdDeclNode(ASTNode):
-
-    identifier: Any
-    fml_list: Any
-    mdbody: Any
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-    def set_identifier(self, node: Any) -> None:
-        self.identifier = node
-
-    def set_fml_list(self, node: Any) -> None:
-        self.fml_list = node
-
-    def set_mdbody(self, node: Any) -> None:
-        self.mdbody = node
-
-    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
-
-        sys.stdout.write(preceding + self.value + ' ')
-        self.identifier.pretty_print()
-        sys.stdout.write('(')
-        if self.fml_list:
-            self.fml_list.pretty_print(delimiter=',')
-        sys.stdout.write(')')
-        self.mdbody.pretty_print(delimiter=';\n', preceding=preceding)
 
 
         if self.child:
@@ -435,23 +435,23 @@ class IfElseNode(ASTNode):
 
 class WhileNode(ASTNode):
 
-    expression: Any
-    statement: Any
+    condition: Any
+    while_expression: Any
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def set_expression(self, node: Any) -> None:
-        self.expression = node
+    def set_condition(self, node: Any) -> None:
+        self.condition = node
 
-    def set_statement(self, node: Any) -> None:
-        self.statement = node
+    def set_while_expression(self, node: Any) -> None:
+        self.while_expression = node
 
     def pretty_print(self, delimiter:str='', preceding:str ='') -> None:
         sys.stdout.write(preceding + 'while (')
-        self.expression.pretty_print()
+        self.condition.pretty_print()
         sys.stdout.write(') {\n')
-        self.statement.pretty_print(delimiter, preceding+'  ')
+        self.while_expression.pretty_print(delimiter, preceding+'  ')
 
 
         if self.child:
@@ -507,24 +507,31 @@ class PrintLnNode(ASTNode):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
-class FmlNode(ASTNode):
-
-    identifier: Any
+class ArgumentNode(ASTNode):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def set_identifier(self, node: Any) -> None:
-        self.identifier = node
-
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        sys.stdout.write(self.type + ' ')
-        self.identifier.pretty_print()
+        sys.stdout.write(self.type + ' ' + self.value)
 
         if self.sibling:
             sys.stdout.write(', ')
             self.sibling.pretty_print()
+
+class VarDeclNode(ASTNode):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        sys.stdout.write(preceding + self.type + ' ' + self.value + delimiter)
+
+        if self.sibling:
+            #sys.stdout.write('\n')
+            self.sibling.pretty_print(delimiter, preceding)
 
 class ExpListNode(ASTNode):
 
