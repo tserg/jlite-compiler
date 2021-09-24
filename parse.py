@@ -1818,6 +1818,11 @@ class Parser:
 
         self.ast = AbstractSyntaxTree(self._program_expression(self.lex))
 
+    def type_check(self, debug=False) -> None:
+
+        self.ast.head.type_check(True)
+        sys.stdout.write("Check typing completed\n")
+
     def pretty_print(self) -> None:
         """
         Prints the AST of the parsed file
@@ -1835,10 +1840,12 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        parser = Parser(debug=False)
+        parser = Parser(debug=True)
         parser.parse(f)
 
         parser.pretty_print()
+
+        parser.type_check()
         #sys.stdout.write(str(parser.parse_tree.total_nodes()))
 
 if __name__ == "__main__":

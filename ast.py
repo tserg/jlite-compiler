@@ -8,6 +8,34 @@ from typing import (
     Any,
 )
 
+class TypeError(Exception):
+    """
+    Exception class for errors encountered while type checking.
+
+    ...
+
+    Attributes
+    ----------
+    expression: str
+    message: str
+
+    """
+    def __init__(
+        self,
+        expression: str,
+        #index:int,
+        #line: int
+    ) -> None:
+        self.expression = expression
+        self.message = "Invalid type: "
+        #self.line = str(line)
+        #self.index = str(index)
+
+    def __str__(self) -> str:
+
+        return f'{self.message} {self.expression}.'
+
+
 class ASTNode:
     """
     Node instance for a valid expression
@@ -91,6 +119,28 @@ class ASTNode:
             sys.stdout.write(preceding)
             self.sibling.pretty_print(delimiter, preceding)
 
+    def type_check(self, debug=False) -> None:
+
+        '''
+        # Type checking for Int
+        if self.type == 'Int':
+            try:
+                temp = int(self.value)
+            except:
+                raise TypeError(self.value)
+
+        # Type checking string to be of boolean type if 'true' or 'false'
+        if self.value == 'true' or self.value == 'false':
+            if self.type != 'Bool':
+                raise TypeError(self.value)
+        '''
+        if self.child:
+            self.child.type_check(debug)
+
+        if self.sibling:
+            self.sibling.type_check(debug)
+
+
 class MainClassNode(ASTNode):
 
     class_name: str
@@ -103,6 +153,54 @@ class MainClassNode(ASTNode):
         self.value = 'class'
         self.type = 'mainClass'
 
+    def _initialise_type_check(self):
+
+        class_descriptor = {}
+
+        args = {}
+        args_processed = False
+        current_arg = self.arguments
+
+        while not args_processed:
+
+            if not current_arg.child and not current_arg.sibling:
+                args_processed = True
+
+            if current_arg.child:
+                args[current_arg.child.value] = current_arg.type
+
+            if current_arg.sibling:
+                current_arg = current_arg.sibling
+
+        '''
+        var_decl = {}
+        var_decl_processed = False
+        current_var_decl = self.variable_declarations
+
+        while not var_decl_processed:
+
+            if not current_var_decl.child and not current_var_decl.sibling:
+                var_decl_processed = True
+
+            if current_var_decl:
+                var_decl[current_var_decl.value] = current_var_decl.type
+
+            if current_arg.sibling:
+                current_arg = current_arg.sibling
+        '''
+
+        method_signature = {
+            'main': {
+                'args': args,
+                'return': 'Void',
+
+            }
+        }
+
+        class_descriptor[self.class_name] = {}
+        class_descriptor[self.class_name]['method_signatures'] = method_signature
+        return class_descriptor
+
     def set_class_name(self, node: Any) -> None:
         self.class_name = node
 
@@ -114,6 +212,24 @@ class MainClassNode(ASTNode):
 
     def set_statements(self, node: Any) -> None:
         self.statements = node
+
+    def type_check(self, debug=False) -> None:
+
+        class_descriptor = self._initialise_type_check()
+        sys.stdout.write(str(class_descriptor) + '\n')
+
+        self.arguments.type_check(debug)
+
+        if self.variable_declarations:
+            self.variable_declarations.type_check(debug)
+
+        self.statements.type_check(debug)
+
+        if self.child:
+            self.child.type_check(debug)
+
+        if self.sibling:
+            self.sibling.type_check(debug)
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
@@ -164,6 +280,17 @@ class ClassDeclNode(ASTNode):
     def set_method_declarations(self, node: Any) -> None:
         self.method_declarations = node
 
+    def type_check(self, debug=False) -> None:
+
+        self.variable_declarations.type_check(debug)
+        self.method_declarations.type_check(debug)
+
+        if self.child:
+            self.child.type_check(debug)
+
+        if self.sibling:
+            self.sibling.type_check(debug)
+
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
         sys.stdout.write("class " + self.class_name + "{ \n")
         self.variable_declarations.pretty_print(delimiter=';\n', preceding='  ')
@@ -204,6 +331,22 @@ class MdDeclNode(ASTNode):
     def set_statements(self, node: Any) -> None:
         self.statements = node
 
+    def type_check(self, debug=False) -> None:
+
+        if self.arguments:
+            self.arguments.type_check(debug)
+
+        if self.variable_declarations:
+            self.variable_declarations.type_check(debug)
+
+        self.statements.type_check(debug)
+
+        if self.child:
+            self.child.type_check(debug)
+
+        if self.sibling:
+            self.sibling.type_check(debug)
+
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write(preceding + self.return_type + ' ' + self.method_name)
@@ -234,35 +377,8 @@ class MdDeclNode(ASTNode):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
-class ArithmeticOpNode(ASTNode):
 
-    left_operand: Any
-    right_operand: Any
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-    def set_left_operand(self, node: Any) -> None:
-        self.left_operand = node
-
-    def set_right_operand(self, node: Any) -> None:
-        self.right_operand = node
-
-    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
-
-        sys.stdout.write(preceding + '(')
-        self.left_operand.pretty_print()
-        sys.stdout.write(self.value)
-        self.right_operand.pretty_print()
-        sys.stdout.write(')')
-
-        if self.child:
-            self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
-
-class BinOpNode(ASTNode):
+class DualOperandNode(ASTNode):
 
     left_operand: Any
     right_operand: Any
@@ -296,11 +412,65 @@ class BinOpNode(ASTNode):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
-class RelOpNode(BinOpNode):
+class ArithmeticOpNode(DualOperandNode):
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        sys.stdout.write(preceding + '(')
+        self.left_operand.pretty_print()
+        sys.stdout.write(self.value)
+        self.right_operand.pretty_print()
+        sys.stdout.write(')')
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+    def type_check(self, debug=False) -> None:
+
+        if self.value in ('*/-'):
+            if self.left_operand.type != 'Int':
+                raise TypeError(self.left_operand.value)
+            elif self.right_operand.type != 'Int':
+                raise TypeError(self.right_operand.value)
+
+            # Set type as Int once operands have been type-checked
+            self.type = 'Int'
+
+        elif self.value == '+':
+            if self.left_operand.type == 'Int' and self.right_operand.type != 'Int':
+                raise TypeError(self.right_operand.value)
+
+                # Set type as Int once operands have been type-checked
+                self.type = 'Int'
+
+            elif self.left_operand.type == 'String' and self.right_operand.type != 'String':
+                raise TypeError(self.right_operand.value)
+
+                # Set type as String once operands have been type-checked
+                self.type = 'String'
+
+class BinOpNode(DualOperandNode):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
+class RelOpNode(DualOperandNode):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def type_check(self, debug=False) -> None:
+
+        #sys.stdout.write('checking typing for BinOpNode. left operand: ' + self.left_operand.value)
+
+        if self.left_operand.type != 'Bool':
+            raise TypeError(self.left_operand.value)
+
+        if self.right_operand.type != 'Bool':
+            raise TypeError(self.right_operand.value)
 
 class AssignmentNode(ASTNode):
 
@@ -421,6 +591,18 @@ class IfElseNode(ASTNode):
     def set_else_expression(self, node: Any) -> None:
         self.else_expression = node
 
+    def type_check(self, debug=False) -> None:
+
+        self.condition.type_check(debug)
+        self.if_expression.type_check(debug)
+        self.else_expression.type_check(debug)
+
+        if self.child:
+            self.child.type_check(debug)
+
+        if self.sibling:
+            self.sibling.type_check(debug)
+
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write(preceding + 'if (')
@@ -452,6 +634,17 @@ class WhileNode(ASTNode):
 
     def set_while_expression(self, node: Any) -> None:
         self.while_expression = node
+
+    def type_check(self, debug=False) -> None:
+
+        self.condition.type_check(debug)
+        self.while_expression.type_check(debug)
+
+        if self.child:
+            self.child.type_check(debug)
+
+        if self.sibling:
+            self.sibling.type_check(debug)
 
     def pretty_print(self, delimiter:str='', preceding:str ='') -> None:
         sys.stdout.write(preceding + 'while (')
@@ -550,6 +743,16 @@ class ExpListNode(ASTNode):
     def set_expression(self, node: Any) -> None:
         self.expression = node
 
+    def type_check(self, debug=False) -> None:
+
+        self.expression.type_check(debug)
+
+        if self.child:
+            self.child.type_check(debug)
+
+        if self.sibling:
+            self.sibling.type_check(debug)
+
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write('(')
@@ -566,6 +769,16 @@ class NegationNode(ASTNode):
     def __init__(self, negated_expression: Any, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.negated_expression = negated_expression
+
+    def type_check(self, debug=False) -> None:
+
+        self.negated_expression.type_check(debug)
+
+        if self.child:
+            self.child.type_check(debug)
+
+        if self.sibling:
+            self.sibling.type_check(debug)
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
@@ -586,6 +799,24 @@ class ComplementNode(ASTNode):
     def __init__(self, complement_expression: Any, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.complement_expression = complement_expression
+
+    def type_check(self, debug=False) -> None:
+
+        self.complement_expression.type_check(debug)
+
+        if debug:
+            sys.stdout.write('Type checking complement expression: ' + self.complement_expression.type + '\n')
+
+        if self.complement_expression.type != 'Bool':
+            raise TypeError('Complement expression')
+
+        self.type = bool
+
+        if self.child:
+            self.child.type_check(debug)
+
+        if self.sibling:
+            self.sibling.type_check(debug)
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
