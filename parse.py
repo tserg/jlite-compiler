@@ -136,9 +136,19 @@ class Parser:
 
             found_token = lexer.get_next_token_from_queue()
 
-            # Create node for found token
-            new_node = ASTNode(found_token.value, type)
+            is_identifier = False
 
+            if expected_token == "IDENTIFIER" or expected_token == "CLASS_NAME":
+                is_identifier = True
+            # Create node for found token
+            new_node = ASTNode(found_token.value, type, is_identifier)
+
+            if self.debug:
+                sys.stdout.write((
+                    "New node created with value " + new_node.value + \
+                    " of type " + new_node.type + \
+                    " and is identifier: " +str(new_node.is_identifier) +'\n'
+                ))
 
             return new_node
 
@@ -251,9 +261,17 @@ class Parser:
                 )
             try:
                 temp_node, current_lexer = expression(current_lexer)
+
+                if self.debug:
+                    sys.stdout.write("Expression found for " + expression.__name__ + " in positive closure.\n")
+
+
                 last_node.add_sibling(temp_node)
                 last_node = temp_node
                 lexer = current_lexer
+
+                if self.debug:
+                    sys.stdout.write("Lexer updated for " + expression.__name__ + " in positive closure.\n")
 
             except:
                 repeat_ended = True
@@ -637,6 +655,10 @@ class Parser:
                 lexer
             )
 
+            if self.debug:
+                sys.stdout.write('Stmt expression exited, returned to MdBody expression.\n')
+                sys.stdout.write('Next token: ' + lexer.peek().value + '\n')
+
             self._eat("}", lexer)
 
             return (
@@ -749,30 +771,32 @@ class Parser:
                 if t1.value not in self.symbol_table.keys():
                     self.symbol_table[t1.value] = "IDENTIFIER"
 
-                root_node = AssignmentNode('=', 'assignment')
+                root_node = AssignmentNode('=')
                 root_node.set_identifier(t1)
                 root_node.set_assigned_value(t3)
 
             elif next_token.token_name == "return":
                 t1 = self._eat("return", lexer)
-                t2, lexer = self._stmtbeta_expression(lexer, t1)
+                t2, lexer = self._stmtbeta_expression(lexer)
 
                 if self.debug:
                     sys.stdout.write("Stmt expression - 'return' found" + "\n")
-                    if t2:
-                        sys.stdout.write("Stmt beta expression found. Index 0: " + t2.value + "\n")
+                    sys.stdout.write("Next token: " + lexer.peek().value + '\n')
 
-                    if t2.child:
-                        sys.stdout.write("Stmt beta expression found. Index 1: " + t2.child.value + "\n")
-
-                    if t2.child.child:
-                        sys.stdout.write("Stmt beta expression found. Index 2: " + t2.child.child.value + "\n")
+                    sys.stdout.write("Return node to be created.\n")
 
                 return_node = ReturnNode('return', 'return')
-                return_node.set_return_value(t2.child)
 
+                if self.debug:
+                    sys.stdout.write("Return node created.\n")
+
+                if t2:
+                    return_node.set_return_value(t2)
 
                 root_node = return_node
+
+                if self.debug:
+                    sys.stdout.write("Return node created.\n")
 
             else:
 
@@ -798,7 +822,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _stmtbeta_expression(self, lexer: Lexer, left_node: Any):
+    def _stmtbeta_expression(self, lexer: Lexer):
 
         try:
             if self.debug:
@@ -813,7 +837,7 @@ class Parser:
             if next_token.token_name == ";":
                 self._eat(";", lexer)
 
-                return left_node, lexer
+                return None, lexer
 
             else:
                 t1, lexer = self._exp_expression(lexer)
@@ -827,10 +851,8 @@ class Parser:
 
                 self._eat(";", lexer)
 
-                left_node.add_child(t1)
-
                 return (
-                    left_node,
+                    t1,
                     lexer
                 )
 
@@ -867,7 +889,7 @@ class Parser:
                 instance_node.set_atom(atom_node)
                 instance_node.set_identifier(t2)
 
-                root_node = AssignmentNode('=', 'assignment')
+                root_node = AssignmentNode('=')
                 root_node.set_identifier(instance_node)
                 root_node.set_assigned_value(t4)
 
@@ -1625,12 +1647,11 @@ class Parser:
                 if self.debug:
                     sys.stdout.write('Atom expression - class found' + "\n")
 
+                class_instance_node = ClassInstanceNode()
+                class_instance_node.set_target_class(t2)
 
                 self._eat("(", lexer)
                 self._eat(")", lexer)
-
-                class_instance_node = ClassInstanceNode()
-                class_instance_node.set_class_name(t2)
 
                 t5, lexer = self._atomalpha_expression(lexer, class_instance_node)
                 root_node = t5
@@ -1750,8 +1771,6 @@ class Parser:
 
                 self._eat(")", current_lexer)
                 t4, current_lexer = self._atomalpha_expression(current_lexer, t2)
-
-
 
                 return left_node, current_lexer
 
