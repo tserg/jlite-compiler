@@ -422,23 +422,9 @@ class MainClassNode(ASTNode):
 
         return context
 
-    def initialise_local_environment(self):
+    def _initialise_local_environment_mds(self):
 
         local_environment = []
-
-        completed = False
-
-        current_child = self.variable_declarations
-
-        while not completed:
-
-            local_environment.append((current_child.value, current_child.type))
-
-            if not current_child.sibling:
-                completed = True
-                break
-
-            current_child = current_child.sibling
 
         args = self._get_args()
 
@@ -447,6 +433,46 @@ class MainClassNode(ASTNode):
             FunctionType(args),
             BasicType.VOID
         ))
+
+        return local_environment
+
+    def _initialise_local_environment_args(self):
+
+        local_environment = []
+
+        args_completed = False
+
+        current_args = self.arguments
+
+        while not args_completed:
+
+            local_environment.append((current_args.value, current_args.type))
+
+            if not current_args.sibling:
+                args_completed = True
+                break
+
+            current_args = current_args.sibling
+
+        return local_environment
+
+    def _initialise_local_environment_vars(self):
+
+        local_environment = []
+
+        vars_completed = False
+
+        current_vars = self.variable_declarations
+
+        while not vars_completed:
+
+            local_environment.append((current_vars.value, current_vars.type))
+
+            if not current_vars.sibling:
+                vars_completed = True
+                break
+
+            current_vars = current_vars.sibling
 
         return local_environment
 
@@ -462,6 +488,13 @@ class MainClassNode(ASTNode):
 
         local_environment_stack = deque()
 
+        mdss = self._initialise_local_environment_mds()
+        sys.stdout.write("\nMainClassNode - Initialised local environment methods: " + str(mdss) + "\n")
+
+        for mds in mdss:
+            local_environment_stack.append(mds)
+
+
         env = (class_descriptor_stack, local_environment_stack)
 
         if debug:
@@ -470,16 +503,24 @@ class MainClassNode(ASTNode):
         if self.arguments:
             self.arguments.type_check(env, debug, self.class_name)
 
+            local_environment = self._initialise_local_environment_args()
+
+            if debug:
+                sys.stdout.write("MainClassNode - Initialised local environment args: " + str(local_environment) + "\n")
+
+            for l in local_environment:
+                env[1].append(l)
+
         if debug:
             sys.stdout.write("MainClassNode - Arguments type check completed.\n")
 
         if self.variable_declarations:
             self.variable_declarations.type_check(env, debug, self.class_name)
 
-            local_environment = self.initialise_local_environment()
+            local_environment = self._initialise_local_environment_vars()
 
             if debug:
-                sys.stdout.write("MainClassNode - Initialised local environment: " + str(local_environment) + "\n")
+                sys.stdout.write("MainClassNode - Initialised local environment vars: " + str(local_environment) + "\n")
 
             for l in local_environment:
                 env[1].append(l)
@@ -632,19 +673,26 @@ class ClassDeclNode(ASTNode):
         if debug:
             sys.stdout.write("ClassDeclNode - Type checking initiated for class " + self.class_name + '\n')
 
+
         if self.variable_declarations:
             self.variable_declarations.type_check(env, debug, self.class_name)
 
             local_env = self._initialise_local_environment()
 
             if debug:
-                sys.stdout.write("MainClassNode - Initialised local environment: " + str(local_env) + "\n")
+                sys.stdout.write("ClassDeclNode - Initialised local environment: " + str(local_env) + "\n")
 
             for l in local_env:
                 env[1].append(l)
 
         if debug:
             sys.stdout.write("ClassDeclNode - Type checking completed for variable declarations.\n")
+
+        # Add 'this' to local environment
+        env[1].append(('this', (BasicType.OBJECT, self.class_name)))
+
+        if debug:
+            sys.stdout.write("ClassDeclNode - Adding 'this' to local environment: " + str(env[1]) + "\n")
 
         self.method_declarations.type_check(env, debug, self.class_name)
 
@@ -733,17 +781,17 @@ class MdDeclNode(ASTNode):
 
         args_completed = False
 
-        current_args_child = self.arguments
+        current_args = self.arguments
 
         while not args_completed:
 
-            local_environment.append((current_args_child.value, current_args_child.type))
+            local_environment.append((current_args.value, current_args.type))
 
-            if not current_args_child.sibling:
+            if not current_args.sibling:
                 args_completed = True
                 break
 
-            current_args_child = current_args_child.sibling
+            current_args = current_args.sibling
 
         return local_environment
 
@@ -753,17 +801,17 @@ class MdDeclNode(ASTNode):
 
         vars_completed = False
 
-        current_vars_child = self.variable_declarations
+        current_vars = self.variable_declarations
 
         while not vars_completed:
 
-            local_environment.append((current_vars_child.value, current_vars_child.type))
+            local_environment.append((current_vars.value, current_vars.type))
 
-            if not current_vars_child.sibling:
+            if not current_vars.sibling:
                 vars_completed = True
                 break
 
-            current_vars_child = current_vars_child.sibling
+            current_vars = current_vars.sibling
 
         return local_environment
 
