@@ -30,15 +30,11 @@ class TypeError(Exception):
     def __init__(
         self,
         expression: str,
-        #index:int,
-        #line: int
         additional_message: str=''
     ) -> None:
         self.expression = expression
         self.message = "Invalid type: "
         self.additional_message = additional_message
-        #self.line = str(line)
-        #self.index = str(index)
 
     def __str__(self) -> str:
 
@@ -205,7 +201,7 @@ class ASTNode:
                     found = True
                     break
 
-            if not found:
+            if not found and value != 'null':
                 raise TypeError(self.type, "Unknown type declared.")
 
     def _assign_identifier_type(
@@ -345,10 +341,13 @@ class ASTNode:
 
                 if debug:
                     sys.stdout.write("Type assigned for identifier [" + self.value + "]: " + str(self.type) + '\n')
-                # Check identifier against environment stack
 
         elif isinstance(self.type, str):
-            self.type = TYPE_CONVERSION_DICT[self.type]
+            if self.value == 'null':
+                # Ignore type check if value is null
+                pass
+            else:
+                self.type = TYPE_CONVERSION_DICT[self.type]
 
         if self.child:
             self.child.type_check(env, debug, within_class)
@@ -1079,9 +1078,9 @@ class ArithmeticOpNode(DualOperandNode):
         self.right_operand.type_check(env, debug, within_class)
 
         if self.value in ('*/-'):
-            if self.left_operand.type != BasicType.INT:
+            if self.left_operand.type != BasicType.INT and self.left_operand.value != 'null':
                 raise TypeError(self.left_operand.value)
-            elif self.right_operand.type != BasicType.INT:
+            elif self.right_operand.type != BasicType.INT and self.right_operand_value != ' null':
                 raise TypeError(self.right_operand.value)
 
             # Set type as Int once operands have been type-checked
@@ -1093,7 +1092,7 @@ class ArithmeticOpNode(DualOperandNode):
                 sys.stdout.write("ArithmeticOpNode - '+' operator detected.\n")
 
             if self.left_operand.type == BasicType.INT:
-                if self.right_operand.type == BasicType.INT:
+                if self.right_operand.type == BasicType.INT or self.right_operand.value == 'null':
                     # Set type as Int once operands have been type-checked
                     self.type = BasicType.INT
 
@@ -1101,7 +1100,7 @@ class ArithmeticOpNode(DualOperandNode):
                     raise TypeError(self.right_operand.value, "Right operand is not an integer.")
 
             elif self.left_operand.type == BasicType.STRING:
-                if self.right_operand.type == BasicType.STRING:
+                if self.right_operand.type == BasicType.STRING or self.right_operand.value == 'null':
                     # Set type as String once operands have been type-checked
                     self.type = BasicType.STRING
 
@@ -1268,7 +1267,7 @@ class AssignmentNode(ASTNode):
                 raise TypeError(self.identifier.value, 'Instance type does not match declared identifier type.')
 
         else:
-            if self.assigned_value.type != self.identifier.type:
+            if self.assigned_value.type != self.identifier.type and self.assigned_value.value != 'null':
                 raise TypeError(str(self.identifier.value), 'Assigned value type [' + str(self.assigned_value.type) + \
                     '] does not match declared identifier type [' + str(self.identifier.type) +']')
 
