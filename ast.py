@@ -1088,47 +1088,33 @@ class AssignmentNode(ASTNode):
             str(self.identifier.value) + " with type " + \
             str(self.identifier.type) + " completed.\n")
 
+        self.assigned_value.type_check(env_copy, debug, within_class)
+
         if isinstance(self.assigned_value, ClassInstanceNode):
             if debug:
                 sys.stdout.write("AssignmentNode - ClassInstanceNode detected as assigned value.\n")
-
-            self.assigned_value.type_check(env_copy, debug, within_class)
-
-            if debug:
                 sys.stdout.write("AssignmentNode - Identifier type: " + str(self.identifier.type) + '\n')
                 sys.stdout.write("AssignmentNode - Assigned value type: " + str(self.assigned_value.type) + '\n')
 
             if self.assigned_value.type != self.identifier.type:
                 raise TypeError(self.identifier.value, 'Object created does not match declared class.')
 
-            else:
-
-                if debug:
-                    sys.stdout.write("AssignmentNode - Identifier and assigned value types matched.\n")
-
         elif isinstance(self.assigned_value, InstanceNode):
             if debug:
                 sys.stdout.write("AssignmentNode - InstanceNode detected as assigned value.\n")
-
-            self.assigned_value.type_check(env_copy, debug, within_class)
-
-            #if self.assigned_value.type != self.identifier.type:
-
-            if debug:
                 sys.stdout.write("AssignmentNode - Identifier type: " + str(self.identifier.type) + '\n')
                 sys.stdout.write("AssignmentNode - Assigned value type: " + str(self.assigned_value.type) + '\n')
 
             if self.assigned_value.type != self.identifier.type:
                 raise TypeError(self.identifier.value, 'Instance type does not match declared identifier type.')
 
-            else:
-                if debug:
-                    sys.stdout.write("AssignmentNode - Identifier and assigned value types matched.\n")
-
         else:
-            self.assigned_value.type_check(env_copy, debug, within_class)
+            if self.assigned_value.type != self.identifier.type:
+                raise TypeError(str(self.identifier.value), 'Assigned value type [' + str(self.assigned_value.type) + \
+                    '] does not match declared identifier type [' + str(self.identifier.type) +']')
 
         if debug:
+            sys.stdout.write("AssignmentNode - Identifier and assigned value types matched.\n")
             sys.stdout.write("AssignmentNode - Env after processing: " + str(env) + '\n')
             sys.stdout.write("AssignmentNode type check successfully completed.\n")
 
