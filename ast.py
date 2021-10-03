@@ -368,8 +368,8 @@ class MainClassNode(ASTNode):
         self.value = 'class'
         self.type = 'mainClass'
 
-    def set_class_name(self, node: Any) -> None:
-        self.class_name = node
+    def set_class_name(self, class_name: str) -> None:
+        self.class_name = class_name
 
     def set_arguments(self, node: Any) -> None:
         self.main_arguments = node
@@ -518,7 +518,8 @@ class MainClassNode(ASTNode):
         local_environment_stack: Deque[Any] = deque()
 
         mdss = self._initialise_main_mds()
-        sys.stdout.write("\nMainClassNode - Initialised local environment methods: " + str(mdss) + "\n")
+        if debug:
+            sys.stdout.write("\nMainClassNode - Initialised local environment methods: " + str(mdss) + "\n")
 
         for mds in mdss:
             local_environment_stack.append(mds)
