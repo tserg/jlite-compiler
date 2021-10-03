@@ -291,60 +291,6 @@ class ASTNode:
         if not found:
             raise TypeError(str(self.value), "Undeclared type of " + str(self.type))
 
-            # Checks if current environment belongs to the current class.
-            # If yes, then traverse through its components.
-            # Otherwise, skip.
-
-            '''
-            elif current_class[0] == within_class and current_class[1]:
-
-                for current_env in current_class[1]:
-
-                    if debug:
-                        sys.stdout.write("Current value: " + self.value + '\n')
-                        sys.stdout.write("Checking for current env: " + str(current_env) + '\n')
-
-                    if self.value == current_env[0]:
-                        # Identifier is found in environment
-                        if debug:
-                            sys.stdout.write("Identifier found in current env.\n")
-
-                        if self.type == '':
-
-                            # If type of identifier is not assigned yet, assign accordingly
-
-                            self.type = current_env[1]
-
-                            if debug:
-                                sys.stdout.write("Identifier found in current env without type. Assigning type: " + str(current_env[1]) + "\n")
-
-                        elif self.type in ['Int', 'String', 'Bool']:
-
-                            self.type = TYPE_CONVERSION_DICT[self.type]
-
-                            if debug:
-                                sys.stdout.write("Identifier found in current env with unprocessed type. Assigning type: " + str(current_env[1]) + "\n")
-
-                        elif self.type != current_env[1]:
-
-                            # If type of identifer is assigned, but does not match what
-                            # was declared in the environment stack, throw an error.
-
-                            if debug:
-                                sys.stdout.write("Current type: " + self.type + '\n')
-
-                            raise TypeError(self.value, 'Identifier is of the wrong type')
-
-                        # Terminate while loop
-                        env_checked = True
-
-                        # Break out of for loop
-                        break
-
-            else:
-                if debug:
-                    sys.stdout.write("Current env of " + str(current_class[0]) + " does not match.\n")
-            '''
     def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
 
         '''
@@ -946,30 +892,42 @@ class ArithmeticOpNode(DualOperandNode):
 
     def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
 
+        self.left_operand.type_check(env, debug, within_class)
+        self.right_operand.type_check(env, debug, within_class)
+
         if self.value in ('*/-'):
-            if self.left_operand.type != 'Int':
+            if self.left_operand.type != BasicType.INT:
                 raise TypeError(self.left_operand.value)
-            elif self.right_operand.type != 'Int':
+            elif self.right_operand.type != BasicType.INT:
                 raise TypeError(self.right_operand.value)
 
             # Set type as Int once operands have been type-checked
-            self.type = 'Int'
+            self.type = BasicType.INT
 
         elif self.value == '+':
-            if self.left_operand.type == 'Int' and self.right_operand.type != 'Int':
-                raise TypeError(self.right_operand.value)
 
-                # Set type as Int once operands have been type-checked
-                self.type = 'Int'
+            if debug:
+                sys.stdout.write("ArithmeticOpNode - '+' operator detected.\n")
 
-            elif self.left_operand.type == 'String' and self.right_operand.type != 'String':
-                raise TypeError(self.right_operand.value)
+            if self.left_operand.type == BasicType.INT:
+                if self.right_operand.type == BasicType.INT:
+                    # Set type as Int once operands have been type-checked
+                    self.type = BasicType.INT
 
-                # Set type as String once operands have been type-checked
-                self.type = 'String'
+                else:
+                    raise TypeError(self.right_operand.value, "Right operand is not an integer.")
+
+            elif self.left_operand.type == BasicType.STRING:
+                if self.right_operand.type == BasicType.STRING:
+                    # Set type as String once operands have been type-checked
+                    self.type = BasicType.STRING
+
+                else:
+                    raise TypeError(self.right_operand.value, "Right operand is not a string.")
 
         if debug:
-            sys.stdout.write("ArithmeticOpNode type check successfully completed.\n")
+            sys.stdout.write("ArithmeticOpNode - Type check successfully completed with assigned type: " +  \
+                str(self.type) + "\n")
 
         if self.child:
             self.child.type_check(env, debug, within_class, return_type)
