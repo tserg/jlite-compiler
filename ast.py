@@ -150,39 +150,152 @@ class ASTNode:
             sys.stdout.write(preceding)
             self.sibling.pretty_print(delimiter, preceding)
 
+    def _assign_declaration_type(self, env, debug=False, within_class=''):
+
+        #if debug:
+        #    sys.stdout.write("ASTNode - Env received: " + str(env) + "\n")
+
+        if self.type in ['Int', 'String', 'Bool']:
+            self.type = TYPE_CONVERSION_DICT[self.type]
+
+            if debug:
+                sys.stdout.write("ASTNode - Basic type found for identifier while assigning declaration type: " + str(self.type) + "\n")
+
+        else:
+
+            if debug:
+                sys.stdout.write("ASTNode - Env for object type checking: " + str(env) + "\n")
+
+            env_checked = False
+            found = False
+
+            # Make a copy of class descriptors
+            env_copy = copy.deepcopy(env[0])
+
+            #if debug:
+            #    sys.stdout.write("ASTNode - Class descriptor for object type checking: " + str(env_copy) + "\n")
+
+            while not env_checked:
+
+                if len(env_copy) == 0:
+                    env_checked = True
+                    break
+
+                current_class = env_copy.pop()
+
+                if self.type == current_class[0]:
+
+                    # Check object is of object type
+                    self.type = (BasicType.OBJECT, current_class[0])
+
+                    if debug:
+                        sys.stdout.write("ASTNode - Class type found for identifier while assigning declaration type: " + \
+                        str(current_class[0]) + "\n")
+
+                    env_checked = True
+                    found = True
+                    break
+
+            if not found:
+                raise TypeError(self.type, "Unknown type declared.")
+
     def _assign_identifier_type(self, env, debug=False, within_class=''):
 
         env_checked = False
+        found = False
 
         env_copy = copy.deepcopy(env)
 
+        class_descriptor = env_copy[0]
+        local_environment = env_copy[1]
+
+        # Search local environment first
+        if len(local_environment) > 0:
+            for v in local_environment:
+                if self.value == v[0]:
+                    self.type = v[1]
+                    env_checked = True
+                    found = True
+
+        # Seach class descriptors next
         while not env_checked:
 
-            if len(env_copy) == 0:
+            if len(class_descriptor) == 0:
                 env_checked = True
+                break
 
-            current_class = env_copy.pop()
+            current_class = class_descriptor.pop()
 
+            # Checks if class instance is being declared
             if self.value == current_class[0]:
 
                 # Check for declaration of new class object
 
-                if self.type == '':
-                    self.type = (BasicType.OBJECT, current_class[0])
+                self.type = (BasicType.OBJECT, current_class[0])
+
+                if debug:
+                    sys.stdout.write("Identifier found in current env without type. Assigning class type: " + \
+                    str(current_class[0]) + "\n")
+
+                env_checked = True
+                found = True
+                break
+
+            # Checks if class method is being called
+            elif current_class[0] == within_class and current_class[1]:
+
+                for current_env in current_class[1]:
 
                     if debug:
-                        sys.stdout.write("Identifier found in current env without type. Assigning class type: " + \
-                        str(current_class[0]) + "\n")
+                        sys.stdout.write("Current value: " + self.value + '\n')
+                        sys.stdout.write("Checking for current env: " + str(current_env) + '\n')
 
-                    env_checked = True
+                    if self.value == current_env[0]:
+                        # Identifier is found in environment
+                        if debug:
+                            sys.stdout.write("Identifier found in current env.\n")
 
-                else:
-                    env_checked = True
-                    break
+                        if self.type == '':
+
+                            # If type of identifier is not assigned yet, assign accordingly
+
+                            self.type = current_env[1]
+
+                            if debug:
+                                sys.stdout.write("Identifier found in current env without type. Assigning type: " + str(current_env[1]) + "\n")
+
+                        elif self.type in ['Int', 'String', 'Bool']:
+
+                            self.type = TYPE_CONVERSION_DICT[self.type]
+
+                            if debug:
+                                sys.stdout.write("Identifier found in current env with unprocessed type. Assigning type: " + str(current_env[1]) + "\n")
+
+                        elif self.type != current_env[1]:
+
+                            # If type of identifer is assigned, but does not match what
+                            # was declared in the environment stack, throw an error.
+
+                            if debug:
+                                sys.stdout.write("Current type: " + self.type + '\n')
+
+                            raise TypeError(self.value, 'Identifier is of the wrong type')
+
+                        # Terminate while loop
+                        env_checked = True
+                        found = True
+
+                        # Break out of for loop
+                        break
+
+        if not found:
+            raise TypeError(str(self.value), "Undeclared type of " + str(self.type))
 
             # Checks if current environment belongs to the current class.
             # If yes, then traverse through its components.
             # Otherwise, skip.
+
+            '''
             elif current_class[0] == within_class and current_class[1]:
 
                 for current_env in current_class[1]:
@@ -231,7 +344,7 @@ class ASTNode:
             else:
                 if debug:
                     sys.stdout.write("Current env of " + str(current_class[0]) + " does not match.\n")
-
+            '''
     def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
 
         '''
@@ -262,7 +375,7 @@ class ASTNode:
                 self._assign_identifier_type(env, debug, within_class)
 
                 if debug:
-                    sys.stdout.write("Type assigned for identifier: " + self.value + '\n')
+                    sys.stdout.write("Type assigned for identifier [" + self.value + "]: " + str(self.type) + '\n')
                 # Check identifier against environment stack
 
         elif isinstance(self.type, str):
@@ -299,9 +412,7 @@ class MainClassNode(ASTNode):
     def set_statements(self, node: Any) -> None:
         self.statements = node
 
-    def initialise_type_check(self):
-
-        context = []
+    def _get_args(self):
 
         args = []
         args_processed = False
@@ -318,6 +429,14 @@ class MainClassNode(ASTNode):
 
                 if current_arg.sibling:
                     current_arg = current_arg.sibling
+
+        return args
+
+    def initialise_class_descriptor(self):
+
+        context = []
+
+        args = self._get_args()
 
         method_signature = (
             'main',
@@ -352,20 +471,52 @@ class MainClassNode(ASTNode):
         context.append((self.class_name, args))
 
         if self.sibling:
-            class_descriptor = self.sibling.initialise_type_check()
+            class_descriptor = self.sibling.initialise_class_descriptor()
             context += class_descriptor
 
         return context
 
+    def initialise_local_environment(self):
+
+        local_environment = []
+
+        completed = False
+
+        current_child = self.variable_declarations
+
+        while not completed:
+
+            local_environment.append((current_child.value, current_child.type))
+
+            if not current_child.sibling:
+                completed = True
+                break
+
+            current_child = current_child.sibling
+
+        args = self._get_args()
+
+        local_environment.append((
+            'main',
+            FunctionType(args),
+            BasicType.VOID
+        ))
+
+        return local_environment
+
     def type_check(self, debug=False) -> None:
 
-        context = self.initialise_type_check()
+        context = self.initialise_class_descriptor()
         sys.stdout.write(str(context) + '\n')
 
-        env = deque()
+        class_descriptor_stack = deque()
 
         for c in context:
-            env.append(c)
+            class_descriptor_stack.append(c)
+
+        local_environment_stack = deque()
+
+        env = (class_descriptor_stack, local_environment_stack)
 
         if debug:
             sys.stdout.write("Printing environment stack: \n" + str(env) + '\n')
@@ -376,10 +527,16 @@ class MainClassNode(ASTNode):
         if debug:
             sys.stdout.write("MainClassNode - Arguments type check completed.\n")
 
-        '''
         if self.variable_declarations:
-            self.variable_declarations.type_check(env, debug)
-        '''
+            self.variable_declarations.type_check(env, debug, self.class_name)
+
+            local_environment = self.initialise_local_environment()
+
+            if debug:
+                sys.stdout.write("MainClassNode - Initialised local environment: " + str(local_environment) + "\n")
+
+            for l in local_environment:
+                env[1].append(l)
 
         self.statements.type_check(env, debug, self.class_name, BasicType.VOID)
 
@@ -387,6 +544,7 @@ class MainClassNode(ASTNode):
             self.child.type_check(env, debug, self.class_name)
 
         if self.sibling:
+            env = (class_descriptor_stack, deque())
             self.sibling.type_check(env, debug)
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
@@ -438,7 +596,7 @@ class ClassDeclNode(ASTNode):
     def set_method_declarations(self, node: Any) -> None:
         self.method_declarations = node
 
-    def initialise_type_check(self):
+    def initialise_class_descriptor(self):
 
         class_descriptor = []
 
@@ -481,16 +639,63 @@ class ClassDeclNode(ASTNode):
         context = [(self.class_name, class_descriptor)]
 
         if self.sibling:
-            context += self.sibling.initialise_type_check()
+            context += self.sibling.initialise_class_descriptor()
 
         return context
+
+    def _initialise_local_environment(self):
+
+        local_environment = []
+
+        vars_completed = False
+
+        current_vars = self.variable_declarations
+
+        while not vars_completed:
+
+            local_environment.append((current_vars.value, current_vars.type))
+
+            if not current_vars.sibling:
+                vars_completed = True
+                break
+
+            current_vars = current_vars.sibling
+
+        mds_completed = False
+
+        current_mds = self.method_declarations
+
+        while not mds_completed:
+
+            local_environment.append((
+                current_mds.method_name,
+                current_mds.get_arguments(),
+                current_mds.get_return_type()
+            ))
+
+            if not current_mds.sibling:
+                mds_completed = True
+                break
+
+            current_mds = current_mds.sibling
+
+        return local_environment
 
     def type_check(self, env=None, debug=False, within_class='') -> None:
 
         if debug:
             sys.stdout.write("ClassDeclNode - Type checking initiated for class " + self.class_name + '\n')
 
-        self.variable_declarations.type_check(env, debug, self.class_name)
+        if self.variable_declarations:
+            self.variable_declarations.type_check(env, debug, self.class_name)
+
+            local_env = self._initialise_local_environment()
+
+            if debug:
+                sys.stdout.write("MainClassNode - Initialised local environment: " + str(local_env) + "\n")
+
+            for l in local_env:
+                env[1].append(l)
 
         if debug:
             sys.stdout.write("ClassDeclNode - Type checking completed for variable declarations.\n")
@@ -507,7 +712,6 @@ class ClassDeclNode(ASTNode):
         sys.stdout.write("class " + self.class_name + "{ \n")
         self.variable_declarations.pretty_print(delimiter=';\n', preceding='  ')
         self.method_declarations.pretty_print(delimiter=';\n', preceding='  ')
-
 
         if self.child:
             self.child.pretty_print(delimiter, preceding='  ')
@@ -577,16 +781,75 @@ class MdDeclNode(ASTNode):
         else:
             return (BasicType.OBJECT, self.return_type)
 
+    def _initialise_local_environment_args(self):
+
+        local_environment = []
+
+        args_completed = False
+
+        current_args_child = self.arguments
+
+        while not args_completed:
+
+            local_environment.append((current_args_child.value, current_args_child.type))
+
+            if not current_args_child.sibling:
+                args_completed = True
+                break
+
+            current_args_child = current_args_child.sibling
+
+        return local_environment
+
+    def _initialise_local_environment_vars(self):
+
+        local_environment = []
+
+        vars_completed = False
+
+        current_vars_child = self.variable_declarations
+
+        while not vars_completed:
+
+            local_environment.append((current_vars_child.value, current_vars_child.type))
+
+            if not current_vars_child.sibling:
+                vars_completed = True
+                break
+
+            current_vars_child = current_vars_child.sibling
+
+        return local_environment
+
     def type_check(self, env=None, debug=False, within_class='') -> None:
 
         if self.arguments:
             self.arguments.type_check(env, debug, within_class)
+
+            local_args = self._initialise_local_environment_args()
+
+            if debug:
+                sys.stdout.write("MdDeclNode - Adding args to local environment: " + str(local_args) + "\n")
+
+            for a in local_args:
+                env[1].append(a)
+
+            # Add arguments to environment
+
 
         if debug:
             sys.stdout.write("MdDeclNode - Arguments type check completed.\n")
 
         if self.variable_declarations:
             self.variable_declarations.type_check(env, debug, within_class)
+
+            local_vars = self._initialise_local_environment_vars()
+
+            if debug:
+                sys.stdout.write("MdDeclNode - Adding vars to local environment: " + str(local_vars) + "\n")
+
+            for v in local_vars:
+                env[1].append(v)
 
         if debug:
             sys.stdout.write("MdDeclNode - Variable declarations type check completed.\n")
@@ -919,7 +1182,7 @@ class InstanceNode(ASTNode):
             if len(env) == 0:
                 env_checked = True
 
-            current_class = env.pop()
+            current_class = env[0].pop()
 
             if current_class[1]:
 
@@ -965,7 +1228,7 @@ class InstanceNode(ASTNode):
         class_found = False
         method_found = False
 
-        env_copy = copy.deepcopy(env)
+        env_copy = copy.deepcopy(env[0])
 
         while not env_checked:
 
@@ -1295,7 +1558,6 @@ class ReadLnNode(ASTNode):
             sys.stdout.write("Env for ReadLn type check: " + str(env) + "\n")
             sys.stdout.write("ReadLnNode - Successfully receive return type: " + str(return_type) + '\n')
 
-
         self.identifier.type_check(env, debug, within_class)
 
         if debug:
@@ -1367,44 +1629,7 @@ class ArgumentNode(ASTNode):
 
     def type_check(self, env=None, debug=False, within_class='', return_type=None):
 
-        if debug:
-            sys.stdout.write("ArgumentNode - Env received: " + str(env) + "\n")
-
-        if self.type in ['Int', 'String', 'Bool']:
-            self.type = TYPE_CONVERSION_DICT[self.type]
-
-            if debug:
-                sys.stdout.write("ArgumentNode - Type found for identifier: " + str(self.type) + "\n")
-
-        else:
-
-            env_checked = False
-            found = False
-
-            env_copy = copy.deepcopy(env)
-
-            while not env_checked:
-
-                if len(env_copy) == 0:
-                    env_checked = True
-
-                current_class = env_copy.pop()
-
-                if self.type == current_class[0]:
-
-                    # Check object is of object type
-                    self.type = (BasicType.OBJECT, current_class[0])
-
-                    if debug:
-                        sys.stdout.write("Identifier found in current env without type. Assigning class type: " + \
-                        str(current_class[0]) + "\n")
-
-                    env_checked = True
-                    found = True
-                    break
-
-            if not found:
-                raise TypeError(self.type, "Unknown type provided as argument.")
+        super()._assign_declaration_type(env, debug, within_class)
 
         if debug:
             sys.stdout.write("ArgumentNode - Type check successfully completed.\n")
@@ -1432,10 +1657,16 @@ class VarDeclNode(ASTNode):
 
     def type_check(self, env=None, debug=False, within_class='', return_type=None):
 
-        super().type_check(env, debug, within_class, return_type)
+        super()._assign_declaration_type(env, debug, within_class)
 
         if debug:
-            sys.stdout.write("VarDeclNode - Type check successfully completed.\n")
+            sys.stdout.write("VarDeclNode - Type check successfully completed for: " + str(self.value) + "\n")
+
+        if self.child:
+            self.child.type_check(env, debug, within_class, return_type)
+
+        if self.sibling:
+            self.sibling.type_check(env, debug, within_class, return_type)
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
