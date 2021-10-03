@@ -6,9 +6,13 @@ from collections import deque
 from enum import Enum
 
 from typing import (
+    Deque,
+    Dict,
     List,
     Optional,
     Any,
+    Union,
+    Tuple,
 )
 
 class TypeError(Exception):
@@ -56,7 +60,7 @@ class FunctionType():
         self.basic_type_list = basic_type_list
 
 
-TYPE_CONVERSION_DICT = {
+TYPE_CONVERSION_DICT: Dict[str, "BasicType"] = {
     'Int': BasicType.INT,
     'Bool': BasicType.BOOL,
     'String': BasicType.STRING,
@@ -89,7 +93,7 @@ class ASTNode:
     """
 
     value: str
-    type: str
+    type: Any
     is_identifier: bool
     child: Any
     sibling: Any
@@ -150,7 +154,12 @@ class ASTNode:
             sys.stdout.write(preceding)
             self.sibling.pretty_print(delimiter, preceding)
 
-    def _assign_declaration_type(self, env, debug=False, within_class=''):
+    def _assign_declaration_type(
+        self,
+        env: Any,
+        debug: bool=False,
+        within_class: str=''
+    ) -> None:
 
         #if debug:
         #    sys.stdout.write("ASTNode - Env received: " + str(env) + "\n")
@@ -199,7 +208,12 @@ class ASTNode:
             if not found:
                 raise TypeError(self.type, "Unknown type declared.")
 
-    def _assign_identifier_type(self, env, debug=False, within_class=''):
+    def _assign_identifier_type(
+        self,
+        env: Any,
+        debug: bool=False,
+        within_class: str=''
+    ) -> None:
 
         env_checked = False
         found = False
@@ -226,6 +240,9 @@ class ASTNode:
 
             current_class = class_descriptor.pop()
 
+            if debug:
+                sys.stdout.write("Assign identifier type - current class: " + str(current_class) + '\n')
+
             # Checks if class instance is being declared
             if self.value == current_class[0]:
 
@@ -242,9 +259,9 @@ class ASTNode:
                 break
 
             # Checks if class method is being called
-            elif current_class[0] == within_class and current_class[1]:
+            elif current_class[0] == within_class and current_class[1][1]:
 
-                for current_env in current_class[1]:
+                for current_env in current_class[1][1]:
 
                     if debug:
                         sys.stdout.write("Current value: " + self.value + '\n')
@@ -291,7 +308,13 @@ class ASTNode:
         if not found:
             raise TypeError(str(self.value), "Undeclared type of " + str(self.type))
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         '''
         # Type checking for Int
@@ -337,9 +360,9 @@ class ASTNode:
 class MainClassNode(ASTNode):
 
     class_name: str
-    arguments: Any
-    variable_declarations: Any
-    statements: Any
+    main_arguments: Any
+    main_variable_declarations: Any
+    main_statements: Any
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -350,19 +373,19 @@ class MainClassNode(ASTNode):
         self.class_name = node
 
     def set_arguments(self, node: Any) -> None:
-        self.arguments = node
+        self.main_arguments = node
 
     def set_variable_declarations(self, node: Any) -> None:
-        self.variable_declarations = node
+        self.main_variable_declarations = node
 
     def set_statements(self, node: Any) -> None:
-        self.statements = node
+        self.main_statements = node
 
-    def _get_args(self):
+    def _get_args(self) -> List[Any]:
 
-        args = []
+        args: List[Any] = []
         args_processed = False
-        current_arg = self.arguments
+        current_arg = self.main_arguments
 
         if current_arg:
             while not args_processed:
@@ -370,51 +393,30 @@ class MainClassNode(ASTNode):
                 if not current_arg.child and not current_arg.sibling:
                     args_processed = True
 
-                if current_arg.child:
-                    args.append((TYPE_CONVERSION_DICT[current_arg.type]))
+                if current_arg.type:
+                    if current_arg.type in ['Int', 'Bool', 'String']:
+                        args.append((current_arg.value, TYPE_CONVERSION_DICT[current_arg.type]))
+                    else:
+                        args.append((current_arg.value, (BasicType.OBJECT, current_arg.type)))
 
                 if current_arg.sibling:
                     current_arg = current_arg.sibling
 
         return args
 
-    def initialise_class_descriptor(self):
+    def initialise_class_descriptor(self) -> List[Any]:
 
-        context = []
+        context: List[Any] = []
 
         args = self._get_args()
 
-        method_signature = (
+        method_signature = [(
             'main',
             FunctionType(args),
             BasicType.VOID
-        )
+        )]
 
-
-        var_decl = []
-        var_decl_processed = False
-        current_var_decl = self.variable_declarations
-
-        if current_var_decl:
-
-            while not var_decl_processed:
-
-                if not current_var_decl.child and not current_var_decl.sibling:
-                    var_decl_processed = True
-
-                if current_var_decl:
-                    if current_var_decl.type in TYPE_CONVERSION_DICT:
-                        var_decl.append((current_var_decl.value, TYPE_CONVERSION_DICT[current_var_decl.type]))
-                    else:
-                        var_decl.append((current_var_decl.value, (BasicType.OBJECT, current_var_decl.type)))
-
-                if current_var_decl.sibling:
-                    current_var_decl = current_var_decl.sibling
-
-        args.append(method_signature)
-        args += var_decl
-
-        context.append((self.class_name, args))
+        context.append([self.class_name, [[], method_signature]])
 
         if self.sibling:
             class_descriptor = self.sibling.initialise_class_descriptor()
@@ -422,7 +424,30 @@ class MainClassNode(ASTNode):
 
         return context
 
-    def _initialise_local_environment_mds(self):
+    def _check_class_declaration_names(self) -> None:
+
+        class_names = [self.class_name]
+
+        class_processed = False
+
+        current_class = self.sibling
+
+        if current_class:
+            while not class_processed:
+
+                if not current_class.sibling:
+                    class_processed = True
+
+                if current_class:
+                    if current_class.class_name in class_names:
+                        raise TypeError(current_class.class_name, "Class has the same name as an earlier declared class.")
+                    else:
+                        class_names.append(current_class.class_name)
+
+                if current_class.sibling:
+                    current_class = current_class.sibling
+
+    def _initialise_main_mds(self) -> List[Tuple[str, "FunctionType", "BasicType"]]:
 
         local_environment = []
 
@@ -436,13 +461,13 @@ class MainClassNode(ASTNode):
 
         return local_environment
 
-    def _initialise_local_environment_args(self):
+    def _initialise_main_args(self) -> List[Tuple[str, Union["BasicType", Tuple["BasicType", str]]]]:
 
         local_environment = []
 
         args_completed = False
 
-        current_args = self.arguments
+        current_args = self.main_arguments
 
         while not args_completed:
 
@@ -456,13 +481,13 @@ class MainClassNode(ASTNode):
 
         return local_environment
 
-    def _initialise_local_environment_vars(self):
+    def _initialise_main_vars(self) -> List[Tuple[str, Union["BasicType", Tuple["BasicType", str]]]]:
 
         local_environment = []
 
         vars_completed = False
 
-        current_vars = self.variable_declarations
+        current_vars = self.main_variable_declarations
 
         while not vars_completed:
 
@@ -476,34 +501,43 @@ class MainClassNode(ASTNode):
 
         return local_environment
 
-    def type_check(self, debug=False) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         context = self.initialise_class_descriptor()
-        sys.stdout.write(str(context) + '\n')
 
-        class_descriptor_stack = deque()
+        class_descriptor_stack: Deque[Any] = deque()
 
         for c in context:
             class_descriptor_stack.append(c)
 
-        local_environment_stack = deque()
+        local_environment_stack: Deque[Any] = deque()
 
-        mdss = self._initialise_local_environment_mds()
+        mdss = self._initialise_main_mds()
         sys.stdout.write("\nMainClassNode - Initialised local environment methods: " + str(mdss) + "\n")
 
         for mds in mdss:
             local_environment_stack.append(mds)
 
-
-        env = (class_descriptor_stack, local_environment_stack)
+        env = [class_descriptor_stack, local_environment_stack]
 
         if debug:
-            sys.stdout.write("Printing environment stack: \n" + str(env) + '\n')
+            sys.stdout.write("MainClassNode - Printing environment stack: \n" + str(env) + '\n')
 
-        if self.arguments:
-            self.arguments.type_check(env, debug, self.class_name)
+        self._check_class_declaration_names()
 
-            local_environment = self._initialise_local_environment_args()
+        if debug:
+            sys.stdout.write("MainClassNode - No collision in class names.\n")
+
+        if self.main_arguments:
+            self.main_arguments.type_check(env, debug, self.class_name)
+
+            local_environment = self._initialise_main_args()
 
             if debug:
                 sys.stdout.write("MainClassNode - Initialised local environment args: " + str(local_environment) + "\n")
@@ -514,10 +548,10 @@ class MainClassNode(ASTNode):
         if debug:
             sys.stdout.write("MainClassNode - Arguments type check completed.\n")
 
-        if self.variable_declarations:
-            self.variable_declarations.type_check(env, debug, self.class_name)
+        if self.main_variable_declarations:
+            self.main_variable_declarations.type_check(env, debug, self.class_name)
 
-            local_environment = self._initialise_local_environment_vars()
+            local_environment = self._initialise_main_vars()
 
             if debug:
                 sys.stdout.write("MainClassNode - Initialised local environment vars: " + str(local_environment) + "\n")
@@ -525,13 +559,13 @@ class MainClassNode(ASTNode):
             for l in local_environment:
                 env[1].append(l)
 
-        self.statements.type_check(env, debug, self.class_name, BasicType.VOID)
+        self.main_statements.type_check(env, debug, self.class_name, BasicType.VOID)
 
         if self.child:
             self.child.type_check(env, debug, self.class_name)
 
         if self.sibling:
-            env = (class_descriptor_stack, deque())
+            env = [class_descriptor_stack, deque()]
             self.sibling.type_check(env, debug)
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
@@ -539,17 +573,17 @@ class MainClassNode(ASTNode):
         sys.stdout.write("class " + self.class_name + "{ \n  Void main")
 
         sys.stdout.write('(')
-        if self.arguments:
-            self.arguments.pretty_print()
+        if self.main_arguments:
+            self.main_arguments.pretty_print()
 
         sys.stdout.write(')')
 
         sys.stdout.write(preceding + '{\n')
-        if self.variable_declarations:
-            self.variable_declarations.pretty_print(delimiter=';\n', preceding='    ')
+        if self.main_variable_declarations:
+            self.main_variable_declarations.pretty_print(delimiter=';\n', preceding='    ')
 
         sys.stdout.write('\n')
-        self.statements.pretty_print(preceding='    ')
+        self.main_statements.pretty_print(preceding='    ')
 
         if self.child:
             self.child.pretty_print(preceding='  ')
@@ -583,10 +617,9 @@ class ClassDeclNode(ASTNode):
     def set_method_declarations(self, node: Any) -> None:
         self.method_declarations = node
 
-    def initialise_class_descriptor(self):
+    def initialise_class_descriptor(self) -> List[Tuple[str, Tuple[List[Any], List[Any]]]]:
 
-        class_descriptor = []
-
+        var_decl: List[Any] = []
         var_decl_processed = False
 
         if self.variable_declarations:
@@ -598,11 +631,15 @@ class ClassDeclNode(ASTNode):
                     var_decl_processed = True
 
                 if current_var_decl:
-                    class_descriptor.append((current_var_decl.value, TYPE_CONVERSION_DICT[current_var_decl.type]))
+                    if current_var_decl.type in ['Int', 'Bool', 'String']:
+                        var_decl.append((current_var_decl.value, TYPE_CONVERSION_DICT[current_var_decl.type]))
+                    else:
+                        var_decl.append((current_var_decl.value, (BasicType.OBJECT, current_var_decl.type)))
 
                 if current_var_decl.sibling:
                     current_var_decl = current_var_decl.sibling
 
+        md_decl = []
         md_decl_processed = False
 
         if self.method_declarations:
@@ -614,7 +651,7 @@ class ClassDeclNode(ASTNode):
                     md_decl_processed = True
 
                 if current_md_decl:
-                    class_descriptor.append((
+                    md_decl.append((
                         current_md_decl.method_name,
                         current_md_decl.get_arguments(),
                         current_md_decl.get_return_type()
@@ -623,16 +660,16 @@ class ClassDeclNode(ASTNode):
                 if current_md_decl.sibling:
                     current_md_decl = current_md_decl.sibling
 
-        context = [(self.class_name, class_descriptor)]
+        context: List[Any] = [[self.class_name, [var_decl, md_decl]]]
 
         if self.sibling:
             context += self.sibling.initialise_class_descriptor()
 
         return context
 
-    def _initialise_local_environment(self):
+    def _initialise_local_environment(self) -> List[Any]:
 
-        local_environment = []
+        local_environment: List[Any] = []
 
         vars_completed = False
 
@@ -668,11 +705,69 @@ class ClassDeclNode(ASTNode):
 
         return local_environment
 
-    def type_check(self, env=None, debug=False, within_class='') -> None:
+    def _check_variable_declaration_names(self) -> None:
+
+        var_names = []
+
+        var_processed = False
+
+        current_var = self.variable_declarations
+
+        while not var_processed:
+            if not current_var.child and not current_var.sibling:
+                var_processed = True
+
+            if current_var:
+                if current_var.value in var_names:
+                    raise TypeError(str(current_var.value), "Field has the same name as an earlier declared field in class: [" + str(self.class_name) + "]\n")
+                else:
+                    var_names.append(current_var.value)
+
+            if current_var.sibling:
+                current_var = current_var.sibling
+
+    def _check_method_names(self) -> None:
+
+        md_names = []
+
+        md_processed = False
+
+        current_md = self.method_declarations
+
+        while not md_processed:
+            if not current_md.sibling:
+                md_processed = True
+
+            if current_md:
+                if current_md.method_name in md_names:
+                    raise TypeError(str(current_md.method_name), "Method has the same name as an earlier declared method in class: [" + str(self.class_name) + "]\n")
+                else:
+                    md_names.append(current_md.method_name)
+
+            if current_md.sibling:
+                current_md = current_md.sibling
+
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         if debug:
             sys.stdout.write("ClassDeclNode - Type checking initiated for class " + self.class_name + '\n')
 
+        # Check field names
+        self._check_variable_declaration_names()
+
+        if debug:
+            sys.stdout.write("ClassDeclNode - No collision in field names.\n")
+
+        self._check_method_names()
+
+        if debug:
+            sys.stdout.write("ClassDeclNode - No collision in method names.\n")
 
         if self.variable_declarations:
             self.variable_declarations.type_check(env, debug, self.class_name)
@@ -741,9 +836,9 @@ class MdDeclNode(ASTNode):
     def set_statements(self, node: Any) -> None:
         self.statements = node
 
-    def get_arguments(self):
+    def get_arguments(self) -> FunctionType:
 
-        args = []
+        args: List[Any] = []
         args_processed = False
 
         if self.arguments:
@@ -767,7 +862,7 @@ class MdDeclNode(ASTNode):
 
         return FunctionType(args)
 
-    def get_return_type(self):
+    def get_return_type(self) -> Union["BasicType", Tuple["BasicType", str]]:
 
         if self.return_type in TYPE_CONVERSION_DICT:
             return TYPE_CONVERSION_DICT[self.return_type]
@@ -775,7 +870,7 @@ class MdDeclNode(ASTNode):
         else:
             return (BasicType.OBJECT, self.return_type)
 
-    def _initialise_local_environment_args(self):
+    def _initialise_local_environment_args(self) -> List[Tuple[str, Union["BasicType", Tuple["BasicType", str]]]]:
 
         local_environment = []
 
@@ -795,7 +890,7 @@ class MdDeclNode(ASTNode):
 
         return local_environment
 
-    def _initialise_local_environment_vars(self):
+    def _initialise_local_environment_vars(self) -> List[Tuple[str, Union["BasicType", Tuple["BasicType", str]]]]:
 
         local_environment = []
 
@@ -815,7 +910,42 @@ class MdDeclNode(ASTNode):
 
         return local_environment
 
-    def type_check(self, env=None, debug=False, within_class='') -> None:
+    def _check_argument_names(self) -> None:
+
+        arg_names = []
+        args_processed = False
+
+        if self.arguments:
+            current_arg = self.arguments
+
+            while not args_processed:
+
+                if not current_arg.sibling:
+                    args_processed = True
+
+                if current_arg:
+
+                    if current_arg.value in arg_names:
+                        raise TypeError(current_arg.value, "Argument has the same name as an earlier declared argument.")
+                    else:
+                        arg_names.append(current_arg.value)
+
+                if current_arg.sibling:
+                    current_arg = current_arg.sibling
+
+
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
+
+        self._check_argument_names()
+
+        if debug:
+            sys.stdout.write("MdDeclNode - No collision in argument names.\n")
 
         if self.arguments:
             self.arguments.type_check(env, debug, within_class)
@@ -829,7 +959,6 @@ class MdDeclNode(ASTNode):
                 env[1].append(a)
 
             # Add arguments to environment
-
 
         if debug:
             sys.stdout.write("MdDeclNode - Arguments type check completed.\n")
@@ -938,7 +1067,13 @@ class ArithmeticOpNode(DualOperandNode):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None
+    ) -> None:
 
         self.left_operand.type_check(env, debug, within_class)
         self.right_operand.type_check(env, debug, within_class)
@@ -988,7 +1123,13 @@ class BinOpNode(DualOperandNode):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         if self.left_operand.type != 'Bool':
             raise TypeError(self.left_operand.value)
@@ -1010,7 +1151,13 @@ class RelOpNode(DualOperandNode):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         #sys.stdout.write('checking typing for BinOpNode. left operand: ' + self.left_operand.value)
 
@@ -1079,7 +1226,13 @@ class AssignmentNode(ASTNode):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         if debug:
             sys.stdout.write("AssignmentNode - Env received: " + str(env) + '\n')
@@ -1195,7 +1348,13 @@ class InstanceNode(ASTNode):
 
         return derived_type
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         if debug:
             sys.stdout.write("InstanceNode with atom: " + self.atom.value + \
@@ -1218,20 +1377,18 @@ class InstanceNode(ASTNode):
 
         # Booleans to track result of type checking class for method
         class_found = False
-        method_found = False
 
-        env_copy = copy.deepcopy(env[0])
+        env_copy: Any = copy.deepcopy(env)
 
         while not env_checked:
-
-            if debug:
-                sys.stdout.write("InstanceNode - Current env: " + str(env_copy) + '\n')
 
             if len(env_copy) == 0:
                 env_checked = True
                 break
 
-            current_class = env_copy.pop()
+            current_class = env_copy[0].pop()
+            if debug:
+                sys.stdout.write("InstanceNode - Current env: " + str(current_class) + "\n")
 
             # Check for class of atom in environment
             if class_for_identifier_type_check == current_class[0]:
@@ -1241,26 +1398,24 @@ class InstanceNode(ASTNode):
                 if debug:
                     sys.stdout.write("InstanceNode - Atom found in environment.\n")
 
-                # Check for declaration in matched class
-                for decl in current_class[1]:
+                # If there is an expression list, check for methods
 
-                    # Checks if identifier name matches
-                    if self.identifier.value == decl[0]:
+                if isinstance(self.type, FunctionType):
 
-                        if debug:
+                    method_found = False
 
-                            sys.stdout.write("InstanceNode - Atom and identifier found in environment.\n")
+                    # Iterate through method in current class0
+                    for md in current_class[1][1]:
 
-                        # Checks if function name matches
-                        if isinstance(decl[1], FunctionType):
+                        # Checks if identifier name matches
+                        if self.identifier.value == md[0]:
 
                             if debug:
+                                sys.stdout.write("InstanceNode - Atom and identifier found in environment.\n")
                                 sys.stdout.write("InstanceNode - Identifier found in environment.\n")
 
-                            # Check argument is valid type
-
                             # Assign return type as type of current InstanceNode
-                            self.type = decl[2]
+                            self.type = md[2]
 
                             if debug:
                                 sys.stdout.write("InstanceNode - Assigned type: " + str(self.type) + "\n")
@@ -1278,7 +1433,7 @@ class InstanceNode(ASTNode):
                                 if debug:
                                     sys.stdout.write("InstanceNode - Arguments list retrieved: " + str(current_args) + "\n")
 
-                                expected_args = decl[1].basic_type_list
+                                expected_args = md[1].basic_type_list
                                 expected_args_count = len(expected_args)
 
                                 # Simple check for number of arguments
@@ -1322,15 +1477,37 @@ class InstanceNode(ASTNode):
                                             str(self.identifier.value) + '() type checked: ' + current_arg + '\n'
                                         )
 
-                            break
+                            if not method_found:
+                                raise TypeError(str(self.atom.value)+'.'+str(self.identifier.value), 'Unable to locate function in given class')
 
+                    env_checked = True
+                    break
+                # Otherwise, check for variables
+                else:
+
+                    identifier_found = False
+
+                    for var in current_class[1][0]:
+                        if debug:
+                            sys.stdout.write("InstanceNode - Atom and identifier found in environment.\n")
+                            sys.stdout.write("InstanceNode - Identifier found in environment.\n")
+
+                        # Assign variable type as type of current InstanceNode
+                        self.type = var[1]
+
+                        identifier_found = True
+
+                    if not identifier_found:
+                        raise TypeError(str(self.atom.value), "Variable is not defined in class.")
+
+                    env_checked = True
+                    break
+
+                # Check for declaration in matched class
                 env_checked = True
 
         if not class_found:
             raise TypeError(str(self.atom.value), 'Unable to locate given class')
-
-        if not method_found:
-            raise TypeError(str(self.atom.value)+'.'+str(self.identifier.value), 'Unable to locate function in given class')
 
         if debug:
             sys.stdout.write("InstanceNode type check successfully completed.\n")
@@ -1351,7 +1528,13 @@ class ClassInstanceNode(ASTNode):
     def set_target_class(self, node: Any) -> None:
         self.target_class = node
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         self.target_class.type_check(env, debug, within_class)
 
@@ -1390,7 +1573,13 @@ class ReturnNode(ASTNode):
     def set_return_value(self, node: Any) -> None:
         self.return_value = node
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None):
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         if debug:
             sys.stdout.write("ReturnNode - Successfully received return type: " + str(return_type) + '\n')
@@ -1441,7 +1630,13 @@ class IfElseNode(ASTNode):
     def set_else_expression(self, node: Any) -> None:
         self.else_expression = node
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         self.condition.type_check(env, debug, within_class)
 
@@ -1496,7 +1691,13 @@ class WhileNode(ASTNode):
     def set_while_expression(self, node: Any) -> None:
         self.while_expression = node
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         self.condition.type_check(env, debug, within_class)
         self.while_expression.type_check(env, debug, within_class)
@@ -1544,7 +1745,13 @@ class ReadLnNode(ASTNode):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None):
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         if debug:
             sys.stdout.write("Env for ReadLn type check: " + str(env) + "\n")
@@ -1577,7 +1784,13 @@ class PrintLnNode(ASTNode):
     def set_expression(self, node: Any) -> None:
         self.expression = node
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None):
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         if debug:
             sys.stdout.write("PrintLnNode - Env received: " + str(env) + '\n')
@@ -1619,7 +1832,13 @@ class ArgumentNode(ASTNode):
         super().__init__(*args, **kwargs)
         self.is_identifier = True
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None):
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         super()._assign_declaration_type(env, debug, within_class)
 
@@ -1647,7 +1866,13 @@ class VarDeclNode(ASTNode):
         super().__init__(*args, **kwargs)
         self.is_identifier = True
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None):
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         super()._assign_declaration_type(env, debug, within_class)
 
@@ -1702,8 +1927,13 @@ class ExpListNode(ASTNode):
 
         return exp_list
 
-
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         self.expression.type_check(env, debug, within_class)
 
@@ -1730,7 +1960,13 @@ class NegationNode(ASTNode):
         super().__init__(*args, **kwargs)
         self.negated_expression = negated_expression
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         if self.negated_expression.type != 'Int':
             raise TypeError(self.negated_expression.value)
@@ -1763,7 +1999,13 @@ class ComplementNode(ASTNode):
         super().__init__(*args, **kwargs)
         self.complement_expression = complement_expression
 
-    def type_check(self, env=None, debug=False, within_class='', return_type=None) -> None:
+    def type_check(
+        self,
+        env: List[Deque[Any]]=None,
+        debug: bool=False,
+        within_class: str='',
+        return_type: Any=None,
+    ) -> None:
 
         if self.complement_expression.type != 'Bool':
             raise TypeError(self.complement_expression.value)
@@ -1808,6 +2050,6 @@ class AbstractSyntaxTree:
         if self.head:
             self.head.pretty_print()
 
-    def type_check(self, debug=False):
+    def type_check(self, debug: bool=False) -> None:
 
-        self.head.type_check(debug)
+        self.head.type_check(debug=debug)
