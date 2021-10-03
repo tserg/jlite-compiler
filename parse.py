@@ -1742,7 +1742,7 @@ class Parser:
                 if t2.value not in self.symbol_table.keys():
                     self.symbol_table[t2.value] = "IDENTIFIER"
 
-                root_node = InstanceNode('this', 'thisInstance')
+                root_node = InstanceNode()
 
                 if self.debug:
                     sys.stdout.write("Atomalpha expression: Root node created. \n")
@@ -1839,7 +1839,7 @@ class Parser:
 
     def type_check(self, debug=False) -> None:
 
-        self.ast.head.type_check(True)
+        self.ast.type_check(True)
         sys.stdout.write("Check typing completed\n")
 
     def pretty_print(self) -> None:
