@@ -142,27 +142,17 @@ class CData3Node(IR3Node):
         if self.sibling:
             self.sibling.pretty_print()
 
-class VarDecl3Node(IR3Node):
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
-        sys.stdout.write(preceding + str(self.type) + " " + str(self.value) + ";\n")
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter=delimiter)
-
 class CMtd3Node(IR3Node):
 
     return_type: Any
     method_name: str
     arguments: Any
-    variables_declarations: Any
+    variable_declarations: Any
     statements: Any
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.variable_declarations = None
 
     def set_method_name(self, method_name: str) -> None:
         self.method_name = method_name
@@ -187,6 +177,9 @@ class CMtd3Node(IR3Node):
 
         sys.stdout.write(") {\n")
 
+        if self.variable_declarations:
+            self.variable_declarations.pretty_print(preceding='  ')
+
         sys.stdout.write("}\n")
 
         if self.child:
@@ -194,6 +187,22 @@ class CMtd3Node(IR3Node):
 
         if self.sibling:
             self.sibling.pretty_print()
+
+class VarDecl3Node(IR3Node):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        if isinstance(self.type, BasicType):
+            sys.stdout.write(preceding + str(self.type) + " " + str(self.value) + ";\n")
+
+        else:
+            sys.stdout.write(preceding + str(self.type[1]) + " " + str(self.value) + ";\n")
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
 
 class Arg3Node(IR3Node):
 
@@ -207,6 +216,11 @@ class Arg3Node(IR3Node):
         if self.sibling:
             sys.stdout.write(", ")
             self.sibling.pretty_print(delimiter, preceding)
+
+class Stmt3Node(IR3Node):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
 class IR3Tree:
 

@@ -121,6 +121,9 @@ class IR3Generator:
 
     def _get_cmtd3(self, ast_node: Any, mddata_node: Any=None):
 
+        if self.debug:
+            sys.stdout.write("Getting CMtd - Current AST node: " + str(ast_node.class_name) + "\n")
+
         # Get main class method declaration
         if isinstance(ast_node, MainClassNode):
             main_class_md_node = CMtd3Node()
@@ -135,6 +138,12 @@ class IR3Generator:
 
             main_class_md_node.set_arguments(argument_node)
 
+            if ast_node.main_variable_declarations:
+
+                var_decl_node = self._get_var_decl(ast_node.main_variable_declarations)
+
+            main_class_md_node.set_variable_declarations(var_decl_node)
+
             mddata_node = main_class_md_node
 
             if self.debug:
@@ -142,15 +151,20 @@ class IR3Generator:
 
         # Get method declarations
 
-        elif isinstance(ast_node, ClassDeclNode) and ast_node.method_declarations:
-            mddata_node = self._get_md_decl(ast_node.class_name, ast_node.method_declarations, mddata_node)
+        elif isinstance(ast_node, ClassDeclNode):
+
+            if self.debug:
+                sys.stdout.write("Getting CMtd - Subsequent class declaration found: " + str(ast_node.class_name) + "\n")
+
+            new_md_decl_node = self._get_md_decl(ast_node.class_name, ast_node.method_declarations, mddata_node)
+            #mddata_node.add_sibling(new_md_decl_node)
 
         if ast_node.sibling:
             mddata_node = self._get_cmtd3(ast_node.sibling, mddata_node)
 
         return mddata_node
 
-    def _get_var_decl(self, ast_node: Any, ir3_node: Any=None):
+    def _get_var_decl(self, ast_node: Any, var_decl_node: Any=None):
 
         if self.debug:
             sys.stdout.write("Getting VarDecl - Value detected: " + str(ast_node.value) + "\n")
@@ -160,36 +174,61 @@ class IR3Generator:
         if self.debug:
             sys.stdout.write("Getting VarDecl - New VarDecl node added.\n")
 
-        if ast_node.child:
+        if var_decl_node:
+            var_decl_node.add_sibling(new_var_decl_node)
+
+        else:
+            var_decl_node = new_var_decl_node
+
+        if ast_node.sibling:
             if self.debug:
                 sys.stdout.write("Getting VarDecl - Additional VarDecl node detected.\n")
 
-            new_var_decl_node = self._get_var_decl(ast_node.child, new_var_decl_node)
+            new_var_decl_node = self._get_var_decl(ast_node.sibling, new_var_decl_node)
 
-        return new_var_decl_node
+        return var_decl_node
 
     def _get_md_decl(self, class_name: str, ast_node: Any, md_decl_node: Any=None):
 
         if self.debug:
             sys.stdout.write("Getting MdDecl - Initiated.\n")
+            sys.stdout.write("Getting MdDecl - Vardecl: " + str(ast_node.variable_declarations)+ "\n")
+
 
         new_md_decl_node = CMtd3Node()
         new_md_decl_node.set_method_name(ast_node.method_name)
         new_md_decl_node.set_return_type(ast_node.return_type)
 
         if self.debug:
-            sys.stdout.write("Getting MdDecl - New MdDecl node added.\n")
+            sys.stdout.write("Getting MdDecl - New MdDecl node added for method: " + str(ast_node.method_name)+ "\n")
 
         # Get arguments
         argument_node = Arg3Node("this", class_name)
         new_md_decl_node.set_arguments(argument_node)
 
         if ast_node.arguments:
+
+            if self.debug:
+                sys.stdout.write("Getting MdDecl - Arguments detected.\n")
+
             argument_node = self._get_fmllist(ast_node.arguments, argument_node)
+
+        if self.debug:
+            sys.stdout.write("Getting MdDecl - Vardecl: " + str(ast_node.variable_declarations)+ "\n")
 
         # Get variable declarations
         if ast_node.variable_declarations:
-            var_decl_node = self._get_var_decl(ast_node.variables_declarations)
+
+            if self.debug:
+                sys.stdout.write("Getting MdDecl - Variable declarations detected.\n")
+
+            var_decl_node = self._get_var_decl(ast_node.variable_declarations)
+
+            if var_decl_node:
+                if self.debug:
+                    sys.stdout.write("Getting MdDecl - Variable declarations node created.\n")
+
+            new_md_decl_node.set_variable_declarations(var_decl_node)
 
         # Get statements
         stmt_node = self._get_stmt(ast_node.statements)
