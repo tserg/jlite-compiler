@@ -1839,8 +1839,8 @@ class Parser:
 
     def type_check(self, debug=False) -> None:
 
-        self.ast.type_check(True)
-        sys.stdout.write("Check typing completed\n")
+        self.ast.type_check(debug)
+        sys.stdout.write("Type checking completed\n")
 
     def pretty_print(self) -> None:
         """

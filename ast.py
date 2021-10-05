@@ -48,6 +48,9 @@ class BasicType(Enum):
     VOID = 'Void'
     OBJECT = 'Object'
 
+    def __str__(self):
+        return str(self.value)
+
 class FunctionType():
 
     basic_type_list: List[BasicType]

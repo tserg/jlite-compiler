@@ -75,61 +75,138 @@ class IR3Node:
         """
         self.sibling = node
 
-class MainClassIR3Node(IR3Node):
+    def pretty_print(self) -> None:
+        sys.stdout.write("Test")
 
-    class_name: str
-    main_arguments: Any
-    main_variable_declarations: Any
-    main_statements: Any
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.value = 'class'
-        self.type = 'mainClass'
-
-    def set_class_name(self, class_name: str) -> None:
-        self.class_name = class_name
-
-    def set_arguments(self, node: Any) -> None:
-        self.main_arguments = node
-
-    def set_variable_declarations(self, node: Any) -> None:
-        self.main_variable_declarations = node
-
-    def set_statements(self, node: Any) -> None:
-        self.main_statements = node
-
-    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
-
-        sys.stdout.write("class " + self.class_name + "{ \n  Void main")
-
-        '''
-        sys.stdout.write('(')
-        if self.main_arguments:
-            self.main_arguments.pretty_print()
-
-        sys.stdout.write(')')
-
-        sys.stdout.write(preceding + '{\n')
-        if self.main_variable_declarations:
-            self.main_variable_declarations.pretty_print(delimiter=';\n', preceding='    ')
-
-        sys.stdout.write('\n')
-        self.main_statements.pretty_print(preceding='    ')
-
-        if self.child:
-            self.child.pretty_print(preceding='  ')
-
-        sys.stdout.write('\n' + '  ' +'}')
-
-        '''
         if self.child:
             self.child.pretty_print()
 
-        sys.stdout.write("\n}\n")
+        if self.sibling:
+            self.sibling.pretty_print()
+
+class Program3Node(IR3Node):
+
+    class_data: Any
+    method_data: Any
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.class_data = None
+        self.method_data = None
+
+    def set_class_data(self, class_data: Any) -> None:
+        self.class_data = class_data
+
+    def set_method_data(self, method_data: Any) -> None:
+        self.method_data = method_data
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        sys.stdout.write("\n======= CData3 =======\n\n")
+
+        if self.class_data:
+            self.class_data.pretty_print()
+
+        sys.stdout.write("=======CMtd3 =======\n\n")
+
+        if self.method_data:
+            self.method_data.pretty_print()
+
+        sys.stdout.write("\n=====fx== End of IR3 Program =======\n")
+
+class CData3Node(IR3Node):
+
+    class_name: str
+    var_decl: Any
+
+    def __init__(self, class_name: str, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.class_name = class_name
+        self.var_decl = None
+
+    def set_var_decl(self, var_decl: Any) -> None:
+        self.var_decl = var_decl
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        sys.stdout.write("class " + self.class_name + "{\n" )
+
+        if self.var_decl:
+            self.var_decl.pretty_print(preceding='  ')
+
+        sys.stdout.write("}\n\n")
+
+        if self.child:
+            self.child.pretty_print()
 
         if self.sibling:
             self.sibling.pretty_print()
+
+class VarDecl3Node(IR3Node):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+        sys.stdout.write(preceding + str(self.type) + " " + str(self.value) + ";\n")
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter=delimiter)
+
+class CMtd3Node(IR3Node):
+
+    return_type: Any
+    method_name: str
+    arguments: Any
+    variables_declarations: Any
+    statements: Any
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def set_method_name(self, method_name: str) -> None:
+        self.method_name = method_name
+
+    def set_return_type(self, return_type: str) -> None:
+        self.return_type = return_type
+
+    def set_arguments(self, node: Any) -> None:
+        self.arguments = node
+
+    def set_variable_declarations(self, node: Any) -> None:
+        self.variable_declarations = node
+
+    def set_statements(self, node: Any) -> None:
+        self.statements = node
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        sys.stdout.write(str(self.return_type) + " " + self.method_name + "(")
+
+        self.arguments.pretty_print()
+
+        sys.stdout.write(") {\n")
+
+        sys.stdout.write("}\n")
+
+        if self.child:
+            self.child.pretty_print()
+
+        if self.sibling:
+            self.sibling.pretty_print()
+
+class Arg3Node(IR3Node):
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        sys.stdout.write(str(self.type) + " " + str(self.value))
+
+        if self.sibling:
+            sys.stdout.write(", ")
+            self.sibling.pretty_print(delimiter, preceding)
 
 class IR3Tree:
 
