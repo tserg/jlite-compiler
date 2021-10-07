@@ -1838,9 +1838,20 @@ class Parser:
         self.ast = AbstractSyntaxTree(self._program_expression(self.lex))
 
     def type_check(self, debug=False) -> None:
+        """
+        Type checks the AST
 
+        :param bool debug: display logging for troubleshooting
+        """
         self.ast.type_check(debug)
         sys.stdout.write("Type checking completed\n")
+
+    def get_initial_env(self) -> None:
+        """
+        Retrieve the initial environment and store it in the AST
+        """
+        self.ast.initialise_env()
+        #sys.stdout.write(str(self.ast.initial_env))
 
     def pretty_print(self) -> None:
         """
@@ -1864,7 +1875,8 @@ def __main__():
 
         parser.pretty_print()
 
-        parser.type_check()
+        parser.type_check(debug=True)
+        #parser.get_initial_env()
         #sys.stdout.write(str(parser.parse_tree.total_nodes()))
 
 if __name__ == "__main__":

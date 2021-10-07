@@ -53,9 +53,9 @@ class BasicType(Enum):
 
 class FunctionType():
 
-    basic_type_list: List[BasicType]
+    basic_type_list: List[Any]
 
-    def __init__(self, basic_type_list: List[BasicType]) -> None:
+    def __init__(self, basic_type_list: List[Any]) -> None:
         self.basic_type_list = basic_type_list
 
 
@@ -570,6 +570,7 @@ class MainClassNode(ASTNode):
         if self.sibling:
             env = [class_descriptor_stack, deque()]
             self.sibling.type_check(env, debug)
+
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
@@ -2043,6 +2044,7 @@ class ComplementNode(ASTNode):
 class AbstractSyntaxTree:
 
     head: Any
+    initial_env: Any
 
     def __init__(self, head: Any) -> None:
 
@@ -2056,3 +2058,6 @@ class AbstractSyntaxTree:
     def type_check(self, debug: bool=False) -> None:
 
         self.head.type_check(debug=debug)
+
+    def initialise_env(self) -> None:
+        self.initial_env = self.head.initialise_class_descriptor()

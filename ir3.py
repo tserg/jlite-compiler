@@ -76,9 +76,11 @@ class IR3Node:
         self.sibling = node
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
-        sys.stdout.write("Test")
+
+        sys.stdout.write(str(self.value))
 
         if self.child:
+            sys.stdout.write(delimiter)
             self.child.pretty_print(delimiter, preceding)
 
         if self.sibling:
@@ -145,17 +147,22 @@ class CData3Node(IR3Node):
 class CMtd3Node(IR3Node):
 
     return_type: Any
-    method_name: str
+    method_id: str
     arguments: Any
     variable_declarations: Any
     statements: Any
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        method_id: str,
+        return_type: Any,
+        *args,
+        **kwargs
+    ) -> None:
         super().__init__(*args, **kwargs)
         self.variable_declarations = None
-
-    def set_method_name(self, method_name: str) -> None:
-        self.method_name = method_name
+        self.method_id = method_id
+        self.return_type = return_type
 
     def set_return_type(self, return_type: str) -> None:
         self.return_type = return_type
@@ -171,7 +178,7 @@ class CMtd3Node(IR3Node):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        sys.stdout.write(str(self.return_type) + " " + self.method_name + "(")
+        sys.stdout.write(str(self.return_type) + " " + self.method_id + "(")
 
         self.arguments.pretty_print()
 
@@ -183,7 +190,7 @@ class CMtd3Node(IR3Node):
         if self.statements:
             self.statements.pretty_print(preceding='  ')
 
-        sys.stdout.write("}\n")
+        sys.stdout.write("}\n\n")
 
         if self.child:
             self.child.pretty_print()
@@ -263,7 +270,7 @@ class IfGoTo3Node(IR3Node):
 
         sys.stdout.write(preceding + "if (")
         self.rel_exp.pretty_print()
-        sys.stdout.write("); goto " + str(self.goto) + ";\n")
+        sys.stdout.write(") goto " + str(self.goto) + ";\n")
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
@@ -344,7 +351,7 @@ class ClassInstance3Node(IR3Node):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        sys.stdout.write(preceding + "new " + str(self.target_class) + "()")
+        sys.stdout.write(preceding + "new " + str(self.target_class) + "();\n")
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
@@ -367,7 +374,7 @@ class Assignment3Node(IR3Node):
         self.identifier = None
         self.assigned_value = None
 
-    def set_identifier(self, identifier: Any) -> None:
+    def set_identifier(self, identifier: str) -> None:
         self.identifier = identifier
 
     def set_assigned_value(self, assigned_value: Any) -> None:
@@ -379,7 +386,9 @@ class Assignment3Node(IR3Node):
             sys.stdout.write(preceding + str(self.identifier) + " = ")
 
         if self.assigned_value:
-            self.assigned_value.pretty_print(delimiter, preceding)
+            self.assigned_value.pretty_print(delimiter='')
+
+        sys.stdout.write(";\n")
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
@@ -413,13 +422,56 @@ class ClassAttributeAssignment3Node(IR3Node):
 
 class MethodCall3Node(IR3Node):
 
-    def __init__(self, *args, **kwargs) -> None:
+    method_id: str
+    arguments: Any
+
+    def __init__(
+        self,
+        method_id: str,
+        *args,
+        **kwargs
+    ) -> None:
         super().__init__(*args, **kwargs)
+        self.method_id = method_id
+        self.arguments = None
+
+    def set_arguments(self, arguments: Any) -> None:
+        self.arguments = arguments
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        sys.stdout.write(str(self.method_id) + "(")
+
+        if self.arguments:
+            self.arguments.pretty_print(delimiter=",")
+
+        sys.stdout.write(");\n")
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
 
 class Return3Node(IR3Node):
 
-    def __init__(self, *args, **kwargs) -> None:
+    return_value: str
+
+    def __init__(self, return_value: Any=None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.return_value = return_value
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        sys.stdout.write(preceding + "Return " + str(self.return_value))
+
+        sys.stdout.write(";\n")
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
 
 class RelOp3Node(IR3Node):
 
