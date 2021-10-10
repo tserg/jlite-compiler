@@ -226,13 +226,22 @@ class Arg3Node(IR3Node):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        sys.stdout.write(str(self.type) + " " + str(self.value))
+        if type(self.type) == BasicType:
+
+            sys.stdout.write(str(self.type) + " " + str(self.value))
+
+        elif type(self.type) == tuple:
+            sys.stdout.write(str(self.type[1]) + " " + str(self.value))
+
+        else:
+            sys.stdout.write(str(self.type) + " " + str(self.value))
 
         if self.child:
+            sys.stdout.write(", ")
             self.child.pretty_print(delimiter, preceding)
 
         if self.sibling:
-            sys.stdout.write(", ")
+
             self.sibling.pretty_print(delimiter, preceding)
 
 class Stmt3Node(IR3Node):

@@ -215,7 +215,6 @@ class IR3Generator:
         if isinstance(ast_node, MainClassNode):
 
             main_class_md_node = CMtd3Node("main", BasicType.VOID)
-
             argument_node = Arg3Node("this", ast_node.class_name)
 
             if ast_node.main_arguments:
@@ -375,13 +374,13 @@ class IR3Generator:
             symbol_table.insert(ast_node.value, ast_node.type)
 
             if argument_node:
-                argument_node.add_sibling(arg_ir3_node)
+                argument_node.add_child(arg_ir3_node)
 
             else:
                 argument_node = arg_ir3_node
 
-        if ast_node.sibling:
-            argument_node = self._get_fmllist(symbol_table, ast_node.sibling, arg_ir3_node)
+            if ast_node.sibling:
+                arg_ir3_node = self._get_fmllist(symbol_table, ast_node.sibling, arg_ir3_node)
 
         return argument_node
 
