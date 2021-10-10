@@ -586,6 +586,16 @@ class UnaryOp3Node(IR3Node):
         self.operand = operand
         self.operator = operator
 
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        sys.stdout.write(str(self.operator) + str(self.operand))
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
 
 class IR3Tree:
 
