@@ -19,16 +19,23 @@ class SymbolTable:
     def __init__(self):
         self.st = deque()
 
-    def insert(self, value: str, type: Any, temp_id: str, scope: str=None) -> None:
+    def add_empty_st(self):
+
+        self.st.append({})
+
+    def pop_st(self):
+        self.st.pop()
+
+    def insert(self, value: str, type: Any, temp_id: str=None, scope: str=None, state: Any=None) -> None:
 
         if len(self.st) == 0:
             new_st = {}
-            new_st[value] = [type, None, scope, temp_id]
+            new_st[value] = [type, state, scope, temp_id]
             self.st.append(new_st)
 
         else:
             current_st = self.st[-1]
-            current_st[value] = [type, None, scope, temp_id]
+            current_st[value] = [type, state, scope, temp_id]
 
     def lookup(self, value: str) -> Optional[List[Any]]:
 

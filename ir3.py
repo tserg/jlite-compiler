@@ -205,13 +205,15 @@ class VarDecl3Node(IR3Node):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        if isinstance(self.type, BasicType):
+        if type(self.type) == BasicType:
             sys.stdout.write(preceding + str(self.type) + " " + str(self.value) + ";\n")
 
-        else:
+        elif type(self.type) == tuple:
+            #sys.stdout.write(str(self.type))
             sys.stdout.write(preceding + str(self.type[1]) + " " + str(self.value) + ";\n")
 
         if self.child:
+
             self.child.pretty_print(delimiter, preceding)
 
         if self.sibling:
@@ -269,7 +271,12 @@ class IfGoTo3Node(IR3Node):
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write(preceding + "if (")
-        self.rel_exp.pretty_print()
+
+        if type(self.rel_exp) == str:
+            sys.stdout.write(self.rel_exp)
+        else:
+            self.rel_exp.pretty_print()
+
         sys.stdout.write(") goto " + str(self.goto) + ";\n")
 
         if self.child:
@@ -351,7 +358,7 @@ class ClassInstance3Node(IR3Node):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        sys.stdout.write(preceding + "new " + str(self.target_class) + "();\n")
+        sys.stdout.write(preceding + "new " + str(self.target_class) + "()")
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
@@ -367,7 +374,7 @@ class DeclAssignment3Node(IR3Node):
 class Assignment3Node(IR3Node):
 
     identifier: str
-    assigned_value: str
+    assigned_value: Any
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -386,7 +393,10 @@ class Assignment3Node(IR3Node):
             sys.stdout.write(preceding + str(self.identifier) + " = ")
 
         if self.assigned_value:
-            self.assigned_value.pretty_print(delimiter='')
+            try:
+                self.assigned_value.pretty_print(delimiter='')
+            except:
+                sys.stdout.write(str(self.assigned_value))
 
         sys.stdout.write(";\n")
 
@@ -445,7 +455,7 @@ class MethodCall3Node(IR3Node):
         if self.arguments:
             self.arguments.pretty_print(delimiter=",")
 
-        sys.stdout.write(");\n")
+        sys.stdout.write(")")
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
@@ -495,6 +505,78 @@ class RelOp3Node(IR3Node):
     def pretty_print(self, delimiter: str='', preceding: str=''):
 
         sys.stdout.write(str(self.left_operand) + " " + str(self.operator) + " " + str(self.right_operand))
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class BinOp3Node(IR3Node):
+
+    left_operand: Any
+    right_operand: Any
+    operator: str
+
+    def __init__(
+        self,
+        left_operand: Any,
+        right_operand: Any,
+        operator: str,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.left_operand = left_operand
+        self.right_operand = right_operand
+        self.operator = operator
+
+    def pretty_print(self, delimiter: str='', preceding: str=''):
+
+        if type(self.left_operand) != IR3Node and type(self.right_operand) != IR3Node:
+            sys.stdout.write(str(self.left_operand) + \
+                " " + str(self.operator) + " " + str(self.right_operand))
+
+        elif type(self.left_operand) != IR3Node:
+            sys.stdout.write("\n")
+            self.left_operand.pretty_print(preceding)
+            sys.stdout.write(str(self.left_operand) + " " + \
+                str(self.operator) + " " + self.right_operand.pretty_print())
+
+        elif type(self.right_operand) != IR3Node:
+            sys.stdout.write("\n")
+            self.right_operand.pretty_print(preceding)
+            sys.stdout.write(self.left_operand.pretty_print() + " " + \
+                str(self.operator) + " " + str(self.right_operand))
+
+        else:
+
+            self.left_operand.pretty_print()
+            sys.stdout.write(" " + str(self.operator) + " ")
+            self.right_operand.pretty_print()
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
+class UnaryOp3Node(IR3Node):
+
+    operand: Any
+    operator: str
+
+    def __init__(
+        self,
+        operand: Any,
+        operator: str,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.operand = operand
+        self.operator = operator
+
 
 class IR3Tree:
 
