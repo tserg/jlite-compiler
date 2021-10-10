@@ -1976,10 +1976,12 @@ class NegationNode(ASTNode):
         return_type: Any=None,
     ) -> None:
 
-        if self.negated_expression.type != 'Int':
+        self.negated_expression.type_check(env, debug, within_class)
+
+        if self.negated_expression.type != BasicType.INT:
             raise TypeError(self.negated_expression.value)
 
-        self.negated_expression.type_check(env, debug, within_class)
+        self.type = BasicType.INT
 
         if self.child:
             self.child.type_check(env, debug, within_class, return_type)
@@ -1990,7 +1992,12 @@ class NegationNode(ASTNode):
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write('(-')
-        self.negated_expression.pretty_print()
+
+        if type(self.negated_expression) == str:
+            sys.stdout.write(str(self.negated_expression))
+        else:
+            self.negated_expression.pretty_print()
+
         sys.stdout.write(')')
 
         if self.child:
@@ -2020,8 +2027,7 @@ class ComplementNode(ASTNode):
         if self.complement_expression.type != BasicType.BOOL:
             raise TypeError(self.complement_expression.value, "Complement expression is not of boolean type.")
 
-        else:
-            self.type = BasicType.BOOL
+        self.type = BasicType.BOOL
 
         if debug:
             sys.stdout.write('Type checking complement expression: ' + str(self.complement_expression.type) + '\n')

@@ -1485,7 +1485,11 @@ class Parser:
                 self._eat("-", lexer)
                 t2, lexer = self._ftr_expression(lexer)
 
-                negation_node = NegationNode('-', 'Int', t2)
+                negation_node = NegationNode(
+                    value='-',
+                    type='Int',
+                    negated_expression=t2
+                )
 
                 return (
                     negation_node,
