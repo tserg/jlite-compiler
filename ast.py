@@ -204,7 +204,7 @@ class ASTNode:
                     found = True
                     break
 
-            if not found and value != 'null':
+            if not found and self.value != 'null':
                 raise TypeError(self.type, "Unknown type declared.")
 
     def _assign_identifier_type(
@@ -305,7 +305,10 @@ class ASTNode:
                         break
 
         if not found:
-            raise TypeError(str(self.value), "Undeclared type of " + str(self.type))
+            if self.type:
+                raise TypeError(str(self.value), "Undeclared type of " + str(self.type))
+            else:
+                raise TypeError(str(self.value), "Undeclared variable")
 
     def type_check(
         self,
@@ -1704,7 +1707,9 @@ class WhileNode(ASTNode):
     ) -> None:
 
         self.condition.type_check(env, debug, within_class)
-        self.while_expression.type_check(env, debug, within_class)
+
+        if self.while_expression:
+            self.while_expression.type_check(env, debug, within_class)
 
         if self.child:
             self.child.type_check(env, debug, within_class, return_type)
