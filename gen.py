@@ -523,19 +523,14 @@ class IR3Generator:
                 new_stmt_node = if_goto_node
 
             if_goto_node.add_child(else_expression_node)
-
-            last_of_else_expression = self._get_last_child(else_expression_node)
-
+            last_of_else_expression = self._get_last_child(self._get_last_sibling(else_expression_node))
             last_of_else_expression.add_child(goto_end_node)
+            
             goto_end_node.add_child(if_expression_label_node)
             if_expression_label_node.add_child(if_expression_node)
 
-            last_of_if_expression = if_expression_node
-
-            while last_of_if_expression.sibling:
-                last_of_if_expression = last_of_if_expression.sibling
-
-            last_of_if_expression.add_child(end_expression_label_node)
+            last_of_if_expression_node = self._get_last_child(self._get_last_sibling(if_expression_node))
+            last_of_if_expression_node.add_child(end_expression_label_node)
 
         elif isinstance(ast_node, WhileNode):
             if self.debug:
@@ -676,7 +671,39 @@ class IR3Generator:
 
             if isinstance(ast_node, NegationNode):
 
-                new_exp_node = None
+                negated_exp_node = self._get_exp3(symbol_table, ast_node.negated_expression)
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - NegationNode - Negated expression node created: " + str(negated_exp_node) + "\n")
+
+                negated_exp_last_child_node = self._get_last_child(self._get_last_sibling(negated_exp_node))
+
+                negated_exp_last_child_id = negated_exp_node.value
+                if negated_exp_last_child_node != negated_exp_node:
+                    negated_exp_last_child_id = negated_exp_last_child_node.identifier
+
+                # Create new temporary variable
+
+                temp_var = "_t"+str(self._get_temp_var_count())
+                temp_var_node = VarDecl3Node(temp_var, BasicType.INT)
+
+                symbol_table.insert(temp_var, BasicType.INT)
+
+                # Assign value to temporary variable
+
+                temp_var_assignment_node = Assignment3Node()
+                temp_var_assignment_node.set_identifier(temp_var)
+
+                negation_node = UnaryOp3Node(operator='-', operand=negated_exp_last_child_id)
+                temp_var_assignment_node.set_assigned_value(negation_node)
+
+                if negated_exp_last_child_node != negated_exp_node:
+                    negated_exp_last_child_node.add_child(temp_var_node)
+                    temp_var_node.add_child(temp_var_assignment_node)
+                    new_exp_node = negated_exp_node
+                else:
+                    temp_var_node.add_child(temp_var_assignment_node)
+                    new_exp_node = temp_var_node
 
             elif isinstance(ast_node, ComplementNode):
 
