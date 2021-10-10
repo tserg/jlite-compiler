@@ -9,12 +9,13 @@
 
 	 	Bool e;
 		Int f;
+        String new_string;
 
 	    while(c){
 
 	       new_string = a + b;
 		   f = d * 2 / 7 + 15;
-		   if (b && (d >= f) || (e || c)) {
+		   if (true && (d >= f) || (e || c)) {
 		   		e=false;
 		   } else {
 		   		e=true;

@@ -12,8 +12,8 @@ class Main {
 }
 
 class CountToTen {
-	World w;
 	Int i;
+	Bool j;
 
 	String dummy(Bool a) {
 
@@ -22,20 +22,20 @@ class CountToTen {
 
 	  if (!a) {
 	  	i = -1;
-		return i;
+		return "False";
 	  }
 	  else {
 	    // Test comment
 	    b = true;
 	    while(a && b) {
-	      i = !j;
+	      j = !true;
 	    }
 	  }
 
-	  return this.countToTen();
+	  return "Hello";
 	 }
 
-     Count countToTen() {
+     Int countToTen() {
 	 	return 10;
 	 }
 

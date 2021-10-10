@@ -12,12 +12,12 @@ Void main(Int x){
       // just a test comment
 	  i = 0;
 	  s = 11 + 2 * -3 / 4 + 6- 5 - 7 * 8;
-      result = "\x08\x25";
+      result = "true";
       /* and another one over here
       */
    }
    println("the result is " + result);
-   a = this.getCompute();
+   //a = this.getCompute();
 }
 
 }

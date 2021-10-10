@@ -349,11 +349,17 @@ class ASTNode:
                     sys.stdout.write("Type assigned for identifier [" + self.value + "]: " + str(self.type) + '\n')
 
         elif isinstance(self.type, str):
+            if debug:
+                sys.stdout.write("Type of non-identifier: " + str(self.type) + "\n")
+
             if self.value == 'null':
                 # Ignore type check if value is null
-                pass
+                self.type = BasicType.VOID
             else:
                 self.type = TYPE_CONVERSION_DICT[self.type]
+
+            if debug:
+                sys.stdout.write("Type of non-identifier assigned: " + str(type(self.type)) + "\n")
 
         if self.child:
             self.child.type_check(env, debug, within_class)
@@ -1082,8 +1088,8 @@ class ArithmeticOpNode(DualOperandNode):
         return_type: Any=None
     ) -> None:
 
-        self.left_operand.type_check(env, debug, within_class)
-        self.right_operand.type_check(env, debug, within_class)
+        self.left_operand.type_check(env, debug, within_class, return_type)
+        self.right_operand.type_check(env, debug, within_class, return_type)
 
         if self.value in ('*/-'):
             if self.left_operand.type != BasicType.INT and self.left_operand.value != 'null':
@@ -1138,11 +1144,17 @@ class BinOpNode(DualOperandNode):
         return_type: Any=None,
     ) -> None:
 
-        if self.left_operand.type != 'Bool':
+        self.left_operand.type_check(env, debug, within_class, return_type)
+
+        if self.left_operand.type != BasicType.BOOL:
             raise TypeError(self.left_operand.value)
 
-        if self.right_operand.type != 'Bool':
+        self.right_operand.type_check(env, debug, within_class, return_type)
+
+        if self.right_operand.type != BasicType.BOOL:
             raise TypeError(self.right_operand.value)
+
+        self.type = BasicType.BOOL
 
         if debug:
             sys.stdout.write("BinOpNode type check successfully completed.\n")
@@ -1169,15 +1181,17 @@ class RelOpNode(DualOperandNode):
         #sys.stdout.write('checking typing for BinOpNode. left operand: ' + self.left_operand.value)
 
         if self.left_operand:
-            self.left_operand.type_check(env, debug, within_class)
+            self.left_operand.type_check(env, debug, within_class, return_type)
 
             if debug:
                 sys.stdout.write("RelOpNode - Left operand: " + \
                     str(self.left_operand.value) + " of type " + \
                     str(self.left_operand.type) + '\n')
 
-            if self.left_operand.type != BasicType.INT:
-                raise TypeError(self.left_operand.value)
+            if self.value in ['<', '>', '<=', '>=']:
+
+                if self.left_operand.type != BasicType.INT:
+                    raise TypeError(self.left_operand.value)
 
         if self.right_operand:
 
@@ -1186,15 +1200,18 @@ class RelOpNode(DualOperandNode):
                     str(self.right_operand.value) + " of type " + \
                     str(self.right_operand.type) + '\n')
 
-            self.right_operand.type_check(env, debug, within_class)
+            self.right_operand.type_check(env, debug, within_class, return_type)
 
             if debug:
                 sys.stdout.write("RelOpNode - Right  operand: " + \
                     str(self.right_operand.value) + " of type " + \
                     str(self.right_operand.type) + '\n')
 
-            if self.right_operand.type != BasicType.INT:
-                raise TypeError(self.right_operand.value)
+            if self.value in ['<', '>', '<=', '>=']:
+                if self.right_operand.type != BasicType.INT:
+                    raise TypeError(self.right_operand.value)
+
+        self.type = BasicType.BOOL
 
         if debug:
             sys.stdout.write("RelOpNode type check successfully completed.\n")
@@ -1247,37 +1264,18 @@ class AssignmentNode(ASTNode):
         env_copy = copy.deepcopy(env)
 
         # Type check for identifier
-        self.identifier.type_check(env_copy, debug, within_class)
+        self.identifier.type_check(env_copy, debug, within_class, return_type)
 
         if debug:
             sys.stdout.write("AssignmentNode - Type check for identifier: " + \
             str(self.identifier.value) + " with type " + \
             str(self.identifier.type) + " completed.\n")
 
-        self.assigned_value.type_check(env_copy, debug, within_class)
+        self.assigned_value.type_check(env_copy, debug, within_class, return_type)
 
-        if isinstance(self.assigned_value, ClassInstanceNode):
-            if debug:
-                sys.stdout.write("AssignmentNode - ClassInstanceNode detected as assigned value.\n")
-                sys.stdout.write("AssignmentNode - Identifier type: " + str(self.identifier.type) + '\n')
-                sys.stdout.write("AssignmentNode - Assigned value type: " + str(self.assigned_value.type) + '\n')
-
-            if self.assigned_value.type != self.identifier.type:
-                raise TypeError(self.identifier.value, 'Object created does not match declared class.')
-
-        elif isinstance(self.assigned_value, InstanceNode):
-            if debug:
-                sys.stdout.write("AssignmentNode - InstanceNode detected as assigned value.\n")
-                sys.stdout.write("AssignmentNode - Identifier type: " + str(self.identifier.type) + '\n')
-                sys.stdout.write("AssignmentNode - Assigned value type: " + str(self.assigned_value.type) + '\n')
-
-            if self.assigned_value.type != self.identifier.type:
-                raise TypeError(self.identifier.value, 'Instance type does not match declared identifier type.')
-
-        else:
-            if self.assigned_value.type != self.identifier.type and self.assigned_value.value != 'null':
-                raise TypeError(str(self.identifier.value), 'Assigned value type [' + str(self.assigned_value.type) + \
-                    '] does not match declared identifier type [' + str(self.identifier.type) +']')
+        if self.assigned_value.type != self.identifier.type and self.assigned_value.value != 'null':
+            raise TypeError(str(self.identifier.value), 'Assigned value type [' + str(self.assigned_value.type) + \
+                '] does not match declared identifier type [' + str(self.identifier.type) +']')
 
         if debug:
             sys.stdout.write("AssignmentNode - Identifier and assigned value types matched.\n")
@@ -1367,14 +1365,14 @@ class InstanceNode(ASTNode):
             sys.stdout.write("InstanceNode with atom: " + self.atom.value + \
             ", and identifier " + self.identifier.value + '\n')
 
-        self.atom.type_check(env, debug, within_class)
+        self.atom.type_check(env, debug, within_class, return_type)
 
         class_for_identifier_type_check = self.atom.type[1]
 
         if debug:
             sys.stdout.write("InstanceNode - Type check completed for atom with type ." + str(self.atom.type) + '\n')
 
-        self.identifier.type_check(env, debug, class_for_identifier_type_check)
+        self.identifier.type_check(env, debug, class_for_identifier_type_check, return_type)
 
         if debug:
             sys.stdout.write("InstanceNode - Type check completed for identifier with type ." + str(self.identifier.type) + '\n')
@@ -1432,7 +1430,7 @@ class InstanceNode(ASTNode):
                             # Type check expression list if it exists
                             if isinstance(self.child, ExpListNode):
 
-                                self.child.type_check(env, debug, within_class)
+                                self.child.type_check(env, debug, within_class, return_type)
 
                                 current_args = self.child.get_arguments(debug)
                                 current_args_count = len(current_args)
@@ -1543,7 +1541,7 @@ class ClassInstanceNode(ASTNode):
         return_type: Any=None,
     ) -> None:
 
-        self.target_class.type_check(env, debug, within_class)
+        self.target_class.type_check(env, debug, within_class, return_type)
 
         if self.target_class.type:
             self.type = self.target_class.type
@@ -1600,7 +1598,8 @@ class ReturnNode(ASTNode):
             self.type = BasicType.VOID
 
         if self.type != return_type:
-            raise TypeError(self.return_value, "Return type is different from declared.")
+            raise TypeError(self.return_value, "Return type " + str(self.return_value.type) + \
+                " is different from declared: " + str(return_type))
 
         if debug:
             sys.stdout.write("ReturnNode - Successfully type checked return value: " + str(return_type) + '\n')
@@ -1650,12 +1649,12 @@ class IfElseNode(ASTNode):
         if debug:
             sys.stdout.write("IfElseNode - Condition type check completed.\n")
 
-        self.if_expression.type_check(env, debug, within_class)
+        self.if_expression.type_check(env, debug, within_class, return_type)
 
         if debug:
             sys.stdout.write("IfElseNode - If expression type check completed.\n")
 
-        self.else_expression.type_check(env, debug, within_class)
+        self.else_expression.type_check(env, debug, within_class, return_type)
 
         if debug:
             sys.stdout.write("IfElseNode - Else expression type check completed.\n")
@@ -1709,7 +1708,7 @@ class WhileNode(ASTNode):
         self.condition.type_check(env, debug, within_class)
 
         if self.while_expression:
-            self.while_expression.type_check(env, debug, within_class)
+            self.while_expression.type_check(env, debug, within_class, return_type)
 
         if self.child:
             self.child.type_check(env, debug, within_class, return_type)
@@ -2016,16 +2015,16 @@ class ComplementNode(ASTNode):
         return_type: Any=None,
     ) -> None:
 
-        if self.complement_expression.type != 'Bool':
-            raise TypeError(self.complement_expression.value)
-
         self.complement_expression.type_check(env, debug, within_class)
 
-        if debug:
-            sys.stdout.write('Type checking complement expression: ' + self.complement_expression.type + '\n')
+        if self.complement_expression.type != BasicType.BOOL:
+            raise TypeError(self.complement_expression.value, "Complement expression is not of boolean type.")
 
-        if self.complement_expression.type != 'Bool':
-            raise TypeError('Complement expression')
+        else:
+            self.type = BasicType.BOOL
+
+        if debug:
+            sys.stdout.write('Type checking complement expression: ' + str(self.complement_expression.type) + '\n')
 
         if self.child:
             self.child.type_check(env, debug, within_class, return_type)
