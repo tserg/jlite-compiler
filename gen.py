@@ -11,7 +11,8 @@ from typing import (
     Optional,
     Tuple,
     Deque,
-    Union
+    Union,
+    TextIO,
 )
 
 from parse import (
@@ -77,18 +78,41 @@ class IR3Generator:
 
     Attributes
     ----------
-    lex : Lexer
+    parser: Parser
+    debug: bool
+    ir3_tree: IR3Tree
+    label_count: int
+    temp_var_count: int
 
     Methods
     -------
     _parse_content(f)
         Run the parser through the given file
+    _get_temp_var_count()
+        Get the count of temporary variables to be used as index for
+        next temporary variable
+    _create_new_label()
+        Returns the index of the next label to be used
+    _initialise_symbol_table()
+        Initialise a SymbolTable with information from the Parser
+    _get_last_child(IR3Node)
+        Helper function to get the last child of an IR3Node
+    _get_last_sibling(IR3Node)
+        Helper function to get the last sibling of an IR3Node
+    _get_last_child_of_last_sibling
+        Helper function to get the last child of the last sibling of an IR3Node
+    _generate_ir3
+        Helper function to traverse the AST from the Parser and generate the IR3
+        tree
+    generate_ir3()
+        Generate the IR3Tree from a given file
+    pretty_print()
+        Prints the generated IR3Tree
 
     """
     parser: Parser
     debug: bool
     ir3_tree: IR3Tree
-    symbol_table_stack: Deque[SymbolTable]
     label_count: int
     temp_var_count: int
 
@@ -97,23 +121,41 @@ class IR3Generator:
         self.debug = debug
         self.label_count = 0
         self.temp_var_count = 0
-        self.symbol_table_stack = deque()
 
-    def _get_temp_var_count(self) -> int:
-        self.temp_var_count += 1
-        return self.temp_var_count
+    def _parse_content(self, f: TextIO) -> None:
+        """
+        Helper function to parse a file
 
-    def _parse_content(self, f) -> None:
+        :param TextIO f: the input file
+        """
         self.parser.parse(f)
         self.parser.type_check()
 
-    def _create_new_label(self) -> int:
+    def _get_temp_var_count(self) -> int:
+        """
+        Helper function to get the count of temporary variables to be used as index for
+        next temporary variable
 
+        :return: the index to be used for the next temporary variable
+        """
+        self.temp_var_count += 1
+        return self.temp_var_count
+
+    def _create_new_label(self) -> int:
+        """
+        Helper function to get the index for the next label
+
+        :return: the index to be used for the next label
+        """
         self.label_count += 1
         return self.label_count
 
     def _initialise_symbol_table(self) -> "SymbolTable":
+        """
+        Helper function to set up the SymbolTable with information from the Parser
 
+        :return: the SymbolTable to be used for IR3 code generation
+        """
         self.parser.get_initial_env()
 
         symbol_table = SymbolTable()
@@ -138,7 +180,11 @@ class IR3Generator:
         return symbol_table
 
     def _get_last_child(self, ir3_node: Any) -> Any:
+        """
+        Helper function to get the last child of an IR3Node
 
+        :return: the last child of the given IR3Node
+        """
         if not ir3_node:
             return None
 
@@ -152,7 +198,11 @@ class IR3Generator:
 
 
     def _get_last_sibling(self, ir3_node: Any) -> Any:
+        """
+        Helper function to get the last sibling of an IR3Node
 
+        :return: the last sibling of the given IR3Node
+        """
         if not ir3_node:
             return None
 
@@ -165,15 +215,23 @@ class IR3Generator:
         return last_node
 
     def _get_last_child_of_last_sibling(self, ir3_node: Any) -> Any:
+        """
+        Helper function to get the last child of the last sibling of an IR3Node
 
+        :return: the last child of the last sibling of the given IR3Node
+        """
         return self._get_last_child(self._get_last_sibling(ir3_node))
 
     def _generate_ir3(self) -> IR3Node:
+        """
+        Helper function to traverse the AST from the Parser and generate the IR3
+        tree
 
+        :return: the root IR3Node
+        """
         # Reset label count
         self.label_count = 0
         self.temp_var_count = 0
-        self.symbol_table_stack = deque()
 
         # Set up initial environment
         symbol_table = self._initialise_symbol_table()
@@ -1113,7 +1171,7 @@ class IR3Generator:
 
     def pretty_print(self) -> None:
         """
-        Prints the generated IR3 tree
+        Prints the generated IR3Tree
         """
         self.ir3_tree.pretty_print()
 
