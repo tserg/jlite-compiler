@@ -32,7 +32,7 @@ class SymbolTable:
         Takes in arguments for value, type, temp_id and state
     lookup(str)
         Returns the list of [value, type, temp_id, state] for the symbol if found
-    
+
     """
     # Mappings of value to [type, state, scope, temp_id]
     symbol_table_stack: Deque[Dict[Any, Any]]
@@ -94,7 +94,7 @@ class SymbolTable:
         :param str value: name of the symbol in the AST
         :return: the list of [value, type, temp_id, state] or None
         """
-        st = copy.deepcopy(self.st)
+        st = copy.deepcopy(self.symbol_table_stack)
 
         while len(st) > 0:
 
@@ -113,4 +113,4 @@ class SymbolTable:
 
         :return: the symbol table stack in string
         """
-        return str(self.st)
+        return str(self.symbol_table_stack)
