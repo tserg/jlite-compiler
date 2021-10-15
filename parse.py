@@ -138,7 +138,8 @@ class Parser:
 
             is_identifier = False
 
-            if expected_token == "IDENTIFIER" or expected_token == "CLASS_NAME":
+            if expected_token == "IDENTIFIER" or expected_token == "CLASS_NAME" or \
+                found_token.value == 'this':
                 is_identifier = True
             # Create node for found token
             new_node = ASTNode(found_token.value, type, is_identifier)
@@ -877,13 +878,28 @@ class Parser:
 
             next_token = lexer.peek()
 
+            if self.debug:
+                sys.stdout.write(
+                    "Stmtalpha expression - Next token: " + str(next_token.value) + "\n"
+                )
+
             if next_token.token_name == ".":
                 self._eat(".", lexer)
                 t2 = self._eat("IDENTIFIER", lexer)
+
+                if self.debug:
+                    sys.stdout.write(
+                        "Stmtalpha expression - Identifier token consumed.\n"
+                    )
+
                 self._eat("=", lexer)
                 t4, lexer = self._exp_expression(lexer)
                 self._eat(";", lexer)
 
+                if self.debug:
+                    sys.stdout.write(
+                        "Stmtalpha expression - All tokens consumed.\n"
+                    )
 
                 instance_node = InstanceNode('instance', 'thisInstance')
                 instance_node.set_atom(atom_node)
@@ -1635,7 +1651,21 @@ class Parser:
             next_token = lexer.peek()
 
             if next_token.token_name == "this":
+
+                if self.debug:
+                    sys.stdout.write(
+                        "Atom expression - this identified.\n"
+                    )
+
                 t1 = self._eat("this", lexer)
+
+                if str(lexer.peek(2).value) == '=':
+                    if self.debug:
+                        sys.stdout.write("Atom expression should not handle class attribute assignment." + "\n")
+                    # Defer to _stmtalpha if it is an assignment of a class attribute
+                    # Return "this" only
+                    return t1, lexer
+
                 t2, lexer = self._atomalpha_expression(lexer, t1)
 
                 root_node = t2
