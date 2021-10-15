@@ -15,6 +15,8 @@ class SymbolTable:
 
     # Mappings of value to [type, state, scope, temp_id]
     st: Deque[Dict[Any, Any]]
+
+    # Track current scope depth
     current_scope_depth: int
 
     def __init__(self):

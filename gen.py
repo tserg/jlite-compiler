@@ -9,18 +9,66 @@ from typing import (
     Callable,
     List,
     Optional,
-    Tuple
+    Tuple,
+    Deque,
+    Union
 )
 
 from parse import (
     Parser,
 )
 
-from symbol_table import *
+from symbol_table import SymbolTable
 
-from ast import *
+from ast import (
+    ASTNode,
+    MainClassNode,
+    ClassDeclNode,
+    MdDeclNode,
+    ArithmeticOpNode,
+    BinOpNode,
+    RelOpNode,
+    AssignmentNode,
+    InstanceNode,
+    ClassInstanceNode,
+    ReturnNode,
+    IfElseNode,
+    WhileNode,
+    ReadLnNode,
+    PrintLnNode,
+    ArgumentNode,
+    ExpListNode,
+    NegationNode,
+    ComplementNode,
+)
 
-from ir3 import *
+from ir3 import (
+    IR3Node,
+    Program3Node,
+    CData3Node,
+    CMtd3Node,
+    VarDecl3Node,
+    Arg3Node,
+    Label3Node,
+    IfGoTo3Node,
+    GoTo3Node,
+    ReadLn3Node,
+    PrintLn3Node,
+    ClassInstance3Node,
+    ClassAttribute3Node,
+    Assignment3Node,
+    MethodCall3Node,
+    Return3Node,
+    RelOp3Node,
+    BinOp3Node,
+    UnaryOp3Node,
+    IR3Tree,
+)
+
+from jlite_type import (
+    BasicType,
+    FunctionType,
+)
 
 class IR3Generator:
     """
@@ -40,7 +88,7 @@ class IR3Generator:
     parser: Parser
     debug: bool
     ir3_tree: IR3Tree
-    symbol_table_stack: Deque
+    symbol_table_stack: Deque[SymbolTable]
     label_count: int
     temp_var_count: int
 
@@ -50,12 +98,6 @@ class IR3Generator:
         self.label_count = 0
         self.temp_var_count = 0
         self.symbol_table_stack = deque()
-
-    def add_symbol_table(self, symbol_table: SymbolTable):
-        self.symbol_table_stack.append(symbol_table)
-
-    def pop_symbol_table(self) -> None:
-        self.symbol_table.pop()
 
     def _get_temp_var_count(self) -> int:
         self.temp_var_count += 1
@@ -126,11 +168,12 @@ class IR3Generator:
 
         return self._get_last_child(self._get_last_sibling(ir3_node))
 
-    def _generate_ir3(self):
+    def _generate_ir3(self) -> IR3Node:
 
         # Reset label count
         self.label_count = 0
         self.temp_var_count = 0
+        self.symbol_table_stack = deque()
 
         # Set up initial environment
         symbol_table = self._initialise_symbol_table()
@@ -140,7 +183,7 @@ class IR3Generator:
 
         return self._program_expression(symbol_table, self.parser.ast.head)
 
-    def _program_expression(self, symbol_table: Deque, ast: Any):
+    def _program_expression(self, symbol_table: SymbolTable, ast: Any):
 
         # Set up initial symbol table
         symbol_table = self._initialise_symbol_table()
@@ -165,7 +208,7 @@ class IR3Generator:
 
         return program_node
 
-    def _get_cdata3(self, symbol_table: Deque, ast_node: Any, cdata_node: Any=None):
+    def _get_cdata3(self, symbol_table: SymbolTable, ast_node: Any, cdata_node: Any=None):
 
         if isinstance(ast_node, MainClassNode) or isinstance(ast_node, ClassDeclNode):
 
@@ -209,7 +252,7 @@ class IR3Generator:
 
         return cdata_node
 
-    def _get_cmtd3(self, symbol_table: Deque, ast_node: Any, mddata_node: Any=None):
+    def _get_cmtd3(self, symbol_table: SymbolTable, ast_node: Any, mddata_node: Any=None):
 
         if self.debug:
             sys.stdout.write("Getting CMtd - Current AST node: " + str(ast_node.class_name) + "\n")
@@ -266,7 +309,7 @@ class IR3Generator:
 
         return mddata_node
 
-    def _get_var_decl(self, symbol_table: Deque, ast_node: Any, var_decl_node: Any=None):
+    def _get_var_decl(self, symbol_table: SymbolTable, ast_node: Any, var_decl_node: Any=None):
 
         if self.debug:
             sys.stdout.write("Getting VarDecl - Value detected: " + str(ast_node.value) + "\n")
@@ -294,7 +337,7 @@ class IR3Generator:
 
         return var_decl_node
 
-    def _get_md_decl(self, symbol_table: Deque, class_name: str, ast_node: Any, md_decl_node: Any=None):
+    def _get_md_decl(self, symbol_table: SymbolTable, class_name: str, ast_node: Any, md_decl_node: Any=None):
 
         if self.debug:
             sys.stdout.write("Getting MdDecl - Initiated.\n")
@@ -302,7 +345,9 @@ class IR3Generator:
             sys.stdout.write("Getting MdDecl - Method name: " + str(ast_node.method_name)+ "\n")
             sys.stdout.write("Getting MdDecl - Symbol table: " + str(symbol_table) + "\n")
 
-        temp_md_id = symbol_table.lookup(ast_node.method_name)[3]
+        st_lookup = symbol_table.lookup(ast_node.method_name)
+        if st_lookup:
+            temp_md_id = st_lookup[3]
 
         new_md_decl_node = CMtd3Node(method_id=temp_md_id, return_type=ast_node.return_type)
 
@@ -368,7 +413,7 @@ class IR3Generator:
 
         return md_decl_node
 
-    def _get_fmllist(self, symbol_table: Deque, ast_node: Any, argument_node: Any=None):
+    def _get_fmllist(self, symbol_table: SymbolTable, ast_node: Any, argument_node: Any=None):
         if self.debug:
             sys.stdout.write("Getting FmlList - Initiated.\n")
 
@@ -390,7 +435,10 @@ class IR3Generator:
 
         return argument_node
 
-    def _get_stmt(self, symbol_table: Deque, ast_node: Any, stmt_node: Any=None):
+    def _get_stmt(self, symbol_table: SymbolTable, ast_node: Any, stmt_node: Any=None) -> Any:
+
+        new_stmt_node: Any = None
+
         if self.debug:
             sys.stdout.write("Getting Stmt - Initiated.\n")
             sys.stdout.write("Getting Stmt - Current AST node type: " + str(type(ast_node)) + "\n")
@@ -610,14 +658,10 @@ class IR3Generator:
                     sys.stdout.write("Getting Stmt - Return value detected.\n")
 
                 return_exp = self._get_exp3(symbol_table, ast_node.return_value)
+                return_exp_last_node = self._get_last_child_of_last_sibling(return_exp)
+
                 return_node = Return3Node(return_exp.value)
-
-                last_return_exp = return_exp
-
-                while last_return_exp.child:
-                    last_return_exp = last_return_exp.child
-
-                last_return_exp.add_child(return_node)
+                return_exp_last_node.add_child(return_node)
 
                 new_stmt_node = return_exp
 
@@ -639,7 +683,7 @@ class IR3Generator:
 
         return stmt_node
 
-    def _get_rel_exp3(self, ast_node: Any):
+    def _get_rel_exp3(self, ast_node: Any) -> Any:
 
         if self.debug:
             sys.stdout.write("Getting RelExp - Initiated.\n")
@@ -650,18 +694,16 @@ class IR3Generator:
             if self.debug:
                 sys.stdout.write("Getting RelExp - RelOp detected.\n")
 
-            new_node = RelOp3Node(
+            return RelOp3Node(
                 ast_node.left_operand.value,
                 ast_node.right_operand.value,
                 ast_node.value
             )
 
         else:
-            new_node = IR3Node(ast_node.value)
+            return IR3Node(ast_node.value)
 
-        return new_node
-
-    def _get_exp3(self, symbol_table: Deque, ast_node: Any):
+    def _get_exp3(self, symbol_table: SymbolTable, ast_node: Any):
 
         if self.debug:
             sys.stdout.write("Getting Exp - Initiated.\n")
@@ -805,7 +847,9 @@ class IR3Generator:
                 if self.debug:
                     sys.stdout.write("Getting Exp - Method call detected.\n")
 
-                temp_md_id = symbol_table.lookup(ast_node.identifier.value)[3]
+                st_lookup = symbol_table.lookup(ast_node.identifier.value)
+                if st_lookup:
+                    temp_md_id = st_lookup[3]
 
                 if self.debug:
                     sys.stdout.write("Getting Exp - Temp method identifier found: " + str(temp_md_id) + "\n")
@@ -1048,7 +1092,7 @@ class IR3Generator:
             new_v_node = IR3Node(value=ast_node.expression.value)
 
         if ast_node.expression.child:
-            new_v_node = IR3Node(ast_node.expression.child, new_v_node)
+            new_v_node = self._get_vlist(ast_node.expression.child, new_v_node)
 
         if v_node:
             v_node.add_child(new_v_node)
@@ -1059,12 +1103,17 @@ class IR3Generator:
         return v_node
 
     def generate_ir3(self, f) -> None:
+        """
+        Lexes, parses and type checks the input file, then generates the IR3 tree.
+
+        :param TextIO f: the input file
+        """
         self._parse_content(f)
         self.ir3_tree = IR3Tree(self._generate_ir3())
 
     def pretty_print(self) -> None:
         """
-        Prints the AST of the parsed file
+        Prints the generated IR3 tree
         """
         self.ir3_tree.pretty_print()
 

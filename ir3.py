@@ -244,11 +244,6 @@ class Arg3Node(IR3Node):
 
             self.sibling.pretty_print(delimiter, preceding)
 
-class Stmt3Node(IR3Node):
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
 class Label3Node(IR3Node):
 
     label_id: int
@@ -402,11 +397,6 @@ class ClassAttribute3Node(IR3Node):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
-class DeclAssignment3Node(IR3Node):
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
 class Assignment3Node(IR3Node):
 
     identifier: Any
@@ -481,7 +471,7 @@ class MethodCall3Node(IR3Node):
 
 class Return3Node(IR3Node):
 
-    return_value: str
+    return_value: Any
 
     def __init__(self, return_value: Any=None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -555,15 +545,14 @@ class BinOp3Node(IR3Node):
 
         elif type(self.left_operand) != IR3Node:
             sys.stdout.write("\n")
-            self.left_operand.pretty_print(preceding)
-            sys.stdout.write(str(self.left_operand) + " " + \
-                str(self.operator) + " " + self.right_operand.pretty_print())
+
+            sys.stdout.write(str(self.left_operand) + " " + str(self.operator) + " ")
+            self.right_operand.pretty_print()
 
         elif type(self.right_operand) != IR3Node:
             sys.stdout.write("\n")
-            self.right_operand.pretty_print(preceding)
-            sys.stdout.write(self.left_operand.pretty_print() + " " + \
-                str(self.operator) + " " + str(self.right_operand))
+            self.left_operand.pretty_print()
+            sys.stdout.write(" " + str(self.operator) + " " + str(self.right_operand))
 
         else:
 
@@ -603,7 +592,6 @@ class UnaryOp3Node(IR3Node):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
-
 class IR3Tree:
 
     head: Any
@@ -612,7 +600,7 @@ class IR3Tree:
 
         self.head = head
 
-    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+    def pretty_print(self) -> None:
 
         if self.head:
             self.head.pretty_print()

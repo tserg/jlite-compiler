@@ -15,7 +15,29 @@ from lex import (
     Token,
 )
 
-from ast import *
+from ast import (
+    ASTNode,
+    MainClassNode,
+    ClassDeclNode,
+    MdDeclNode,
+    ArithmeticOpNode,
+    BinOpNode,
+    RelOpNode,
+    AssignmentNode,
+    InstanceNode,
+    ClassInstanceNode,
+    ReturnNode,
+    IfElseNode,
+    WhileNode,
+    ReadLnNode,
+    PrintLnNode,
+    ArgumentNode,
+    VarDeclNode,
+    ExpListNode,
+    NegationNode,
+    ComplementNode,
+    AbstractSyntaxTree,
+)
 
 class ParseError(Exception):
     """

@@ -1,13 +1,9 @@
 import sys
-
 import copy
 from collections import deque
 
-from enum import Enum
-
 from typing import (
     Deque,
-    Dict,
     List,
     Optional,
     Any,
@@ -15,56 +11,12 @@ from typing import (
     Tuple,
 )
 
-class TypeError(Exception):
-    """
-    Exception class for errors encountered while type checking.
-
-    ...
-
-    Attributes
-    ----------
-    expression: str
-    message: str
-
-    """
-    def __init__(
-        self,
-        expression: str,
-        additional_message: str=''
-    ) -> None:
-        self.expression = expression
-        self.message = "Invalid type: "
-        self.additional_message = additional_message
-
-    def __str__(self) -> str:
-
-        return f'{self.message} {self.expression}. {self.additional_message}'
-
-class BasicType(Enum):
-
-    INT = 'Int'
-    BOOL = 'Bool'
-    STRING = 'String'
-    VOID = 'Void'
-    OBJECT = 'Object'
-
-    def __str__(self):
-        return str(self.value)
-
-class FunctionType():
-
-    basic_type_list: List[Any]
-
-    def __init__(self, basic_type_list: List[Any]) -> None:
-        self.basic_type_list = basic_type_list
-
-
-TYPE_CONVERSION_DICT: Dict[str, "BasicType"] = {
-    'Int': BasicType.INT,
-    'Bool': BasicType.BOOL,
-    'String': BasicType.STRING,
-    'Void': BasicType.VOID,
-}
+from jlite_type import (
+    TypeCheckError,
+    BasicType,
+    FunctionType,
+    TYPE_CONVERSION_DICT
+)
 
 
 class ASTNode:
@@ -205,7 +157,7 @@ class ASTNode:
                     break
 
             if not found and self.value != 'null':
-                raise TypeError(self.type, "Unknown type declared.")
+                raise TypeCheckError(self.type, "Unknown type declared.")
 
     def _assign_identifier_type(
         self,
@@ -295,7 +247,7 @@ class ASTNode:
                             if debug:
                                 sys.stdout.write("Current type: " + self.type + '\n')
 
-                            raise TypeError(self.value, 'Identifier is of the wrong type')
+                            raise TypeCheckError(self.value, 'Identifier is of the wrong type')
 
                         # Terminate while loop
                         env_checked = True
@@ -306,13 +258,13 @@ class ASTNode:
 
         if not found:
             if self.type:
-                raise TypeError(str(self.value), "Undeclared type of " + str(self.type))
+                raise TypeCheckError(str(self.value), "Undeclared type of " + str(self.type))
             else:
-                raise TypeError(str(self.value), "Undeclared variable")
+                raise TypeCheckError(str(self.value), "Undeclared variable")
 
     def type_check(
         self,
-        env: List[Deque[Any]]=None,
+        env: List[Deque[Any]],
         debug: bool=False,
         within_class: str='',
         return_type: Any=None,
@@ -324,12 +276,12 @@ class ASTNode:
             try:
                 temp = int(self.value)
             except:
-                raise TypeError(self.value)
+                raise TypeCheckError(self.value)
 
         # Type checking string to be of boolean type if 'true' or 'false'
         if self.value == 'true' or self.value == 'false':
             if self.type != 'Bool':
-                raise TypeError(self.value)
+                raise TypeCheckError(self.value)
         '''
 
         if debug:
@@ -451,7 +403,7 @@ class MainClassNode(ASTNode):
 
                 if current_class:
                     if current_class.class_name in class_names:
-                        raise TypeError(current_class.class_name, "Class has the same name as an earlier declared class.")
+                        raise TypeCheckError(current_class.class_name, "Class has the same name as an earlier declared class.")
                     else:
                         class_names.append(current_class.class_name)
 
@@ -732,7 +684,7 @@ class ClassDeclNode(ASTNode):
 
             if current_var:
                 if current_var.value in var_names:
-                    raise TypeError(str(current_var.value), "Field has the same name as an earlier declared field in class: [" + str(self.class_name) + "]\n")
+                    raise TypeCheckError(str(current_var.value), "Field has the same name as an earlier declared field in class: [" + str(self.class_name) + "]\n")
                 else:
                     var_names.append(current_var.value)
 
@@ -753,7 +705,7 @@ class ClassDeclNode(ASTNode):
 
             if current_md:
                 if current_md.method_name in md_names:
-                    raise TypeError(str(current_md.method_name), "Method has the same name as an earlier declared method in class: [" + str(self.class_name) + "]\n")
+                    raise TypeCheckError(str(current_md.method_name), "Method has the same name as an earlier declared method in class: [" + str(self.class_name) + "]\n")
                 else:
                     md_names.append(current_md.method_name)
 
@@ -762,7 +714,7 @@ class ClassDeclNode(ASTNode):
 
     def type_check(
         self,
-        env: List[Deque[Any]]=None,
+        env: List[Deque[Any]],
         debug: bool=False,
         within_class: str='',
         return_type: Any=None,
@@ -939,7 +891,7 @@ class MdDeclNode(ASTNode):
                 if current_arg:
 
                     if current_arg.value in arg_names:
-                        raise TypeError(current_arg.value, "Argument has the same name as an earlier declared argument.")
+                        raise TypeCheckError(current_arg.value, "Argument has the same name as an earlier declared argument.")
                     else:
                         arg_names.append(current_arg.value)
 
@@ -949,7 +901,7 @@ class MdDeclNode(ASTNode):
 
     def type_check(
         self,
-        env: List[Deque[Any]]=None,
+        env: List[Deque[Any]],
         debug: bool=False,
         within_class: str='',
         return_type: Any=None,
@@ -1093,9 +1045,9 @@ class ArithmeticOpNode(DualOperandNode):
 
         if self.value in ('*/-'):
             if self.left_operand.type != BasicType.INT and self.left_operand.value != 'null':
-                raise TypeError(self.left_operand.value)
-            elif self.right_operand.type != BasicType.INT and self.right_operand_value != ' null':
-                raise TypeError(self.right_operand.value)
+                raise TypeCheckError(self.left_operand.value)
+            elif self.right_operand.type != BasicType.INT and self.right_operand.value != ' null':
+                raise TypeCheckError(self.right_operand.value)
 
             # Set type as Int once operands have been type-checked
             self.type = BasicType.INT
@@ -1111,7 +1063,7 @@ class ArithmeticOpNode(DualOperandNode):
                     self.type = BasicType.INT
 
                 else:
-                    raise TypeError(self.right_operand.value, "Right operand is not an integer.")
+                    raise TypeCheckError(self.right_operand.value, "Right operand is not an integer.")
 
             elif self.left_operand.type == BasicType.STRING:
                 if self.right_operand.type == BasicType.STRING or self.right_operand.value == 'null':
@@ -1119,7 +1071,7 @@ class ArithmeticOpNode(DualOperandNode):
                     self.type = BasicType.STRING
 
                 else:
-                    raise TypeError(self.right_operand.value, "Right operand is not a string.")
+                    raise TypeCheckError(self.right_operand.value, "Right operand is not a string.")
 
         if debug:
             sys.stdout.write("ArithmeticOpNode - Type check successfully completed with assigned type: " +  \
@@ -1147,12 +1099,12 @@ class BinOpNode(DualOperandNode):
         self.left_operand.type_check(env, debug, within_class, return_type)
 
         if self.left_operand.type != BasicType.BOOL:
-            raise TypeError(self.left_operand.value)
+            raise TypeCheckError(self.left_operand.value)
 
         self.right_operand.type_check(env, debug, within_class, return_type)
 
         if self.right_operand.type != BasicType.BOOL:
-            raise TypeError(self.right_operand.value)
+            raise TypeCheckError(self.right_operand.value)
 
         self.type = BasicType.BOOL
 
@@ -1191,7 +1143,7 @@ class RelOpNode(DualOperandNode):
             if self.value in ['<', '>', '<=', '>=']:
 
                 if self.left_operand.type != BasicType.INT:
-                    raise TypeError(self.left_operand.value)
+                    raise TypeCheckError(self.left_operand.value)
 
         if self.right_operand:
 
@@ -1209,7 +1161,7 @@ class RelOpNode(DualOperandNode):
 
             if self.value in ['<', '>', '<=', '>=']:
                 if self.right_operand.type != BasicType.INT:
-                    raise TypeError(self.right_operand.value)
+                    raise TypeCheckError(self.right_operand.value)
 
         self.type = BasicType.BOOL
 
@@ -1274,7 +1226,7 @@ class AssignmentNode(ASTNode):
         self.assigned_value.type_check(env_copy, debug, within_class, return_type)
 
         if self.assigned_value.type != self.identifier.type and self.assigned_value.value != 'null':
-            raise TypeError(str(self.identifier.value), 'Assigned value type [' + str(self.assigned_value.type) + \
+            raise TypeCheckError(str(self.identifier.value), 'Assigned value type [' + str(self.assigned_value.type) + \
                 '] does not match declared identifier type [' + str(self.identifier.type) +']')
 
         if debug:
@@ -1443,7 +1395,7 @@ class InstanceNode(ASTNode):
 
                                 # Simple check for number of arguments
                                 if current_args_count != expected_args_count:
-                                    raise TypeError(
+                                    raise TypeCheckError(
                                         str(self.atom.value)+'.'+str(self.identifier.value)+ '()',
                                         'Function expected ' + str(expected_args_count) + \
                                         ' arguments but got ' + str(current_args_count)
@@ -1464,14 +1416,14 @@ class InstanceNode(ASTNode):
 
                                     # Checks if argument has been declared
                                     if not current_arg_type:
-                                        raise TypeError(
+                                        raise TypeCheckError(
                                             str(self.atom.value)+'.'+str(self.identifier.value)+ '()',
                                             'Undeclared argument.'
                                         )
 
                                     # Checks if argument matches expected type
                                     if current_arg_type != expected_args[i]:
-                                        raise TypeError(
+                                        raise TypeCheckError(
                                             str(self.atom.value)+'.'+str(self.identifier.value)+ '()',
                                             'Function expected ' + str(expected_args[i]) + ' but got ' + str(current_arg_type) + ' instead.\n'
                                         )
@@ -1483,7 +1435,7 @@ class InstanceNode(ASTNode):
                                         )
 
                             if not method_found:
-                                raise TypeError(str(self.atom.value)+'.'+str(self.identifier.value), 'Unable to locate function in given class')
+                                raise TypeCheckError(str(self.atom.value)+'.'+str(self.identifier.value), 'Unable to locate function in given class')
 
                     env_checked = True
                     break
@@ -1503,7 +1455,7 @@ class InstanceNode(ASTNode):
                         identifier_found = True
 
                     if not identifier_found:
-                        raise TypeError(str(self.atom.value), "Variable is not defined in class.")
+                        raise TypeCheckError(str(self.atom.value), "Variable is not defined in class.")
 
                     env_checked = True
                     break
@@ -1512,7 +1464,7 @@ class InstanceNode(ASTNode):
                 env_checked = True
 
         if not class_found:
-            raise TypeError(str(self.atom.value), 'Unable to locate given class')
+            raise TypeCheckError(str(self.atom.value), 'Unable to locate given class')
 
         if debug:
             sys.stdout.write("InstanceNode type check successfully completed.\n")
@@ -1598,7 +1550,7 @@ class ReturnNode(ASTNode):
             self.type = BasicType.VOID
 
         if self.type != return_type:
-            raise TypeError(self.return_value, "Return type " + str(self.return_value.type) + \
+            raise TypeCheckError(self.return_value, "Return type " + str(self.return_value.type) + \
                 " is different from declared: " + str(return_type))
 
         if debug:
@@ -1771,7 +1723,7 @@ class ReadLnNode(ASTNode):
             sys.stdout.write("ReadLnNode - identifier " + self.identifier.value + " with type: " + str(self.identifier.type) + '\n')
 
         if self.identifier.type not in [BasicType.INT, BasicType.STRING, BasicType.BOOL]:
-            raise TypeError(self.identifier.value, 'Invalid readln type')
+            raise TypeCheckError(self.identifier.value, 'Invalid readln type')
 
         if debug:
             sys.stdout.write("ReadLnNode type check successfully completed.\n")
@@ -1810,7 +1762,7 @@ class PrintLnNode(ASTNode):
             sys.stdout.write("PrintLnNode - Type assigned to expression: " + str(self.expression.type) + '\n')
 
         if self.expression.type not in [BasicType.INT, BasicType.STRING, BasicType.BOOL]:
-            raise TypeError(self.expression.value, 'Invalid println type')
+            raise TypeCheckError(self.expression.value, 'Invalid println type')
 
         if debug:
             sys.stdout.write("PrintLnNode type check successfully completed.\n")
@@ -1979,7 +1931,7 @@ class NegationNode(ASTNode):
         self.negated_expression.type_check(env, debug, within_class)
 
         if self.negated_expression.type != BasicType.INT:
-            raise TypeError(self.negated_expression.value)
+            raise TypeCheckError(self.negated_expression.value)
 
         self.type = BasicType.INT
 
@@ -2025,7 +1977,7 @@ class ComplementNode(ASTNode):
         self.complement_expression.type_check(env, debug, within_class)
 
         if self.complement_expression.type != BasicType.BOOL:
-            raise TypeError(self.complement_expression.value, "Complement expression is not of boolean type.")
+            raise TypeCheckError(self.complement_expression.value, "Complement expression is not of boolean type.")
 
         self.type = BasicType.BOOL
 
