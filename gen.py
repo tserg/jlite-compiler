@@ -424,18 +424,22 @@ class IR3Generator:
                 sys.stdout.write("Getting Stmt - Assignment detected.\n")
                 sys.stdout.write("Getting Stmt - Identifier: " + str(ast_node.identifier) + "\n")
 
+            new_stmt_node = Assignment3Node()
+
             if isinstance(ast_node.identifier, InstanceNode):
 
                 if self.debug:
                     sys.stdout.write("Getting Stmt - Class attribute assignment detected.\n")
 
-                new_stmt_node = ClassAttributeAssignment3Node(
+                class_attribute_node = ClassAttribute3Node(
                     ast_node.identifier.atom.value,
                     ast_node.identifier.identifier.value
                 )
 
+                new_stmt_node.set_identifier(class_attribute_node)
+
             else:
-                new_stmt_node = Assignment3Node()
+
                 new_stmt_node.set_identifier(ast_node.identifier.value)
 
             if type(ast_node.assigned_value) == ASTNode:
@@ -525,7 +529,7 @@ class IR3Generator:
             if_goto_node.add_child(else_expression_node)
             last_of_else_expression = self._get_last_child(self._get_last_sibling(else_expression_node))
             last_of_else_expression.add_child(goto_end_node)
-            
+
             goto_end_node.add_child(if_expression_label_node)
             if_expression_label_node.add_child(if_expression_node)
 
@@ -620,10 +624,6 @@ class IR3Generator:
                     sys.stdout.write("Getting Stmt - No return value detected.\n")
 
                 new_stmt_node = Return3Node()
-
-        else:
-
-            new_stmt_node = None
 
         if ast_node.sibling:
             new_stmt_node = self._get_stmt(symbol_table, ast_node.sibling, new_stmt_node)
@@ -818,7 +818,17 @@ class IR3Generator:
 
             else:
                 # <id3>.<id3>
-                new_exp_node = None
+                if self.debug:
+                    sys.stdout.write("Getting Exp - Class attribute detected.\n")
+
+                new_exp_node = ClassAttribute3Node(
+                    target_class=ast_node.atom.value,
+                    target_attribute=ast_node.identifier.value
+                )
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - Class identifier: " + str(ast_node.atom.value) + "\n")
+                    sys.stdout.write("Getting Exp - Class attribute: " + str(ast_node.identifier.value) + "\n")
 
         elif isinstance(ast_node, ClassInstanceNode):
             # new <cname>()
@@ -830,9 +840,6 @@ class IR3Generator:
 
         elif isinstance(ast_node, BinOpNode) or isinstance(ast_node, ArithmeticOpNode):
             # <idc3> <Bop3> <idc3>
-            new_exp_node = None
-
-
 
             if self.debug:
                 sys.stdout.write("Getting Exp - ArithmeticOp node detected.\n")
@@ -999,6 +1006,7 @@ class IR3Generator:
                     return IR3Node(ast_node.value)
                 else:
                     new_exp_node = None
+
             else:
                 # <Const>
                 if self.debug:

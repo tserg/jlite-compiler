@@ -375,6 +375,33 @@ class ClassInstance3Node(IR3Node):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
+class ClassAttribute3Node(IR3Node):
+
+    target_class: str
+    target_attribute: str
+
+    def __init__(
+        self,
+        target_class: str,
+        target_attribute: str,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.target_class = target_class
+        self.target_attribute = target_attribute
+
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
+
+        sys.stdout.write(preceding + str(self.target_class) + \
+            "." + str(self.target_attribute))
+
+        if self.child:
+            self.child.pretty_print(delimiter, preceding)
+
+        if self.sibling:
+            self.sibling.pretty_print(delimiter, preceding)
+
 class DeclAssignment3Node(IR3Node):
 
     def __init__(self, *args, **kwargs) -> None:
@@ -382,7 +409,7 @@ class DeclAssignment3Node(IR3Node):
 
 class Assignment3Node(IR3Node):
 
-    identifier: str
+    identifier: Any
     assigned_value: Any
 
     def __init__(self, *args, **kwargs) -> None:
@@ -390,7 +417,7 @@ class Assignment3Node(IR3Node):
         self.identifier = None
         self.assigned_value = None
 
-    def set_identifier(self, identifier: str) -> None:
+    def set_identifier(self, identifier: Any) -> None:
         self.identifier = identifier
 
     def set_assigned_value(self, assigned_value: Any) -> None:
@@ -398,8 +425,12 @@ class Assignment3Node(IR3Node):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        if self.identifier:
-            sys.stdout.write(preceding + str(self.identifier) + " = ")
+        sys.stdout.write(preceding)
+        if isinstance(self.identifier, IR3Node):
+            self.identifier.pretty_print()
+        else:
+            sys.stdout.write(self.identifier)
+        sys.stdout.write(" = ")
 
         if self.assigned_value:
             try:
@@ -408,30 +439,6 @@ class Assignment3Node(IR3Node):
                 sys.stdout.write(str(self.assigned_value))
 
         sys.stdout.write(";\n")
-
-        if self.child:
-            self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
-
-class ClassAttributeAssignment3Node(IR3Node):
-
-    identifier: str
-    attribute: str
-    assigned_value: str
-
-    def __init__(self, identifier: str, attribute: str, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.identifier = identifier
-        self.attribute = attribute
-
-    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
-
-        sys.stdout.write(str(self.identifier) + "." + str(self.attribute) + " = ")
-
-        if self.assigned_value:
-            self.assigned_value.pretty_print(delimiter, preceding)
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
