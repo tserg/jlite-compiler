@@ -15,18 +15,23 @@ class SymbolTable:
 
     # Mappings of value to [type, state, scope, temp_id]
     st: Deque[Dict[Any, Any]]
+    current_scope_depth: int
 
     def __init__(self):
         self.st = deque()
+        self.current_scope_depth = 0
 
     def add_empty_st(self):
-
         self.st.append({})
+        self.current_scope_depth += 1
 
     def pop_st(self):
         self.st.pop()
+        self.current_scope_depth -= 1
 
-    def insert(self, value: str, type: Any, temp_id: str=None, scope: str=None, state: Any=None) -> None:
+    def insert(self, value: str, type: Any, temp_id: str=None, state: Any=None) -> None:
+
+        scope = self.current_scope_depth
 
         if len(self.st) == 0:
             new_st = {}

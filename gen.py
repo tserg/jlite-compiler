@@ -91,7 +91,6 @@ class IR3Generator:
                         md[0],
                         md[1],
                         "%" + str(class_name) + "_" +  str(i),
-                        "class_methods"
                     )
 
         return symbol_table
