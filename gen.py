@@ -122,6 +122,10 @@ class IR3Generator:
 
         return last_node
 
+    def _get_last_child_of_last_sibling(self, ir3_node: Any) -> Any:
+
+        return self._get_last_child(self._get_last_sibling(ir3_node))
+
     def _generate_ir3(self):
 
         # Reset label count
@@ -409,7 +413,7 @@ class IR3Generator:
                     sys.stdout.write("Getting Stmt - PrintLn value is an expression.\n")
 
                 expression_node = self._get_exp3(symbol_table, ast_node.expression)
-                last_of_expression = self._get_last_child(expression_node)
+                last_of_expression = self._get_last_child_of_last_sibling(expression_node)
 
                 println_node = PrintLn3Node(expression=last_of_expression.identifier)
                 last_of_expression.add_child(println_node)
@@ -458,9 +462,9 @@ class IR3Generator:
                     sys.stdout.write("Getting Stmt - AssignmentNode - Expression found: " + str(expression_node) + "\n")
 
                 if expression_node.child:
-                    expression_last_child_node = self._get_last_child(expression_node)
-                    new_stmt_node.set_assigned_value(expression_last_child_node.identifier)
-                    expression_last_child_node.add_child(new_stmt_node)
+                    expression_last_node = self._get_last_child_of_last_sibling(expression_node)
+                    new_stmt_node.set_assigned_value(expression_last_node.identifier)
+                    expression_last_node.add_child(new_stmt_node)
 
                     new_stmt_node = expression_node
                 else:
@@ -482,11 +486,11 @@ class IR3Generator:
             if self.debug:
                 sys.stdout.write("Getting Stmt - Condition node created: " + str(condition_node)+ "\n")
 
-            condition_last_child_node = self._get_last_child(self._get_last_sibling(condition_node))
+            condition_last_node = self._get_last_child_of_last_sibling(condition_node)
 
             condition_last_child_id = condition_node.value
-            if condition_last_child_node != condition_node:
-                condition_last_child_id = condition_last_child_node.identifier
+            if condition_last_node != condition_node:
+                condition_last_child_id = condition_last_node.identifier
 
             if_goto_node = IfGoTo3Node(
                 rel_exp=condition_last_child_id,
@@ -519,20 +523,20 @@ class IR3Generator:
 
             # Link nodes together
 
-            if condition_last_child_node != condition_node:
-                condition_last_child_node.add_child(if_goto_node)
+            if condition_last_node != condition_node:
+                condition_last_node.add_child(if_goto_node)
                 new_stmt_node = condition_node
             else:
                 new_stmt_node = if_goto_node
 
             if_goto_node.add_child(else_expression_node)
-            last_of_else_expression = self._get_last_child(self._get_last_sibling(else_expression_node))
+            last_of_else_expression = self._get_last_child_of_last_sibling(else_expression_node)
             last_of_else_expression.add_child(goto_end_node)
 
             goto_end_node.add_child(if_expression_label_node)
             if_expression_label_node.add_child(if_expression_node)
 
-            last_of_if_expression_node = self._get_last_child(self._get_last_sibling(if_expression_node))
+            last_of_if_expression_node = self._get_last_child_of_last_sibling(if_expression_node)
             last_of_if_expression_node.add_child(end_expression_label_node)
 
         elif isinstance(ast_node, WhileNode):
@@ -553,17 +557,17 @@ class IR3Generator:
                 sys.stdout.write("Getting Stmt - While loop - Condition node created: " + str(condition_node) +"\n")
                 sys.stdout.write("Getting Stmt - While loop - Condition node value: " + str(condition_node.value) +"\n")
 
-            condition_last_child_node = self._get_last_child(condition_node)
+            condition_last_node = self._get_last_child_of_last_sibling(condition_node)
 
             if self.debug:
-                sys.stdout.write("Getting Stmt - While loop - Last child of condition found: " + str(condition_last_child_node) +"\n")
+                sys.stdout.write("Getting Stmt - While loop - Last child of condition found: " + str(condition_last_node) +"\n")
 
-            if type(condition_last_child_node) == IR3Node:
-                if_true_goto_node = IfGoTo3Node(condition_last_child_node.value, while_loop_expression_start_label_node.label_id)
+            if type(condition_last_node) == IR3Node:
+                if_true_goto_node = IfGoTo3Node(condition_last_node.value, while_loop_expression_start_label_node.label_id)
                 new_stmt_node = while_loop_start_label_node
             else:
-                if_true_goto_node = IfGoTo3Node(condition_last_child_node.identifier, while_loop_expression_start_label_node.label_id)
-                condition_last_child_node.add_child(while_loop_start_label_node)
+                if_true_goto_node = IfGoTo3Node(condition_last_node.identifier, while_loop_expression_start_label_node.label_id)
+                condition_last_node.add_child(while_loop_start_label_node)
                 new_stmt_node = condition_node
 
             while_expression = None
@@ -583,8 +587,8 @@ class IR3Generator:
 
             if ast_node.while_expression:
                 while_loop_expression_start_label_node.add_child(while_expression_node)
-                while_expression_last_child_node = self._get_last_child(self._get_last_sibling(while_expression_node))
-                while_expression_last_child_node.add_child(goto_while_start_node)
+                while_expression_last_node = self._get_last_child_of_last_sibling(while_expression_node)
+                while_expression_last_node.add_child(goto_while_start_node)
             else:
                 while_loop_expression_start_label_node.add_child(goto_while_start_node)
 
@@ -675,11 +679,11 @@ class IR3Generator:
                 if self.debug:
                     sys.stdout.write("Getting Exp - NegationNode - Negated expression node created: " + str(negated_exp_node) + "\n")
 
-                negated_exp_last_child_node = self._get_last_child(self._get_last_sibling(negated_exp_node))
+                negated_exp_last_node = self._get_last_child_of_last_sibling(negated_exp_node)
 
                 negated_exp_last_child_id = negated_exp_node.value
-                if negated_exp_last_child_node != negated_exp_node:
-                    negated_exp_last_child_id = negated_exp_last_child_node.identifier
+                if negated_exp_last_node != negated_exp_node:
+                    negated_exp_last_child_id = negated_exp_last_node.identifier
 
                 # Create new temporary variable
 
@@ -696,8 +700,8 @@ class IR3Generator:
                 negation_node = UnaryOp3Node(operator='-', operand=negated_exp_last_child_id)
                 temp_var_assignment_node.set_assigned_value(negation_node)
 
-                if negated_exp_last_child_node != negated_exp_node:
-                    negated_exp_last_child_node.add_child(temp_var_node)
+                if negated_exp_last_node != negated_exp_node:
+                    negated_exp_last_node.add_child(temp_var_node)
                     temp_var_node.add_child(temp_var_assignment_node)
                     new_exp_node = negated_exp_node
                 else:
@@ -711,11 +715,11 @@ class IR3Generator:
                 if self.debug:
                     sys.stdout.write("Getting Exp - ComplementNode - Complement expression node created: " + str(complement_exp_node) + "\n")
 
-                complement_exp_last_child_node = self._get_last_child(self._get_last_sibling(complement_exp_node))
+                complement_exp_last_node = self._get_last_child_of_last_sibling(complement_exp_node)
 
                 complement_exp_last_child_id = complement_exp_node.value
-                if complement_exp_last_child_node != complement_exp_node:
-                    complement_exp_last_child_id = complement_exp_last_child_node.identifier
+                if complement_exp_last_node != complement_exp_node:
+                    complement_exp_last_child_id = complement_exp_last_node.identifier
 
                 # Create new temporary variable
 
@@ -732,8 +736,8 @@ class IR3Generator:
                 complement_node = UnaryOp3Node(operator='!', operand=complement_exp_last_child_id)
                 temp_var_assignment_node.set_assigned_value(complement_node)
 
-                if complement_exp_last_child_node != complement_exp_node:
-                    complement_exp_last_child_node.add_child(temp_var_node)
+                if complement_exp_last_node != complement_exp_node:
+                    complement_exp_last_node.add_child(temp_var_node)
                     temp_var_node.add_child(temp_var_assignment_node)
                     new_exp_node = complement_exp_node
                 else:
@@ -758,16 +762,16 @@ class IR3Generator:
             temp_var_assignment_node = Assignment3Node()
             temp_var_assignment_node.set_identifier(temp_var)
 
-            left_operand_last_child_node = self._get_last_child(self._get_last_sibling(left_operand_node))
-            right_operand_last_child_node = self._get_last_child(self._get_last_sibling(right_operand_node))
+            left_operand_last_node = self._get_last_child_of_last_sibling(left_operand_node)
+            right_operand_last_node = self._get_last_child_of_last_sibling(right_operand_node)
 
             left_operand_last_child_id = left_operand_node.value
-            if left_operand_last_child_node != left_operand_node:
-                left_operand_last_child_id = left_operand_last_child_node.identifier
+            if left_operand_last_node != left_operand_node:
+                left_operand_last_child_id = left_operand_last_node.identifier
 
             right_operand_last_child_id = right_operand_node.value
-            if right_operand_last_child_node != right_operand_node:
-                right_operand_last_child_id = right_operand_last_child_node.identifier
+            if right_operand_last_node != right_operand_node:
+                right_operand_last_child_id = right_operand_last_node.identifier
 
 
             relop_node = RelOp3Node(
@@ -778,15 +782,15 @@ class IR3Generator:
 
             temp_var_assignment_node.set_assigned_value(relop_node)
 
-            if left_operand_last_child_node == left_operand_node and right_operand_last_child_node == right_operand_node:
+            if left_operand_last_node == left_operand_node and right_operand_last_node == right_operand_node:
                 new_exp_node = temp_var_node
 
-            elif left_operand_last_child_node == left_operand_node:
+            elif left_operand_last_node == left_operand_node:
                 new_exp_node = right_operand_node
-                right_operand_last_child_node.add_child(temp_var_node)
+                right_operand_last_node.add_child(temp_var_node)
 
-            elif right_operand_last_child_node == right_operand_node:
-                left_operand_last_child_node.add_child(temp_var_node)
+            elif right_operand_last_node == right_operand_node:
+                left_operand_last_node.add_child(temp_var_node)
                 new_exp_node = left_operand_node
 
             temp_var_node.add_child(temp_var_assignment_node)
@@ -873,30 +877,30 @@ class IR3Generator:
             temp_var_assignment_node.set_identifier(temp_var)
 
             # Get last node of left operand
-            left_operand_last_child_node = self._get_last_child(left_operand_node)
+            left_operand_last_node = self._get_last_child_of_last_sibling(left_operand_node)
 
             if self.debug:
-                sys.stdout.write("Getting Exp - ArithmeticOp node [Last child of left operand]: " + str(left_operand_last_child_node) + "\n")
+                sys.stdout.write("Getting Exp - ArithmeticOp node [Last child of left operand]: " + str(left_operand_last_node) + "\n")
 
             try:
-                left_operand_value = left_operand_last_child_node.identifier
+                left_operand_value = left_operand_last_node.identifier
             except:
-                left_operand_value = left_operand_last_child_node.value
+                left_operand_value = left_operand_last_node.value
 
             if self.debug:
                 sys.stdout.write("Getting Exp - ArithmeticOp node left operand value: " + str(left_operand_value) + "\n")
 
 
             # Get last node of right operand
-            right_operand_last_child_node = self._get_last_child(right_operand_node)
+            right_operand_last_node = self._get_last_child_of_last_sibling(right_operand_node)
 
             if self.debug:
-                sys.stdout.write("Getting Exp - ArithmeticOp node [Last child of right operand]: " + str(left_operand_last_child_node) + "\n")
+                sys.stdout.write("Getting Exp - ArithmeticOp node [Last child of right operand]: " + str(left_operand_last_node) + "\n")
 
             try:
-                right_operand_value = right_operand_last_child_node.identifier
+                right_operand_value = right_operand_last_node.identifier
             except:
-                right_operand_value = right_operand_last_child_node.value
+                right_operand_value = right_operand_last_node.value
 
             if self.debug:
                 sys.stdout.write("Getting Exp - ArithmeticOp node right operand value: " + str(right_operand_value) + "\n")
@@ -927,7 +931,7 @@ class IR3Generator:
                 if self.debug:
                     sys.stdout.write("Getting Exp - ArithmeticOp node - Right operand is constant.\n")
 
-                left_operand_last_child_node.add_child(temp_var_node)
+                left_operand_last_node.add_child(temp_var_node)
                 temp_var_node.add_child(temp_var_assignment_node)
 
                 new_exp_node = left_operand_node
@@ -937,14 +941,14 @@ class IR3Generator:
                 if self.debug:
                     sys.stdout.write("Getting Exp - ArithmeticOp node - Left operand is constant.\n")
 
-                right_operand_last_child_node.add_child(temp_var_node)
+                left_operand_last_node.add_child(temp_var_node)
                 temp_var_node.add_child(temp_var_assignment_node)
 
                 new_exp_node = right_operand_node
 
             else:
-                left_operand_last_child_node.add_child(right_operand_node)
-                right_operand_last_child_node.add_child(temp_var_node)
+                left_operand_last_node.add_child(right_operand_node)
+                right_operand_last_node.add_child(temp_var_node)
                 temp_var_node.add_child(temp_var_assignment_node)
 
                 new_exp_node = left_operand_node
@@ -966,7 +970,7 @@ class IR3Generator:
 
                 assigned_value_expression_node = self._get_exp3(symbol_table, ast_node.assigned_value)
 
-                assigned_value_expression_last_child = self._get_last_child(assigned_value_expression_node)
+                assigned_value_expression_last_child = self._get_last_child_of_last_sibling(assigned_value_expression_node)
 
                 assignment_node = Assignment3Node()
                 assignment_node.set_identifier(ast_node.identifier.value)
@@ -1001,10 +1005,7 @@ class IR3Generator:
                 if self.debug:
                     sys.stdout.write("Getting Exp - Checking if identifier is found in symbol table: " + str(identifier) + "\n")
 
-                if identifier:
                     return IR3Node(ast_node.value)
-                else:
-                    new_exp_node = None
 
             else:
                 # <Const>
@@ -1080,7 +1081,6 @@ def __main__():
         f = open(filepath, 'r')
         gen = IR3Generator(debug=True)
         gen.generate_ir3(f)
-
         gen.pretty_print()
 
 if __name__ == "__main__":
