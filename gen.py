@@ -951,6 +951,8 @@ class IR3Generator:
                 sys.stdout.write("Getting Exp - ArithmeticOp left operand: " + str(ast_node.left_operand) + "\n")
                 sys.stdout.write("Getting Exp - ArithmeticOp left operand: " + str(ast_node.left_operand.value) + "\n")
 
+                sys.stdout.write("Getting Exp - ArithmeticOp operator: " + str(ast_node.value) + "\n")
+
                 sys.stdout.write("Getting Exp - ArithmeticOp right operand: " + str(ast_node.right_operand) + "\n")
                 sys.stdout.write("Getting Exp - ArithmeticOp right operand: " + str(ast_node.right_operand.value) + "\n")
 
@@ -1043,7 +1045,7 @@ class IR3Generator:
                 if self.debug:
                     sys.stdout.write("Getting Exp - ArithmeticOp node - Left operand is constant.\n")
 
-                left_operand_last_node.add_child(temp_var_node)
+                right_operand_last_node.add_child(temp_var_node)
                 temp_var_node.add_child(temp_var_assignment_node)
 
                 new_exp_node = right_operand_node
