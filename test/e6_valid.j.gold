@@ -3,6 +3,11 @@
 class Main{
 }
 
+class OrderMacs{
+  Bool c;
+  Int i;
+}
+
 =======CMtd3 =======
 
 Void main(Main this, String a, String b, Bool c, Int d) {
@@ -63,3 +68,6 @@ Int %OrderMacs_0(OrderMacs this) {
   readln(i);
  Label 7:
 }
+
+
+=====fx== End of IR3 Program =======
