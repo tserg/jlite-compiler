@@ -13,7 +13,7 @@ from typing import (
 
 class SymbolTable:
     """
-    IR3 Generator instance to generate IR3 tree from Parser's AST
+    Symbol table stack for managing symbol tables
     ...
 
     Attributes

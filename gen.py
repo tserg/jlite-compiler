@@ -19,7 +19,7 @@ from parse import (
     Parser,
 )
 
-from symbol_table import SymbolTable
+from symbol_table import SymbolTableStack
 
 from ast import (
     ASTNode,
@@ -158,7 +158,7 @@ class IR3Generator:
         """
         self.parser.get_initial_env()
 
-        symbol_table = SymbolTable()
+        symbol_table = SymbolTableStack()
 
         for j in range(1, len(self.parser.ast.initial_env)):
 
@@ -1051,6 +1051,7 @@ class IR3Generator:
                 new_exp_node = right_operand_node
 
             else:
+                # None of the operands are <id3>
                 left_operand_last_node.add_child(right_operand_node)
                 right_operand_last_node.add_child(temp_var_node)
                 temp_var_node.add_child(temp_var_assignment_node)
@@ -1059,8 +1060,6 @@ class IR3Generator:
 
             if self.debug:
                 sys.stdout.write("Getting Exp - ArithmeticOp completed.\n")
-
-
 
         elif isinstance(ast_node, AssignmentNode):
 
