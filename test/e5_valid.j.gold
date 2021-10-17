@@ -1,0 +1,58 @@
+======= CData3 =======
+
+class Main{
+}
+
+class CountToTen{
+  Int i;
+  Bool j;
+}
+
+=======CMtd3 =======
+
+Void main(Main this, Int a) {
+  Bool z;
+  String x;
+  println("Nothing goes here");
+}
+
+String %CountToTen_0(CountToTen this, Bool a) {
+  Int i;
+  Bool b;
+  Bool _t1;
+  _t1 = !a;
+  if (_t1) goto 1;
+  this.b = true;
+  Bool _t2;
+  _t2 = a && b;
+ Label 3:
+  if (_t2) goto 4;
+  goto 5;
+ Label 4:
+  Bool _t3;
+  _t3 = true;
+  Bool _t4;
+  _t4 = !_t3;
+  j = _t4;
+  goto 3;
+ Label 5:
+  goto 2;
+ Label 1:
+  i = -1;
+  String _t5;
+  _t5 = "False";
+  Return _t5;
+ Label 2:
+  String _t6;
+  _t6 = "Hello";
+  Return _t6;
+}
+
+Int %CountToTen_1(CountToTen this) {
+  Int _t7;
+  _t7 = 10;
+  Return _t7;
+}
+
+
+=====fx== End of IR3 Program =======

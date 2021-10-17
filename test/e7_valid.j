@@ -24,14 +24,14 @@ class Main {
  	  if (i>=18) {
  	  	is_smoker = true;
  	  } else {
-	  	return true;
+	  	return "haha";
 	  }
 
    }
 
    	Bool addSmoker() {
 
-		return new QuitSmoking();
+		return true;
 	}
 
  }

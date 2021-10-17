@@ -1,0 +1,72 @@
+======= CData3 =======
+
+class Main{
+}
+
+class QuitSmoking{
+  Bool is_smoker;
+  Int i;
+}
+
+=======CMtd3 =======
+
+Void main(Main this, Bool i, Bool j, Bool k) {
+  String z;
+  Int x;
+  Bool _t1;
+  _t1 = i != j;
+  Int _t2;
+  _t2 = 1;
+  Bool _t3;
+  _t3 = x < _t2;
+  Bool _t4;
+  _t4 = _t1 && _t3;
+  Bool _t5;
+  _t5 = !k;
+  Bool _t6;
+  _t6 = _t4 || _t5;
+ Label 1:
+  if (_t6) goto 2;
+  goto 3;
+ Label 2:
+ Label 4:
+  if (k) goto 5;
+  goto 6;
+ Label 5:
+  k = false;
+  goto 4;
+ Label 6:
+  String _t7;
+  _t7 = "a";
+  String _t8;
+  _t8 = "b";
+  String _t9;
+  _t9 = _t7 + _t8;
+  z = _t9;
+  goto 1;
+ Label 3:
+}
+
+String %QuitSmoking_0(QuitSmoking this, Int i) {
+  Int _t10;
+  _t10 = 18;
+  Bool _t11;
+  _t11 = i >= _t10;
+  if (_t11) goto 7;
+  String _t12;
+  _t12 = "haha";
+  Return _t12;
+  goto 8;
+ Label 7:
+  is_smoker = true;
+ Label 8:
+}
+
+Bool %QuitSmoking_1(QuitSmoking this) {
+  Bool _t13;
+  _t13 = true;
+  Return _t13;
+}
+
+
+=====fx== End of IR3 Program =======

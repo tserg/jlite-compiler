@@ -4,6 +4,7 @@ Void main(Int x){
 
    Int i;
    Int s;
+   Bool s;
    String result;
 
    while(true){

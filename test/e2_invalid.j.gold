@@ -1,0 +1,1 @@
+jlite_type.TypeCheckError: Invalid type:  s. Assigned value type [Int] does not match declared identifier type [Bool]
