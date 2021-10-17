@@ -270,20 +270,6 @@ class ASTNode:
         return_type: Any=None,
     ) -> None:
 
-        '''
-        # Type checking for Int
-        if self.type == 'Int':
-            try:
-                temp = int(self.value)
-            except:
-                raise TypeCheckError(self.value)
-
-        # Type checking string to be of boolean type if 'true' or 'false'
-        if self.value == 'true' or self.value == 'false':
-            if self.type != 'Bool':
-                raise TypeCheckError(self.value)
-        '''
-
         if debug:
             sys.stdout.write("Fallback to default ASTNode type checking for: " + self.value + '\n')
             sys.stdout.write("Type checking for: " + self.value + '\n')
@@ -1046,7 +1032,7 @@ class ArithmeticOpNode(DualOperandNode):
         if self.value in ('*/-'):
             if self.left_operand.type != BasicType.INT and self.left_operand.value != 'null':
                 raise TypeCheckError(self.left_operand.value)
-            elif self.right_operand.type != BasicType.INT and self.right_operand.value != ' null':
+            elif self.right_operand.type != BasicType.INT and self.right_operand.value != 'null':
                 raise TypeCheckError(self.right_operand.value)
 
             # Set type as Int once operands have been type-checked
@@ -1225,6 +1211,10 @@ class AssignmentNode(ASTNode):
 
         self.assigned_value.type_check(env_copy, debug, within_class, return_type)
 
+        if debug:
+            sys.stdout.write("AssignmentNode - Assigned value type found for " + \
+                str(self.assigned_value) + ": " + str(self.assigned_value.type)+ "\n")
+
         if self.assigned_value.type != self.identifier.type and self.assigned_value.value != 'null':
             raise TypeCheckError(str(self.identifier.value), 'Assigned value type [' + str(self.assigned_value.type) + \
                 '] does not match declared identifier type [' + str(self.identifier.type) +']')
@@ -1274,29 +1264,51 @@ class InstanceNode(ASTNode):
 
         if debug:
             sys.stdout.write("InstanceNode - Retrieving argument type for: " + current_arg + '\n')
+            sys.stdout.write("InstanceNode - _get_arg_type - Env received: " + str(env) + '\n')
 
         env_checked = False
-
+        found = False
         derived_type = None
+
+        env_copy = copy.deepcopy(env)
+
+        class_descriptor = env_copy[0]
+        local_environment = env_copy[1]
+
+        # Search local environment first
+        if len(local_environment) > 0:
+            for v in local_environment:
+                if current_arg == v[0]:
+                    derived_type = v[1]
+                    env_checked = True
+                    found = True
 
         while not env_checked:
 
-            if len(env) == 0:
+            if len(class_descriptor) == 0:
                 env_checked = True
+                break
 
-            current_class = env[0].pop()
+            current_class = class_descriptor.pop()
 
-            if current_class[1]:
+            if debug:
+                sys.stdout.write("InstanceNode - _get_arg_type - Current env class: " + str(current_class) + '\n')
 
-                for current_env in current_class[1]:
+            # If there are variables declared
+
+            var_decl = current_class[1][0]
+
+            if var_decl:
+
+                for var_declared in var_decl:
 
                     if debug:
                         sys.stdout.write("Current value: " + current_arg + '\n')
                         sys.stdout.write("Checking for current env: " + str(current_env) + '\n')
 
-                    if current_arg == current_env[0]:
+                    if current_arg == var_declared[0]:
 
-                        derived_type = current_env[1]
+                        derived_type = var_declared[1]
                         # Terminate while loop
                         env_checked = True
 
@@ -1315,7 +1327,8 @@ class InstanceNode(ASTNode):
 
         if debug:
             sys.stdout.write("InstanceNode with atom: " + self.atom.value + \
-            ", and identifier " + self.identifier.value + '\n')
+            ", and identifier " + self.identifier.value + \
+            ", and type: " + str(self.type) + '\n')
 
         self.atom.type_check(env, debug, within_class, return_type)
 
@@ -1328,6 +1341,12 @@ class InstanceNode(ASTNode):
 
         if debug:
             sys.stdout.write("InstanceNode - Type check completed for identifier with type ." + str(self.identifier.type) + '\n')
+
+        self.type = self.identifier.type
+
+        if debug:
+            sys.stdout.write("InstanceNode - Assigning identifier type to InstanceNode: " + str(self.identifier.type) + '\n')
+
 
         # Boolean for while loop
         env_checked = False
@@ -1361,7 +1380,7 @@ class InstanceNode(ASTNode):
 
                     method_found = False
 
-                    # Iterate through method in current class0
+                    # Iterate through method in current class
                     for md in current_class[1][1]:
 
                         # Checks if identifier name matches
@@ -1372,6 +1391,7 @@ class InstanceNode(ASTNode):
                                 sys.stdout.write("InstanceNode - Identifier found in environment.\n")
 
                             # Assign return type as type of current InstanceNode
+
                             self.type = md[2]
 
                             if debug:
@@ -1382,7 +1402,9 @@ class InstanceNode(ASTNode):
                             # Type check expression list if it exists
                             if isinstance(self.child, ExpListNode):
 
-                                self.child.type_check(env, debug, within_class, return_type)
+                                env_copy = copy.deepcopy(env)
+
+                                self.child.type_check(env_copy, debug, within_class, return_type)
 
                                 current_args = self.child.get_arguments(debug)
                                 current_args_count = len(current_args)
@@ -1412,7 +1434,8 @@ class InstanceNode(ASTNode):
                                             "InstanceNode - Checking for type of argument: " + current_arg + '\n'
                                         )
 
-                                    current_arg_type = self._get_arg_type(current_arg, env, debug)
+                                    env_copy2 = copy.deepcopy(env)
+                                    current_arg_type = self._get_arg_type(current_arg, env_copy2, debug)
 
                                     # Checks if argument has been declared
                                     if not current_arg_type:
@@ -1443,19 +1466,27 @@ class InstanceNode(ASTNode):
                 else:
 
                     identifier_found = False
+                    if debug:
+                        sys.stdout.write("InstanceNode - Current class information: " + str(current_class) + "\n")
 
                     for var in current_class[1][0]:
                         if debug:
-                            sys.stdout.write("InstanceNode - Atom and identifier found in environment.\n")
-                            sys.stdout.write("InstanceNode - Identifier found in environment.\n")
-
+                            sys.stdout.write("InstanceNode - Checking for identifier: " + str(var[0]) + "\n")
                         # Assign variable type as type of current InstanceNode
-                        self.type = var[1]
+                        if self.identifier.value == var[0]:
+                            if debug:
+                                sys.stdout.write("InstanceNode - Identifier value found: " + str(self.identifier.value) + "\n")
+
+                            self.type = var[1]
 
                         identifier_found = True
 
                     if not identifier_found:
                         raise TypeCheckError(str(self.atom.value), "Variable is not defined in class.")
+
+                    if debug:
+                        sys.stdout.write("InstanceNode - Atom and identifier found in environment.\n")
+                        sys.stdout.write("InstanceNode - Identifier found in environment.\n")
 
                     env_checked = True
                     break
@@ -1468,6 +1499,7 @@ class InstanceNode(ASTNode):
 
         if debug:
             sys.stdout.write("InstanceNode type check successfully completed.\n")
+            sys.stdout.write("InstanceNode assigned type: " + str(self.type) + "\n")
 
         if self.child:
             self.child.type_check(env, debug, within_class, return_type)
