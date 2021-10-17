@@ -1170,38 +1170,19 @@ class IR3Generator:
             # <idc3> <Bop3> <idc3>
 
             if self.debug:
-                sys.stdout.write("Getting Exp - ArithmeticOp node detected.\n")
-                sys.stdout.write("Getting Exp - ArithmeticOp left operand: " + \
+                sys.stdout.write("Getting Exp - BinOp/ArithmeticOp node detected.\n")
+                sys.stdout.write("Getting Exp - BinOp/ArithmeticOp left operand: " + \
                     str(ast_node.left_operand) + "\n")
-                sys.stdout.write("Getting Exp - ArithmeticOp left operand: " + \
+                sys.stdout.write("Getting Exp - BinOp/ArithmeticOp left operand: " + \
                     str(ast_node.left_operand.value) + "\n")
 
-                sys.stdout.write("Getting Exp - ArithmeticOp operator: " + \
+                sys.stdout.write("Getting Exp - BinOp/ArithmeticOp operator: " + \
                     str(ast_node.value) + "\n")
 
-                sys.stdout.write("Getting Exp - ArithmeticOp right operand: " + \
+                sys.stdout.write("Getting Exp - BinOp/ArithmeticOp right operand: " + \
                     str(ast_node.right_operand) + "\n")
-                sys.stdout.write("Getting Exp - ArithmeticOp right operand: " + \
+                sys.stdout.write("Getting Exp - BinOp/ArithmeticOp right operand: " + \
                     str(ast_node.right_operand.value) + "\n")
-
-            # Get left and right operands
-            left_operand_node = self._get_exp3(
-                symbol_table,
-                ast_node.left_operand
-            )
-
-            if self.debug:
-                sys.stdout.write("Getting Exp - ArithmeticOp left operand: " + \
-                    str(left_operand_node) + "\n")
-
-            right_operand_node = self._get_exp3(
-                symbol_table,
-                ast_node.right_operand
-            )
-
-            if self.debug:
-                sys.stdout.write("Getting Exp - ArithmeticOp right operand: " + \
-                    str(right_operand_node) + "\n")
 
             # Declare temporary variable
 
@@ -1211,12 +1192,59 @@ class IR3Generator:
 
             symbol_table.insert(temp_var, ast_node.type)
 
+            if isinstance(ast_node, ArithmeticOpNode) and \
+                type(ast_node.left_operand) == ASTNode and \
+                type(ast_node.right_operand) == ASTNode:
+
+                # Short circuit if it is an arithmetic operation and both operands
+                # are constants
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - "
+                        "Two constants short circuit.\n")
+
+                new_binop_node = BinOp3Node(
+                    type=ast_node.type,
+                    left_operand=ast_node.left_operand.value,
+                    right_operand=ast_node.right_operand.value,
+                    operator=ast_node.value
+                )
+
+                # Assign value to temporary variable
+
+                temp_var_assignment_node = Assignment3Node(type=ast_node.type)
+                temp_var_assignment_node.set_identifier(temp_var)
+                temp_var_assignment_node.set_assigned_value(new_binop_node)
+
+                temp_var_node.add_child(temp_var_assignment_node)
+                new_exp_node = temp_var_node
+                return new_exp_node
+
+            # Get left and right operands
+            left_operand_node = self._get_exp3(
+                symbol_table,
+                ast_node.left_operand
+            )
+
+            if self.debug:
+                sys.stdout.write("Getting Exp - BinOp/ArithmeticOp left operand: " + \
+                    str(left_operand_node) + "\n")
+
+            right_operand_node = self._get_exp3(
+                symbol_table,
+                ast_node.right_operand
+            )
+
+            if self.debug:
+                sys.stdout.write("Getting Exp - BinOp/ArithmeticOp right operand: " + \
+                    str(right_operand_node) + "\n")
+
             # Get last node of left operand
             left_operand_last_node = self._get_last_child(left_operand_node)
 
             if self.debug:
                 sys.stdout.write("Getting Exp - "
-                    "ArithmeticOp node [Last child of left operand]: " + \
+                    "BinOp/ArithmeticOp node [Last child of left operand]: " + \
                     str(left_operand_last_node) + "\n")
 
             try:
@@ -1226,7 +1254,7 @@ class IR3Generator:
 
             if self.debug:
                 sys.stdout.write("Getting Exp - "
-                    "ArithmeticOp node left operand value: " + \
+                    "BinOp/ArithmeticOp node left operand value: " + \
                     str(left_operand_value) + "\n")
 
 
@@ -1235,7 +1263,7 @@ class IR3Generator:
 
             if self.debug:
                 sys.stdout.write("Getting Exp - "
-                    "ArithmeticOp node [Last child of right operand]: " + \
+                    "BinOp/ArithmeticOp node [Last child of right operand]: " + \
                     str(left_operand_last_node) + "\n")
 
             try:
@@ -1245,7 +1273,7 @@ class IR3Generator:
 
             if self.debug:
                 sys.stdout.write("Getting Exp - "
-                    "ArithmeticOp node right operand value: " + \
+                    "BinOp/ArithmeticOp node right operand value: " + \
                     str(right_operand_value) + "\n")
 
 
@@ -1264,50 +1292,14 @@ class IR3Generator:
 
             # Link nodes together
 
-            first_node = left_operand_node
+            left_operand_last_node.add_child(right_operand_node)
+            right_operand_last_node.add_child(temp_var_node)
+            temp_var_node.add_child(temp_var_assignment_node)
 
-            if type(left_operand_node) == IR3Node and \
-                type(right_operand_node) == IR3Node:
-                # If both operands are <id3>
-                if self.debug:
-                    sys.stdout.write("Getting Exp - "
-                        "ArithmeticOp node - Two constants.\n")
-
-                temp_var_node.add_child(temp_var_assignment_node)
-                new_exp_node = temp_var_node
-
-            elif type(right_operand_node) == IR3Node:
-                # If only left operand is <id3>
-                if self.debug:
-                    sys.stdout.write("Getting Exp - ArithmeticOp node - "
-                        "Right operand is constant.\n")
-
-                left_operand_last_node.add_child(temp_var_node)
-                temp_var_node.add_child(temp_var_assignment_node)
-
-                new_exp_node = left_operand_node
-
-            elif type(left_operand_node) == IR3Node:
-                # If only right operand is <id3>
-                if self.debug:
-                    sys.stdout.write("Getting Exp - ArithmeticOp node - "
-                        "Left operand is constant.\n")
-
-                right_operand_last_node.add_child(temp_var_node)
-                temp_var_node.add_child(temp_var_assignment_node)
-
-                new_exp_node = right_operand_node
-
-            else:
-                # None of the operands are <id3>
-                left_operand_last_node.add_child(right_operand_node)
-                right_operand_last_node.add_child(temp_var_node)
-                temp_var_node.add_child(temp_var_assignment_node)
-
-                new_exp_node = left_operand_node
+            new_exp_node = left_operand_node
 
             if self.debug:
-                sys.stdout.write("Getting Exp - ArithmeticOp completed.\n")
+                sys.stdout.write("Getting Exp - BinOp/ArithmeticOp completed.\n")
 
         elif isinstance(ast_node, AssignmentNode):
 
