@@ -35,11 +35,13 @@ class ASTNode:
     Methods
     -------
     pretty_print():
-        Print the current value of the node in syntax format, and its child and sibling recursively.
+        Print the current value of the node in syntax format, and its child
+        and sibling recursively.
     add_child(node):
         Set a node as its child. Child is traversed before sibling.
     add_sibling(node):
-        Set a node as its sibling. Sibling is traversed after child (and sub-childs).
+        Set a node as its sibling. Sibling is traversed after child
+        (and sub-childs).
 
     """
 
@@ -389,7 +391,9 @@ class MainClassNode(ASTNode):
 
                 if current_class:
                     if current_class.class_name in class_names:
-                        raise TypeCheckError(current_class.class_name, "Class has the same name as an earlier declared class.")
+                        raise TypeCheckError(
+                            current_class.class_name,
+                            "Class has the same name as an earlier declared class.")
                     else:
                         class_names.append(current_class.class_name)
 
@@ -861,7 +865,7 @@ class MdDeclNode(ASTNode):
 
         return local_environment
 
-    def _check_argument_names(self) -> None:
+    def _check_argument_names(self, within_class: str='') -> None:
 
         arg_names = []
         args_processed = False
@@ -877,13 +881,16 @@ class MdDeclNode(ASTNode):
                 if current_arg:
 
                     if current_arg.value in arg_names:
-                        raise TypeCheckError(current_arg.value, "Argument has the same name as an earlier declared argument.")
+                        raise TypeCheckError(
+                            current_arg.value,
+                            "Argument has the same name as an earlier declared "
+                            "argument in method [" + str(self.method_name) + "]"
+                            " in class [" + str(within_class) + "]")
                     else:
                         arg_names.append(current_arg.value)
 
                 if current_arg.sibling:
                     current_arg = current_arg.sibling
-
 
     def type_check(
         self,
@@ -893,7 +900,7 @@ class MdDeclNode(ASTNode):
         return_type: Any=None,
     ) -> None:
 
-        self._check_argument_names()
+        self._check_argument_names(within_class)
 
         if debug:
             sys.stdout.write("MdDeclNode - No collision in argument names.\n")
@@ -1217,7 +1224,8 @@ class AssignmentNode(ASTNode):
 
         if self.assigned_value.type != self.identifier.type and self.assigned_value.value != 'null':
             raise TypeCheckError(str(self.identifier.value), 'Assigned value type [' + str(self.assigned_value.type) + \
-                '] does not match declared identifier type [' + str(self.identifier.type) +']')
+                '] does not match declared identifier type [' + str(self.identifier.type) +'] in class [' + \
+                str(within_class) + "]" )
 
         if debug:
             sys.stdout.write("AssignmentNode - Identifier and assigned value types matched.\n")
@@ -1582,8 +1590,10 @@ class ReturnNode(ASTNode):
             self.type = BasicType.VOID
 
         if self.type != return_type:
-            raise TypeCheckError(self.return_value, "Return type " + str(self.return_value.type) + \
-                " is different from declared: " + str(return_type))
+            raise TypeCheckError(self.return_value.value, "Return type " + \
+                str(self.return_value.type) + \
+                " is different from that declared for function in class [" + \
+                str(within_class) + "]: " + str(return_type))
 
         if debug:
             sys.stdout.write("ReturnNode - Successfully type checked return value: " + str(return_type) + '\n')
