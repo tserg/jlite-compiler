@@ -40,9 +40,12 @@ class SymbolTableStack:
     # Track current scope depth
     current_scope_depth: int
 
-    def __init__(self) -> None:
+    debug: bool
+
+    def __init__(self, debug: bool=False) -> None:
         self.symbol_table_stack = deque()
         self.current_scope_depth = 0
+        self.debug = debug
 
     def add_empty_st(self) -> None:
         """
@@ -100,7 +103,9 @@ class SymbolTableStack:
 
             current_st = st.pop()
 
-            sys.stdout.write("Current lookup symbol table: " + str(current_st) + "\n")
+            if self.debug:
+                sys.stdout.write("Current lookup symbol table: " + \
+                    str(current_st) + "\n")
 
             if value in current_st:
                 return current_st[value]

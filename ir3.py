@@ -12,7 +12,7 @@ from typing import (
 
 from ast import (
     BasicType,
-    FunctionType
+    FunctionType,
 )
 
 class IR3Node:
@@ -29,10 +29,11 @@ class IR3Node:
 
     Methods
     -------
-    pretty_print():
-        Print the current value of the node in syntax format, and its child recursively.
-    add_child(node):
+    add_child(IR3Node):
         Set a node as its child.
+    pretty_print():
+        Print the current value of the node in syntax format, and its child
+        recursively.
 
     """
 
@@ -183,11 +184,13 @@ class VarDecl3Node(IR3Node):
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         if type(self.type) == BasicType:
-            sys.stdout.write(preceding + str(self.type) + " " + str(self.value) + ";\n")
+            sys.stdout.write(preceding + str(self.type) + " " + \
+                str(self.value) + ";\n")
 
         elif type(self.type) == tuple:
             #sys.stdout.write(str(self.type))
-            sys.stdout.write(preceding + str(self.type[1]) + " " + str(self.value) + ";\n")
+            sys.stdout.write(preceding + str(self.type[1]) + " " + \
+            str(self.value) + ";\n")
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
@@ -449,7 +452,8 @@ class RelOp3Node(IR3Node):
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
 
-        sys.stdout.write(str(self.left_operand) + " " + str(self.operator) + " " + str(self.right_operand))
+        sys.stdout.write(str(self.left_operand) + " " + str(self.operator) + \
+            " " + str(self.right_operand))
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
@@ -475,20 +479,24 @@ class BinOp3Node(IR3Node):
 
     def pretty_print(self, delimiter: str='', preceding: str=''):
 
-        if type(self.left_operand) != IR3Node and type(self.right_operand) != IR3Node:
+        if type(self.left_operand) != IR3Node and \
+            type(self.right_operand) != IR3Node:
+
             sys.stdout.write(str(self.left_operand) + \
                 " " + str(self.operator) + " " + str(self.right_operand))
 
         elif type(self.left_operand) != IR3Node:
             sys.stdout.write("\n")
 
-            sys.stdout.write(str(self.left_operand) + " " + str(self.operator) + " ")
+            sys.stdout.write(str(self.left_operand) + " " + \
+                str(self.operator) + " ")
             self.right_operand.pretty_print()
 
         elif type(self.right_operand) != IR3Node:
             sys.stdout.write("\n")
             self.left_operand.pretty_print()
-            sys.stdout.write(" " + str(self.operator) + " " + str(self.right_operand))
+            sys.stdout.write(" " + str(self.operator) + " " + \
+                str(self.right_operand))
 
         else:
 

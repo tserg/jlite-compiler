@@ -266,13 +266,18 @@ class IR3Generator:
                 ast_node.variable_declarations:
 
                 if self.debug:
-                    sys.stdout.write("Getting CData - Variable declarations detected in class: " + \
+                    sys.stdout.write("Getting CData - "
+                        "Variable declarations detected in class: " + \
                         str(ast_node.class_name) + "\n")
 
-                var_decl_node = self._get_var_decl(symbol_table, ast_node.variable_declarations)
+                var_decl_node = self._get_var_decl(
+                    symbol_table,
+                    ast_node.variable_declarations
+                )
 
                 if self.debug:
-                    sys.stdout.write("Getting CData - Variable declarations added in class: " + \
+                    sys.stdout.write("Getting CData - "
+                        "Variable declarations added in class: " + \
                         str(ast_node.class_name) + "\n")
 
                 new_cdata_node.set_var_decl(var_decl_node)
@@ -284,7 +289,8 @@ class IR3Generator:
                 cdata_last_node.add_child(new_cdata_node)
 
                 if self.debug:
-                    sys.stdout.write("Getting CData - Adding class node as sibling: " + \
+                    sys.stdout.write("Getting CData - "
+                        "Adding class node as sibling: " + \
                         str(ast_node.class_name) + "\n")
 
             # Otherwise, set current node
@@ -292,7 +298,8 @@ class IR3Generator:
                 cdata_node = new_cdata_node
 
                 if self.debug:
-                    sys.stdout.write("Getting CData - No IR3 node, initialising IR3 node to current class: " + \
+                    sys.stdout.write("Getting CData - No IR3 node, "
+                        "initialising IR3 node to current class: " + \
                         str(ast_node.class_name) + "\n")
 
         # If there are more class declarations, call this function recursively
@@ -359,14 +366,16 @@ class IR3Generator:
             mddata_node = main_class_md_node
 
             if self.debug:
-                sys.stdout.write("Getting CMtd - Initialising main method node\n")
+                sys.stdout.write("Getting CMtd - "
+                    "Initialising main method node\n")
 
         # Get method declarations
 
         elif isinstance(ast_node, ClassDeclNode):
 
             if self.debug:
-                sys.stdout.write("Getting CMtd - Subsequent class declaration found: " + \
+                sys.stdout.write("Getting CMtd - "
+                    "Subsequent class declaration found: " + \
                     str(ast_node.class_name) + "\n")
                 sys.stdout.write("Getting CMtd - Current symbol table: " + \
                     str(symbol_table) + "\n")
@@ -388,7 +397,8 @@ class IR3Generator:
 
         if ast_node.sibling:
             if self.debug:
-                sys.stdout.write("Getting CMtd - Passing symbol table to sibling: " + \
+                sys.stdout.write("Getting CMtd - "
+                    "Passing symbol table to sibling: " + \
                     str(symbol_table) + "\n")
 
             mddata_node = self._get_cmtd3(
@@ -433,7 +443,8 @@ class IR3Generator:
 
         if ast_node.sibling:
             if self.debug:
-                sys.stdout.write("Getting VarDecl - Additional VarDecl node detected.\n")
+                sys.stdout.write("Getting VarDecl - "
+                    "Additional VarDecl node detected.\n")
 
             new_var_decl_node = self._get_var_decl(
                 symbol_table,
@@ -472,11 +483,15 @@ class IR3Generator:
         symbol_table.add_empty_st()
 
         if self.debug:
-            sys.stdout.write("Getting MdDecl - New MdDecl node added for method: " + \
+            sys.stdout.write("Getting MdDecl - "
+                "New MdDecl node added for method: " + \
                 str(ast_node.method_name)+ "\n")
 
         # Get arguments
-        argument_node: Optional[Arg3Node] = Arg3Node(value="this", type=class_name)
+        argument_node: Optional[Arg3Node] = Arg3Node(
+            value="this",
+            type=class_name
+        )
 
         symbol_table.insert("this", class_name)
 
@@ -501,7 +516,8 @@ class IR3Generator:
         if ast_node.variable_declarations:
 
             if self.debug:
-                sys.stdout.write("Getting MdDecl - Variable declarations detected.\n")
+                sys.stdout.write("Getting MdDecl - "
+                    "Variable declarations detected.\n")
 
             var_decl_node = self._get_var_decl(
                 symbol_table,
@@ -510,7 +526,8 @@ class IR3Generator:
 
             if var_decl_node:
                 if self.debug:
-                    sys.stdout.write("Getting MdDecl - Variable declarations node created.\n")
+                    sys.stdout.write("Getting MdDecl - "
+                        "Variable declarations node created.\n")
 
             new_md_decl_node.set_variable_declarations(var_decl_node)
 
@@ -535,7 +552,8 @@ class IR3Generator:
 
         if ast_node.sibling:
             if self.debug:
-                sys.stdout.write("Getting MdDecl - Additional MdDecl node detected.\n")
+                sys.stdout.write("Getting MdDecl - "
+                    "Additional MdDecl node detected.\n")
 
             md_decl_node = self._get_md_decl(
                 symbol_table,
@@ -559,7 +577,10 @@ class IR3Generator:
             if self.debug:
                 sys.stdout.write("Getting FmlList - ArgumentNode detected.\n")
 
-            arg_ir3_node: Optional[Arg3Node] = Arg3Node(value=ast_node.value, type=ast_node.type)
+            arg_ir3_node: Optional[Arg3Node] = Arg3Node(
+                value=ast_node.value,
+                type=ast_node.type
+            )
             symbol_table.insert(ast_node.value, ast_node.type)
 
             if argument_node:
@@ -608,7 +629,8 @@ class IR3Generator:
             if isinstance(ast_node.expression, ArithmeticOpNode):
 
                 if self.debug:
-                    sys.stdout.write("Getting Stmt - PrintLn value is an expression.\n")
+                    sys.stdout.write("Getting Stmt - "
+                        "PrintLn value is an expression.\n")
 
                 expression_node = self._get_exp3(
                     symbol_table,
@@ -639,7 +661,8 @@ class IR3Generator:
             if isinstance(ast_node.identifier, InstanceNode):
 
                 if self.debug:
-                    sys.stdout.write("Getting Stmt - Class attribute assignment detected.\n")
+                    sys.stdout.write("Getting Stmt - "
+                        "Class attribute assignment detected.\n")
 
                 class_attribute_node = ClassAttribute3Node(
                     type=ast_node.identifier.type,
@@ -655,15 +678,18 @@ class IR3Generator:
 
             if type(ast_node.assigned_value) == ASTNode:
                 if self.debug:
-                    sys.stdout.write("Getting Stmt - AssignmentNode - Constant detected.\n")
-                    sys.stdout.write("Getting Stmt - AssignmentNode - Constant: " + \
+                    sys.stdout.write("Getting Stmt - "
+                        "AssignmentNode - Constant detected.\n")
+                    sys.stdout.write("Getting Stmt - "
+                        "AssignmentNode - Constant: " + \
                         str(ast_node.assigned_value.value) + "\n")
 
                 new_stmt_node.set_assigned_value(ast_node.assigned_value.value)
 
             else:
                 if self.debug:
-                    sys.stdout.write("Getting Stmt - AssignmentNode - Expression detected.\n")
+                    sys.stdout.write("Getting Stmt - AssignmentNode - "
+                        "Expression detected.\n")
 
                 expression_node = self._get_exp3(
                     symbol_table,
@@ -671,7 +697,8 @@ class IR3Generator:
                 )
 
                 if self.debug:
-                    sys.stdout.write("Getting Stmt - AssignmentNode - Expression found: " + \
+                    sys.stdout.write("Getting Stmt - AssignmentNode - "
+                        "Expression found: " + \
                         str(expression_node) + "\n")
 
                 if expression_node.child:
@@ -787,15 +814,16 @@ class IR3Generator:
             condition_node = self._get_exp3(symbol_table, ast_node.condition)
 
             if self.debug:
-                sys.stdout.write("Getting Stmt - While loop - Condition node created: " + \
-                    str(condition_node) +"\n")
-                sys.stdout.write("Getting Stmt - While loop - Condition node value: " + \
-                    str(condition_node.value) +"\n")
+                sys.stdout.write("Getting Stmt - While loop - "
+                    "Condition node created: " + str(condition_node) +"\n")
+                sys.stdout.write("Getting Stmt - While loop - "
+                    "Condition node value: " + str(condition_node.value) +"\n")
 
             condition_last_node = self._get_last_child(condition_node)
 
             if self.debug:
-                sys.stdout.write("Getting Stmt - While loop - Last child of condition found: " + \
+                sys.stdout.write("Getting Stmt - While loop - "
+                    "Last child of condition found: " + \
                     str(condition_last_node) +"\n")
 
             if type(condition_last_node) == IR3Node:
@@ -819,7 +847,8 @@ class IR3Generator:
                     ast_node.while_expression
                 )
                 if self.debug:
-                    sys.stdout.write("Getting Stmt - While loop - While expression found:" + \
+                    sys.stdout.write("Getting Stmt - While loop - "
+                        "While expression found:" + \
                         str(while_expression_node) +"\n")
 
 
@@ -922,10 +951,12 @@ class IR3Generator:
             sys.stdout.write("Getting Exp - Initiated.\n")
             sys.stdout.write("Getting Exp - ASTNode: " + str(ast_node) + "\n")
 
-        if isinstance(ast_node, NegationNode) or isinstance(ast_node, ComplementNode):
+        if isinstance(ast_node, NegationNode) or \
+            isinstance(ast_node, ComplementNode):
             # <Uop3><idc3>
             if self.debug:
-                sys.stdout.write("Getting Exp - NegationNode or ComplementNode detected.\n")
+                sys.stdout.write("Getting Exp - "
+                    "NegationNode or ComplementNode detected.\n")
 
             if isinstance(ast_node, NegationNode):
 
@@ -935,7 +966,8 @@ class IR3Generator:
                 )
 
                 if self.debug:
-                    sys.stdout.write("Getting Exp - NegationNode - Negated expression node created: " + \
+                    sys.stdout.write("Getting Exp - NegationNode - "
+                        "Negated expression node created: " + \
                         str(negated_exp_node) + "\n")
 
                 negated_exp_last_node = self._get_last_child(negated_exp_node)
@@ -978,7 +1010,8 @@ class IR3Generator:
                 )
 
                 if self.debug:
-                    sys.stdout.write("Getting Exp - ComplementNode - Complement expression node created: " + \
+                    sys.stdout.write("Getting Exp - ComplementNode - "
+                        "Complement expression node created: " + \
                         str(complement_exp_node) + "\n")
 
                 complement_exp_last_node = self._get_last_child(complement_exp_node)
@@ -1019,8 +1052,14 @@ class IR3Generator:
             if self.debug:
                 sys.stdout.write("Getting Exp - RelOpNode detected.\n")
 
-            left_operand_node = self._get_exp3(symbol_table, ast_node.left_operand)
-            right_operand_node = self._get_exp3(symbol_table, ast_node.right_operand)
+            left_operand_node = self._get_exp3(
+                symbol_table,
+                ast_node.left_operand
+            )
+            right_operand_node = self._get_exp3(
+                symbol_table,
+                ast_node.right_operand
+            )
 
             temp_var = "_t"+str(self._get_temp_var_count())
             temp_var_node = VarDecl3Node(value=temp_var, type=BasicType.BOOL)
@@ -1082,7 +1121,8 @@ class IR3Generator:
                     temp_md_id = st_lookup[3]
 
                 if self.debug:
-                    sys.stdout.write("Getting Exp - Temp method identifier found: " + \
+                    sys.stdout.write("Getting Exp - "
+                        "Temp method identifier found: " + \
                         str(temp_md_id) + "\n")
                     sys.stdout.write("Getting Exp - Identifier value: " + \
                         str(ast_node.identifier.type) + "\n")
@@ -1145,13 +1185,19 @@ class IR3Generator:
                     str(ast_node.right_operand.value) + "\n")
 
             # Get left and right operands
-            left_operand_node = self._get_exp3(symbol_table, ast_node.left_operand)
+            left_operand_node = self._get_exp3(
+                symbol_table,
+                ast_node.left_operand
+            )
 
             if self.debug:
                 sys.stdout.write("Getting Exp - ArithmeticOp left operand: " + \
                     str(left_operand_node) + "\n")
 
-            right_operand_node = self._get_exp3(symbol_table, ast_node.right_operand)
+            right_operand_node = self._get_exp3(
+                symbol_table,
+                ast_node.right_operand
+            )
 
             if self.debug:
                 sys.stdout.write("Getting Exp - ArithmeticOp right operand: " + \
@@ -1169,7 +1215,8 @@ class IR3Generator:
             left_operand_last_node = self._get_last_child(left_operand_node)
 
             if self.debug:
-                sys.stdout.write("Getting Exp - ArithmeticOp node [Last child of left operand]: " + \
+                sys.stdout.write("Getting Exp - "
+                    "ArithmeticOp node [Last child of left operand]: " + \
                     str(left_operand_last_node) + "\n")
 
             try:
@@ -1178,7 +1225,8 @@ class IR3Generator:
                 left_operand_value = left_operand_last_node.value
 
             if self.debug:
-                sys.stdout.write("Getting Exp - ArithmeticOp node left operand value: " + \
+                sys.stdout.write("Getting Exp - "
+                    "ArithmeticOp node left operand value: " + \
                     str(left_operand_value) + "\n")
 
 
@@ -1186,7 +1234,8 @@ class IR3Generator:
             right_operand_last_node = self._get_last_child(right_operand_node)
 
             if self.debug:
-                sys.stdout.write("Getting Exp - ArithmeticOp node [Last child of right operand]: " + \
+                sys.stdout.write("Getting Exp - "
+                    "ArithmeticOp node [Last child of right operand]: " + \
                     str(left_operand_last_node) + "\n")
 
             try:
@@ -1195,7 +1244,8 @@ class IR3Generator:
                 right_operand_value = right_operand_last_node.value
 
             if self.debug:
-                sys.stdout.write("Getting Exp - ArithmeticOp node right operand value: " + \
+                sys.stdout.write("Getting Exp - "
+                    "ArithmeticOp node right operand value: " + \
                     str(right_operand_value) + "\n")
 
 
@@ -1220,7 +1270,8 @@ class IR3Generator:
                 type(right_operand_node) == IR3Node:
                 # If both operands are <id3>
                 if self.debug:
-                    sys.stdout.write("Getting Exp - ArithmeticOp node - Two constants.\n")
+                    sys.stdout.write("Getting Exp - "
+                        "ArithmeticOp node - Two constants.\n")
 
                 temp_var_node.add_child(temp_var_assignment_node)
                 new_exp_node = temp_var_node
@@ -1228,7 +1279,8 @@ class IR3Generator:
             elif type(right_operand_node) == IR3Node:
                 # If only left operand is <id3>
                 if self.debug:
-                    sys.stdout.write("Getting Exp - ArithmeticOp node - Right operand is constant.\n")
+                    sys.stdout.write("Getting Exp - ArithmeticOp node - "
+                        "Right operand is constant.\n")
 
                 left_operand_last_node.add_child(temp_var_node)
                 temp_var_node.add_child(temp_var_assignment_node)
@@ -1238,7 +1290,8 @@ class IR3Generator:
             elif type(left_operand_node) == IR3Node:
                 # If only right operand is <id3>
                 if self.debug:
-                    sys.stdout.write("Getting Exp - ArithmeticOp node - Left operand is constant.\n")
+                    sys.stdout.write("Getting Exp - ArithmeticOp node - "
+                        "Left operand is constant.\n")
 
                 right_operand_last_node.add_child(temp_var_node)
                 temp_var_node.add_child(temp_var_assignment_node)
@@ -1272,7 +1325,9 @@ class IR3Generator:
                     symbol_table,
                     ast_node.assigned_value
                 )
-                assigned_value_expression_last_child = self._get_last_child(assigned_value_expression_node)
+                assigned_value_expression_last_child = self._get_last_child(
+                    assigned_value_expression_node
+                )
 
                 assignment_node.set_assigned_value(
                     assigned_value_expression_last_child.identifier
@@ -1293,7 +1348,8 @@ class IR3Generator:
         else:
 
             if self.debug:
-                sys.stdout.write("Getting Exp - Checking for identifier and constant.\n")
+                sys.stdout.write("Getting Exp - "
+                    "Checking for identifier and constant.\n")
 
             # <idc3>
 
@@ -1305,7 +1361,8 @@ class IR3Generator:
                 identifier = symbol_table.lookup(ast_node.value)
 
                 if self.debug:
-                    sys.stdout.write("Getting Exp - Checking if identifier is found in symbol table: " + \
+                    sys.stdout.write("Getting Exp - "
+                        "Checking if identifier is found in symbol table: " + \
                         str(identifier) + "\n")
 
                     return IR3Node(value=ast_node.value, type=ast_node.type)
@@ -1324,11 +1381,19 @@ class IR3Generator:
                 temp_var_count = self._get_temp_var_count()
                 temp_var = "_t"+str(temp_var_count)
 
-                temp_var_node = VarDecl3Node(value=temp_var, type=ast_node.type)
-                symbol_table.insert(temp_var, ast_node.type, state=ast_node.value)
+                temp_var_node = VarDecl3Node(
+                    value=temp_var,
+                    type=ast_node.type
+                )
+                symbol_table.insert(
+                    temp_var,
+                    ast_node.type,
+                    state=ast_node.value
+                )
 
                 if self.debug:
-                    sys.stdout.write("Getting Exp - Inserting into symbol table: " + \
+                    sys.stdout.write("Getting Exp - "
+                        "Inserting into symbol table: " + \
                         str(symbol_table) + "\n")
 
                 temp_var_assignment_node = Assignment3Node(
@@ -1379,7 +1444,8 @@ class IR3Generator:
 
     def generate_ir3(self, f) -> None:
         """
-        Lexes, parses and type checks the input file, then generates the IR3 tree.
+        Lexes, parses and type checks the input file, then generates
+        the IR3 tree.
 
         :param TextIO f: the input file
         """
@@ -1399,7 +1465,8 @@ def __main__():
         sys.stdout.write("File does not exist.\n")
 
     elif not filepath.endswith('.j'):
-        sys.stdout.write("Invalid file provided. Please check the file name or extension.\n")
+        sys.stdout.write("Invalid file provided. "
+            "Please check the file name or extension.\n")
 
     else:
         f = open(filepath, 'r')
