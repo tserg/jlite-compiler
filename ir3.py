@@ -26,16 +26,13 @@ class IR3Node:
     value: str
     type: str
     child: Any
-    sibling: Any
 
     Methods
     -------
     pretty_print():
-        Print the current value of the node in syntax format, and its child and sibling recursively.
+        Print the current value of the node in syntax format, and its child recursively.
     add_child(node):
-        Set a node as its child. Child is traversed before sibling.
-    add_sibling(node):
-        Set a node as its sibling. Sibling is traversed after child (and sub-childs).
+        Set a node as its child.
 
     """
 
@@ -43,7 +40,6 @@ class IR3Node:
     type: Any
     #is_identifier: bool
     child: Any
-    sibling: Any
 
     def __init__(
         self,
@@ -51,13 +47,11 @@ class IR3Node:
         type: str='',
         #is_identifier: bool=False,
         child: Optional[Any]=None,
-        sibling: Optional[Any]=None
     ) -> None:
         self.value = value
         self.type = type
         #self.is_identifier = is_identifier
         self.child = child
-        self.sibling = sibling
 
     def add_child(self, node: Any) -> None:
         """
@@ -67,14 +61,6 @@ class IR3Node:
         """
         self.child = node
 
-    def add_sibling(self, node: Any) -> None:
-        """
-        Set a node as sibling
-
-        :param Any node: Node to set as sibling
-        """
-        self.sibling = node
-
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write(str(self.value))
@@ -82,9 +68,6 @@ class IR3Node:
         if self.child:
             sys.stdout.write(delimiter)
             self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
 
 class Program3Node(IR3Node):
 
@@ -141,9 +124,6 @@ class CData3Node(IR3Node):
         if self.child:
             self.child.pretty_print()
 
-        if self.sibling:
-            self.sibling.pretty_print()
-
 class CMtd3Node(IR3Node):
 
     return_type: Any
@@ -195,9 +175,6 @@ class CMtd3Node(IR3Node):
         if self.child:
             self.child.pretty_print()
 
-        if self.sibling:
-            self.sibling.pretty_print()
-
 class VarDecl3Node(IR3Node):
 
     def __init__(self, *args, **kwargs) -> None:
@@ -213,11 +190,7 @@ class VarDecl3Node(IR3Node):
             sys.stdout.write(preceding + str(self.type[1]) + " " + str(self.value) + ";\n")
 
         if self.child:
-
             self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
 
 class Arg3Node(IR3Node):
 
@@ -240,10 +213,6 @@ class Arg3Node(IR3Node):
             sys.stdout.write(", ")
             self.child.pretty_print(delimiter, preceding)
 
-        if self.sibling:
-
-            self.sibling.pretty_print(delimiter, preceding)
-
 class Label3Node(IR3Node):
 
     label_id: int
@@ -258,9 +227,6 @@ class Label3Node(IR3Node):
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
 
 class IfGoTo3Node(IR3Node):
 
@@ -286,9 +252,6 @@ class IfGoTo3Node(IR3Node):
         if self.child:
             self.child.pretty_print(delimiter, preceding)
 
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
-
 class GoTo3Node(IR3Node):
 
     goto: int
@@ -303,9 +266,6 @@ class GoTo3Node(IR3Node):
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
 
 class ReadLn3Node(IR3Node):
 
@@ -327,9 +287,6 @@ class ReadLn3Node(IR3Node):
         if self.child:
             self.child.pretty_print(delimiter, preceding)
 
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
-
 class PrintLn3Node(IR3Node):
 
     expression: str
@@ -349,9 +306,6 @@ class PrintLn3Node(IR3Node):
         if self.child:
             self.child.pretty_print(delimiter, preceding)
 
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
-
 class ClassInstance3Node(IR3Node):
 
     target_class: str
@@ -366,9 +320,6 @@ class ClassInstance3Node(IR3Node):
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
 
 class ClassAttribute3Node(IR3Node):
 
@@ -393,9 +344,6 @@ class ClassAttribute3Node(IR3Node):
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
 
 class Assignment3Node(IR3Node):
 
@@ -433,9 +381,6 @@ class Assignment3Node(IR3Node):
         if self.child:
             self.child.pretty_print(delimiter, preceding)
 
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
-
 class MethodCall3Node(IR3Node):
 
     method_id: str
@@ -466,9 +411,6 @@ class MethodCall3Node(IR3Node):
         if self.child:
             self.child.pretty_print(delimiter, preceding)
 
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
-
 class Return3Node(IR3Node):
 
     return_value: Any
@@ -485,9 +427,6 @@ class Return3Node(IR3Node):
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
 
 class RelOp3Node(IR3Node):
 
@@ -514,9 +453,6 @@ class RelOp3Node(IR3Node):
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
 
 class BinOp3Node(IR3Node):
 
@@ -563,9 +499,6 @@ class BinOp3Node(IR3Node):
         if self.child:
             self.child.pretty_print(delimiter, preceding)
 
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
-
 class UnaryOp3Node(IR3Node):
 
     operand: Any
@@ -588,9 +521,6 @@ class UnaryOp3Node(IR3Node):
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
-
-        if self.sibling:
-            self.sibling.pretty_print(delimiter, preceding)
 
 class IR3Tree:
 

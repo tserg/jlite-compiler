@@ -11,7 +11,7 @@ from typing import (
     Optional,
 )
 
-class SymbolTable:
+class SymbolTableStack:
     """
     Symbol table stack for managing symbol tables
     ...
