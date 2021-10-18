@@ -213,6 +213,36 @@ class IR3Generator:
 
         return self._program_expression(symbol_table, self.parser.ast.head)
 
+    def _compute_arithmetic_node_with_constants(
+        self,
+        ast_node: ArithmeticOpNode
+    ) -> Any:
+
+        if ast_node.value == '+':
+
+            if ast_node.type == BasicType.INT:
+                computed_value = int(ast_node.left_operand.value) + \
+                    int(ast_node.right_operand.value)
+
+            else:
+                # Otherwise, concatenate the strings
+                computed_value = ast_node.left_operand.value[:-1] + \
+                    ast_node.right_operand.value[1:]
+
+        elif ast_node.value == '-':
+            computed_value = int(ast_node.left_operand.value) - \
+                int(ast_node.right_operand.value)
+
+        elif ast_node.value == '*':
+            computed_value = int(ast_node.left_operand.value) * \
+                int(ast_node.right_operand.value)
+
+        elif ast_node.value == '/':
+            computed_value = int(ast_node.left_operand.value) / \
+                int(ast_node.right_operand.value)
+
+        return computed_value
+
     def _program_expression(
         self,
         symbol_table: SymbolTableStack,
@@ -1203,18 +1233,13 @@ class IR3Generator:
                     sys.stdout.write("Getting Exp - "
                         "Two constants short circuit.\n")
 
-                new_binop_node = BinOp3Node(
-                    type=ast_node.type,
-                    left_operand=ast_node.left_operand.value,
-                    right_operand=ast_node.right_operand.value,
-                    operator=ast_node.value
-                )
+                computed_value = self._compute_arithmetic_node_with_constants(ast_node)
 
                 # Assign value to temporary variable
 
                 temp_var_assignment_node = Assignment3Node(type=ast_node.type)
                 temp_var_assignment_node.set_identifier(temp_var)
-                temp_var_assignment_node.set_assigned_value(new_binop_node)
+                temp_var_assignment_node.set_assigned_value(computed_value)
 
                 temp_var_node.add_child(temp_var_assignment_node)
                 new_exp_node = temp_var_node
