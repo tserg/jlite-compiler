@@ -1127,8 +1127,7 @@ class ArithmeticOpNode(DualOperandNode):
                 sys.stdout.write("ArithmeticOpNode - '+' operator detected.\n")
 
             if self.left_operand.type == BasicType.INT:
-                if self.right_operand.type == BasicType.INT or \
-                    self.right_operand.value == 'null':
+                if self.right_operand.type == BasicType.INT:
                     # Set type as Int once operands have been type-checked
                     self.type = BasicType.INT
 
@@ -1138,7 +1137,9 @@ class ArithmeticOpNode(DualOperandNode):
                         "Right operand is not an integer."
                     )
 
-            elif self.left_operand.type == BasicType.STRING:
+            elif self.left_operand.type == BasicType.STRING or \
+                self.left_operand.value == 'null'):
+
                 if self.right_operand.type == BasicType.STRING or \
                     self.right_operand.value == 'null':
                     # Set type as String once operands have been type-checked

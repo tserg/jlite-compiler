@@ -226,8 +226,18 @@ class IR3Generator:
 
             else:
                 # Otherwise, concatenate the strings
-                computed_value = ast_node.left_operand.value[:-1] + \
-                    ast_node.right_operand.value[1:]
+                if ast_node.left_operand.value == 'null':
+                    left_string = ''
+                else:
+                    left_string = ast_node.left_operand.value[1:-1]
+
+                if ast_node.right_operand.value == 'null':
+                    right_string = ''
+                else:
+                    right_string = ast_node.right_operand.value[1:-1]
+
+                computed_value = '"' + left_string + \
+                    right_string + '"'
 
         elif ast_node.value == '-':
             computed_value = int(ast_node.left_operand.value) - \
