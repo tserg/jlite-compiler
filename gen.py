@@ -253,6 +253,42 @@ class IR3Generator:
 
         return computed_value
 
+    def _derive_ifgoto_condition(
+        self,
+        ast_node: Any,
+        symbol_table: SymbolTableStack
+    ) -> Any:
+
+        if type(ast_node.condition) == RelOpNode and \
+            not ast_node.condition.child and \
+            not ast_node.condition.sibling and \
+            type(ast_node.condition.left_operand) == ASTNode and \
+            type(ast_node.condition.right_operand) == ASTNode:
+
+            # Shortcut to derive RelOp expression directly if dealing with
+            # identifiers/constants only
+
+            if self.debug:
+                sys.stdout.write("Getting Stmt - Shortcut to Exp - "
+                    "Double constants detected: [" + \
+                    str(ast_node.condition.left_operand.value) + "] and [" + \
+                    str(ast_node.condition.right_operand.value) + "]\n")
+            # If both operands are constants, construct the
+            # RelOp3Node directly
+
+            condition_node = RelOp3Node(
+                type=BasicType.BOOL,
+                left_operand=ast_node.condition.left_operand.value,
+                right_operand=ast_node.condition.right_operand.value,
+                operator=ast_node.condition.value
+            )
+
+        else:
+
+            condition_node = self._get_exp3(symbol_table, ast_node.condition)
+
+        return condition_node
+
     def _program_expression(
         self,
         symbol_table: SymbolTableStack,
@@ -766,20 +802,31 @@ class IR3Generator:
                 sys.stdout.write("Getting Stmt - Condition detected: " + \
                     str(ast_node.condition)+ "\n")
 
-            condition_node = self._get_exp3(symbol_table, ast_node.condition)
-
-            if self.debug:
-                sys.stdout.write("Getting Stmt - Condition node created: " + \
-                    str(condition_node)+ "\n")
+            condition_node = self._derive_ifgoto_condition(
+                ast_node,
+                symbol_table
+            )
 
             condition_last_node = self._get_last_child(condition_node)
 
-            condition_last_child_id = condition_node.value
+            # Set rel_exp value to the last child node of condition
+            rel_exp_value = condition_last_node
+
+            if self.debug:
+                sys.stdout.write("Getting Stmt - IfElse - Last condition: " + \
+                    str(condition_last_node)+ "\n")
+
+            # But update to last identifier if last child node of condition
+            # is not the condition node itself
             if condition_last_node != condition_node:
-                condition_last_child_id = condition_last_node.identifier
+                if self.debug:
+                    sys.stdout.write("Getting Stmt - IfElse - "
+                        "Condition last child is different from condition.\n")
+
+                rel_exp_value = condition_last_node.identifier
 
             if_goto_node = IfGoTo3Node(
-                rel_exp=condition_last_child_id,
+                rel_exp=rel_exp_value,
                 goto=if_expression_label_node.label_id
             )
 
@@ -851,7 +898,10 @@ class IR3Generator:
                 label_id=self._create_new_label()
             )
 
-            condition_node = self._get_exp3(symbol_table, ast_node.condition)
+            condition_node = self._derive_ifgoto_condition(
+                ast_node,
+                symbol_table
+            )
 
             if self.debug:
                 sys.stdout.write("Getting Stmt - While loop - "
@@ -866,31 +916,40 @@ class IR3Generator:
                     "Last child of condition found: " + \
                     str(condition_last_node) +"\n")
 
-            if type(condition_last_node) == IR3Node:
-                if_true_goto_node = IfGoTo3Node(
-                    rel_exp=condition_last_node.value,
-                    goto=while_loop_expression_start_label_node.label_id
-                )
-                new_stmt_node = while_loop_start_label_node
-            else:
-                if_true_goto_node = IfGoTo3Node(
-                    rel_exp=condition_last_node.identifier,
-                    goto=while_loop_expression_start_label_node.label_id
-                )
+            # Set rel_exp value to the last child node of condition
+            rel_exp_value = condition_last_node
+
+            if self.debug:
+                sys.stdout.write("Getting Stmt - While - Last condition: " + \
+                    str(condition_last_node)+ "\n")
+
+            # But update to last identifier if last child node of condition
+            # is not the condition node itself
+            if condition_last_node != condition_node:
+                if self.debug:
+                    sys.stdout.write("Getting Stmt - While - "
+                        "Condition last child is different from condition.\n")
+
+                rel_exp_value = condition_last_node.identifier
                 condition_last_node.add_child(while_loop_start_label_node)
                 new_stmt_node = condition_node
 
-            while_expression = None
-            if ast_node.while_expression:
-                while_expression_node = self._get_stmt(
-                    symbol_table,
-                    ast_node.while_expression
-                )
-                if self.debug:
-                    sys.stdout.write("Getting Stmt - While loop - "
-                        "While expression found:" + \
-                        str(while_expression_node) +"\n")
+            else:
+                new_stmt_node = while_loop_start_label_node
 
+            if_true_goto_node = IfGoTo3Node(
+                rel_exp=rel_exp_value,
+                goto=while_loop_expression_start_label_node.label_id
+            )
+
+            while_expression_node = self._get_stmt(
+                symbol_table,
+                ast_node.while_expression
+            )
+            if self.debug:
+                sys.stdout.write("Getting Stmt - While loop - "
+                    "While expression found:" + \
+                    str(while_expression_node) +"\n")
 
             false_goto_node = GoTo3Node(
                 goto=while_loop_exit_label_node.label_id
@@ -904,12 +963,9 @@ class IR3Generator:
                 goto=while_loop_start_label_node.label_id
             )
 
-            if ast_node.while_expression:
-                while_loop_expression_start_label_node.add_child(while_expression_node)
-                while_expression_last_node = self._get_last_child(while_expression_node)
-                while_expression_last_node.add_child(goto_while_start_node)
-            else:
-                while_loop_expression_start_label_node.add_child(goto_while_start_node)
+            while_loop_expression_start_label_node.add_child(while_expression_node)
+            while_expression_last_node = self._get_last_child(while_expression_node)
+            while_expression_last_node.add_child(goto_while_start_node)
 
             goto_while_start_node.add_child(while_loop_exit_label_node)
 
