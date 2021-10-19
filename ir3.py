@@ -424,7 +424,11 @@ class Return3Node(IR3Node):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        sys.stdout.write(preceding + "Return " + str(self.return_value))
+
+        sys.stdout.write(preceding + "Return")
+
+        if self.return_value:
+            sys.stdout.write(" " + str(self.return_value))
 
         sys.stdout.write(";\n")
 
