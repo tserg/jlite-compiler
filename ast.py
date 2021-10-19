@@ -1138,7 +1138,7 @@ class ArithmeticOpNode(DualOperandNode):
                     )
 
             elif self.left_operand.type == BasicType.STRING or \
-                self.left_operand.value == 'null'):
+                self.left_operand.value == 'null':
 
                 if self.right_operand.type == BasicType.STRING or \
                     self.right_operand.value == 'null':
