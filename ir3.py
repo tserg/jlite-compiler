@@ -454,7 +454,7 @@ class RelOp3Node(IR3Node):
         self.right_operand = right_operand
         self.operator = operator
 
-    def pretty_print(self, delimiter: str='', preceding: str=''):
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write(str(self.left_operand) + " " + str(self.operator) + \
             " " + str(self.right_operand))
@@ -481,7 +481,7 @@ class BinOp3Node(IR3Node):
         self.right_operand = right_operand
         self.operator = operator
 
-    def pretty_print(self, delimiter: str='', preceding: str=''):
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         if type(self.left_operand) != IR3Node and \
             type(self.right_operand) != IR3Node:
@@ -527,7 +527,7 @@ class UnaryOp3Node(IR3Node):
         self.operand = operand
         self.operator = operator
 
-    def pretty_print(self, delimiter: str='', preceding: str=''):
+    def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write(str(self.operator) + str(self.operand))
 

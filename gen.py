@@ -218,6 +218,8 @@ class IR3Generator:
         ast_node: ArithmeticOpNode
     ) -> Any:
 
+        computed_value: Union[str, int, float]
+
         if ast_node.value == '+':
 
             if ast_node.type == BasicType.INT:
@@ -258,6 +260,8 @@ class IR3Generator:
         ast_node: Any,
         symbol_table: SymbolTableStack
     ) -> Any:
+
+        condition_node: Any
 
         if type(ast_node.condition) == RelOpNode and \
             not ast_node.condition.child and \
