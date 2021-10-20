@@ -553,7 +553,7 @@ class IR3Generator:
 
         st_lookup = symbol_table.lookup(ast_node.method_name)
         if st_lookup:
-            temp_md_id = st_lookup[3]
+            temp_md_id = st_lookup['temp_id']
 
         new_md_decl_node = CMtd3Node(
             method_id=temp_md_id,
@@ -1218,7 +1218,7 @@ class IR3Generator:
 
                 st_lookup = symbol_table.lookup(ast_node.identifier.value)
                 if st_lookup:
-                    temp_md_id = st_lookup[3]
+                    temp_md_id = st_lookup['temp_id']
 
                 if self.debug:
                     sys.stdout.write("Getting Exp - "

@@ -34,8 +34,8 @@ class SymbolTableStack:
         Returns the list of [value, type, temp_id, state] for the symbol if found
 
     """
-    # Mappings of value to [type, state, scope, temp_id]
-    symbol_table_stack: Deque[Dict[Any, Any]]
+    # Mappings of value to a dictionary for type, state, scope, temp_id
+    symbol_table_stack: Deque[Dict[Any, Dict[str, Any]]]
 
     # Track current scope depth
     current_scope_depth: int
@@ -82,14 +82,24 @@ class SymbolTableStack:
 
         if len(self.symbol_table_stack) == 0:
             new_st = {}
-            new_st[value] = [type, state, scope, temp_id]
+            new_st[value] = {
+                'type': type,
+                'state': state,
+                'scope': scope,
+                'temp_id': temp_id
+            }
             self.symbol_table_stack.append(new_st)
 
         else:
             current_st = self.symbol_table_stack[-1]
-            current_st[value] = [type, state, scope, temp_id]
+            current_st[value] = {
+                'type': type,
+                'state': state,
+                'scope': scope,
+                'temp_id': temp_id
+            }
 
-    def lookup(self, value: str) -> Optional[List[Any]]:
+    def lookup(self, value: str) -> Optional[Dict[str, Any]]:
         """
         Returns the list of [value, type, temp_id, state] for the symbol if found.
         Otherwise, return None.

@@ -188,7 +188,6 @@ class VarDecl3Node(IR3Node):
                 str(self.value) + ";\n")
 
         elif type(self.type) == tuple:
-            #sys.stdout.write(str(self.type))
             sys.stdout.write(preceding + str(self.type[1]) + " " + \
             str(self.value) + ";\n")
 
