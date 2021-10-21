@@ -1273,11 +1273,12 @@ class IR3Generator:
                     temp_md_id = st_lookup['temp_id']
 
                 if self.debug:
-                    sys.stdout.write("Getting Exp - "
-                        "Temp method identifier found: " + \
-                        str(temp_md_id) + "\n")
-                    sys.stdout.write("Getting Exp - Identifier value: " + \
-                        str(ast_node.identifier.type) + "\n")
+                    if temp_md_id:
+                        sys.stdout.write("Getting Exp - "
+                            "Temp method identifier found: " + \
+                            str(temp_md_id) + "\n")
+                        sys.stdout.write("Getting Exp - Identifier value: " + \
+                            str(ast_node.identifier.type) + "\n")
 
                 new_exp_node = MethodCall3Node(method_id=temp_md_id)
 
@@ -1611,7 +1612,7 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        gen = IR3Generator(debug=False)
+        gen = IR3Generator(debug=True)
         gen.generate_ir3(f)
         gen.pretty_print()
 

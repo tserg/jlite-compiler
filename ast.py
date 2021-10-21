@@ -1435,6 +1435,53 @@ class InstanceNode(ASTNode):
 
         return derived_type
 
+    def _type_check_argument_list(
+        self,
+        env: List[Deque[Any]],
+        current_arg: List[Any],
+        expected_args: List[Any],
+        debug: bool=False
+    ) -> None:
+
+        for i in range(len(current_args)):
+
+            current_arg = current_args[i]
+
+            if debug:
+                sys.stdout.write(
+                    "InstanceNode - Checking for type of argument: " + \
+                    current_arg + '\n'
+                )
+
+            env_copy = copy.deepcopy(env)
+            current_arg_type = self._get_arg_type(
+                current_arg,
+                env_copy2,
+                debug
+            )
+
+            # Checks if argument has been declared
+            if not current_arg_type:
+                raise TypeCheckError(
+                    str(self.atom.value)+'.'+str(self.identifier.value)+ '()',
+                    'Undeclared argument.'
+                )
+
+            # Checks if argument matches expected type
+            if current_arg_type != expected_args[i]:
+                raise TypeCheckError(
+                    str(self.atom.value)+'.'+str(self.identifier.value)+ '()',
+                    'Function expected ' + str(expected_args[i]) + ' \
+                    but got ' + str(current_arg_type) + \
+                    ' instead.\n'
+                )
+
+            if debug:
+                sys.stdout.write(
+                    "InstanceNode - Argument of " + str(self.atom.value)+'.' + \
+                    str(self.identifier.value) + '() type checked: ' + current_arg + '\n'
+                )
+
     def type_check(
         self,
         env: List[Deque[Any]]=None,
@@ -1522,13 +1569,20 @@ class InstanceNode(ASTNode):
 
                     else:
 
+                        # Initialise values for method without arguments
+                        current_args = []
+                        current_args_count = 0
+                        expected_args = []
+                        expected_args_count = 0
+                        current_args_type = []
                         if len(mds_with_same_identifier) == 1:
-
+                            # If there is exactly one possible method
                             if debug:
                                 sys.stdout.write("InstanceNode - Single method detected.\n")
 
                             # Type check expression list if it exists
-                            if isinstance(self.child, ExpListNode):
+                            if isinstance(self.child, ExpListNode) and \
+                                self.child.expression:
 
                                 env_copy = copy.deepcopy(env)
 
@@ -1550,55 +1604,23 @@ class InstanceNode(ASTNode):
                                 expected_args = mds_with_same_identifier[0][1].basic_type_list
                                 expected_args_count = len(expected_args)
 
-                                # If there is exactly 1 method with the given name
-                                # Simple check for number of arguments
-                                if current_args_count != expected_args_count:
-                                    raise TypeCheckError(
-                                        str(self.atom.value)+'.'+str(self.identifier.value)+ '()',
-                                        'Function expected ' + str(expected_args_count) + \
-                                        ' arguments but got ' + str(current_args_count)
-                                    )
-
-                            # Detailed type check of argument type
-
-                            for i in range(len(current_args)):
-
-                                current_arg = current_args[i]
-
-                                if debug:
-                                    sys.stdout.write(
-                                        "InstanceNode - Checking for type of argument: " + \
-                                        current_arg + '\n'
-                                    )
-
-                                env_copy2 = copy.deepcopy(env)
-                                current_arg_type = self._get_arg_type(
-                                    current_arg,
-                                    env_copy2,
-                                    debug
+                            # If there is exactly 1 method with the given name
+                            # Simple check for number of arguments
+                            if current_args_count != expected_args_count:
+                                raise TypeCheckError(
+                                    str(self.atom.value)+'.'+str(self.identifier.value)+ '()',
+                                    'Function expected ' + str(expected_args_count) + \
+                                    ' arguments but got ' + str(current_args_count)
                                 )
 
-                                # Checks if argument has been declared
-                                if not current_arg_type:
-                                    raise TypeCheckError(
-                                        str(self.atom.value)+'.'+str(self.identifier.value)+ '()',
-                                        'Undeclared argument.'
-                                    )
+                            # Detailed type check of argument type
+                            self._type_check_argument_list(
+                                env,
+                                current_args,
+                                expected_args,
+                                debug
+                            )
 
-                                # Checks if argument matches expected type
-                                if current_arg_type != expected_args[i]:
-                                    raise TypeCheckError(
-                                        str(self.atom.value)+'.'+str(self.identifier.value)+ '()',
-                                        'Function expected ' + str(expected_args[i]) + ' \
-                                        but got ' + str(current_arg_type) + \
-                                        ' instead.\n'
-                                    )
-
-                                if debug:
-                                    sys.stdout.write(
-                                        "InstanceNode - Argument of " + str(self.atom.value)+'.' + \
-                                        str(self.identifier.value) + '() type checked: ' + current_arg + '\n'
-                                    )
                             # Assign return type as type of current InstanceNode
 
                             self.type = mds_with_same_identifier[0][2]
@@ -1610,6 +1632,8 @@ class InstanceNode(ASTNode):
                             method_found = True
 
                         else:
+                            # If there is more than one possible method
+                            # due to overloading
 
                             if debug:
                                 sys.stdout.write("InstanceNode - Overloaded method detected.\n")
@@ -1617,7 +1641,8 @@ class InstanceNode(ASTNode):
                                     str(mds_with_same_identifier) + "\n")
 
                             # If there is more than 1 method with the given name
-                            if isinstance(self.child, ExpListNode):
+                            if isinstance(self.child, ExpListNode) and \
+                                self.child.expression:
                                 if debug:
                                     sys.stdout.write("InstanceNode - Overloaded method - ExpList node detected.\n")
 
@@ -1631,7 +1656,6 @@ class InstanceNode(ASTNode):
                                 )
 
                                 current_args = self.child.get_arguments(debug)
-                                current_args_count = len(current_args)
                                 current_args_type = [self._get_arg_type(c_arg, env, debug) for c_arg in current_args]
 
                                 if debug:
@@ -1639,11 +1663,7 @@ class InstanceNode(ASTNode):
                                         "Arguments list retrieved: " + \
                                         str(current_args) + "\n")
 
-                                if None in current_args_type:
-                                    if debug:
-                                        sys.stdout.write("InstanceNode - Overloaded method - None detected.\n")
-
-                                    continue
+                            current_args_count = len(current_args)
 
                             for md in mds_with_same_identifier:
 
@@ -1652,35 +1672,35 @@ class InstanceNode(ASTNode):
                                     sys.stdout.write("InstanceNode - Current method to check: " + str(md) + "\n")
                                     sys.stdout.write("InstanceNode - FunctionType: " + str(md[1].basic_type_list) + "\n")
 
-                                if isinstance(self.child, ExpListNode):
+                                if isinstance(self.child, ExpListNode) and \
+                                    self.child.expression:
 
-                                    expected_args = mds_with_same_identifier[0][1].basic_type_list
+                                    expected_args = md[1].basic_type_list
                                     expected_args_count = len(expected_args)
 
-                                    # If there is exactly 1 method with the given name
-                                    # Simple check for number of arguments
-                                    if current_args_count != expected_args_count:
-                                        if debug:
-                                            sys.stdout.write("InstanceNode - Overloaded method - Incorrect number of arguments.\n")
+                                # If the number of arguments match
+                                if current_args_count == expected_args_count:
 
-                                        continue
+                                    # If the type of arguments match
+                                    if current_args_type == expected_args:
+                                        method_found = True
 
-                                    # Detailed type check of argument type
-                                    if current_args_type != expected_args:
-                                        if debug:
-                                            sys.stdout.write("InstanceNode - Overloaded method - Argument types do not match.\n")
+                                        # Assign return type as type of current InstanceNode
 
-                                        continue
-
-                                # Assign return type as type of current InstanceNode
-
-                                self.type = mds_with_same_identifier[0][2]
+                                        self.type = mds_with_same_identifier[0][2]
 
                                 if debug:
                                     sys.stdout.write("InstanceNode - Assigned type: " + \
                                         str(self.type) + "\n")
 
-                                method_found = True
+                            if not method_found:
+                                raise TypeCheckError(
+                                    str(self.atom.value)+'.'+str(self.identifier.value),
+                                    "Unable to locate method in class [" + \
+                                    str(class_for_identifier_type_check) + \
+                                    "] with parameter types: " + \
+                                    str(current_args_type) + "\n"
+                                )
 
                         if debug:
                             sys.stdout.write("InstanceNode - "
@@ -1691,7 +1711,7 @@ class InstanceNode(ASTNode):
                         if not method_found:
                             raise TypeCheckError(
                                 str(self.atom.value)+'.'+str(self.identifier.value),
-                                'Unable to locate function in given class'
+                                "Unable to locate function in given class.\n"
                             )
 
                     env_checked = True
@@ -2161,11 +2181,11 @@ class ExpListNode(ASTNode):
                 completed = True
                 break
 
+            exp_list.append(current_node.value)
+
             if not current_node.sibling:
                 completed = True
                 break
-
-            exp_list.append(current_node.value)
 
             current_node = current_node.sibling
 
@@ -2201,7 +2221,8 @@ class ExpListNode(ASTNode):
         return_type: Any=None,
     ) -> None:
 
-        self.expression.type_check(env, debug, within_class)
+        if self.expression:
+            self.expression.type_check(env, debug, within_class)
 
         if self.child:
             self.child.type_check(env, debug, within_class)
