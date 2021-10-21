@@ -1926,12 +1926,12 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        parser = Parser(debug=True)
+        parser = Parser(debug=False)
         parser.parse(f)
 
         parser.pretty_print()
 
-        parser.type_check(debug=True)
+        parser.type_check(debug=False)
         #parser.get_initial_env()
         #sys.stdout.write(str(parser.parse_tree.total_nodes()))
 

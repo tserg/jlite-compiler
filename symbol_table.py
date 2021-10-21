@@ -11,6 +11,10 @@ from typing import (
     Optional,
 )
 
+from jlite_type import (
+    FunctionType,
+)
+
 class SymbolTableStack:
     """
     Symbol table stack for managing symbol tables
@@ -92,12 +96,40 @@ class SymbolTableStack:
 
         else:
             current_st = self.symbol_table_stack[-1]
-            current_st[value] = {
-                'type': type,
-                'state': state,
-                'scope': scope,
-                'temp_id': temp_id
-            }
+
+            if value not in current_st:
+                current_st[value] = {
+                    'type': type,
+                    'state': state,
+                    'scope': scope,
+                    'temp_id': temp_id
+                }
+            elif isinstance(type, FunctionType):
+                if isinstance(current_st[value], dict):
+                    # Initialise list if there is only one existing function
+                    existing = current_st[value]
+                    temp_list = [existing]
+                    temp_list.append({
+                        'type': type,
+                        'state': state,
+                        'scope': scope,
+                        'temp_id': temp_id
+                    })
+
+                    current_st[value] = temp_list
+
+                else:
+                    # Add to list if there is more than one existing function
+
+                    temp_list = current_st[value]
+                    temp_list.append({
+                        'type': type,
+                        'state': state,
+                        'scope': scope,
+                        'temp_id': temp_id
+                    })
+
+                    current_st[value] = temp_list
 
     def lookup(self, value: str) -> Optional[Dict[str, Any]]:
         """

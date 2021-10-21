@@ -166,12 +166,17 @@ class IR3Generator:
 
             if len(methods) > 0:
 
+
+
                 for i in range(len(methods)):
                     md = methods[i]
+
+                    if self.debug:
+                        sys.stdout.write("Initialising symbol table methods - " + str(md[1].basic_type_list) + "\n")
                     symbol_table.insert(
-                        md[0],
-                        md[1],
-                        "%" + str(class_name) + "_" +  str(i),
+                        value=md[0],
+                        type=md[1],
+                        temp_id="%" + str(class_name) + "_" +  str(i),
                     )
 
         return symbol_table
@@ -553,6 +558,26 @@ class IR3Generator:
 
         st_lookup = symbol_table.lookup(ast_node.method_name)
         if st_lookup:
+            if self.debug:
+                sys.stdout.write("Getting MdDecl - Symbol table result - " + \
+                    str(st_lookup) + "\n")
+
+            if len(st_lookup) > 1:
+                args_type = ast_node.get_arguments().basic_type_list
+
+                for st_result in st_lookup:
+
+                    if self.debug:
+                        sys.stdout.write("Getting MdDecl - Symbol table multiple results - " + \
+                            str(st_result) + "\n")
+                        sys.stdout.write(str(args_type) + "\n")
+                        sys.stdout.write(str(st_result['type'].basic_type_list) + "\n")
+
+                    if st_result['type'].basic_type_list == args_type:
+                        temp_md_id = st_result['temp_id']
+            else:
+                temp_md_id = st_lookup['temp_id']
+        else:
             temp_md_id = st_lookup['temp_id']
 
         new_md_decl_node = CMtd3Node(
@@ -1218,6 +1243,33 @@ class IR3Generator:
 
                 st_lookup = symbol_table.lookup(ast_node.identifier.value)
                 if st_lookup:
+                    if self.debug:
+                        sys.stdout.write("Getting Exp - Symbol table result - " + \
+                            str(st_lookup) + "\n")
+
+                    if len(st_lookup) > 1:
+
+                        args_type = ast_node.child.get_arguments_type()
+
+                        if self.debug:
+                            sys.stdout.write("Getting Exp - Arguments of ExpListNode - " + \
+                                str(args_type) + "\n")
+
+                        for st_result in st_lookup:
+
+                            if self.debug:
+                                sys.stdout.write("Getting Exp - Symbol table multiple results - " + \
+                                    str(st_result) + "\n")
+                                sys.stdout.write(str(args_type) + "\n")
+                                sys.stdout.write(str(st_result['type'].basic_type_list) + "\n")
+
+                            if st_result['type'].basic_type_list == args_type:
+                                temp_md_id = st_result['temp_id']
+
+                                sys.stdout.write("Getting Exp - Overloaded method found.\n")
+                    else:
+                        temp_md_id = st_lookup['temp_id']
+                else:
                     temp_md_id = st_lookup['temp_id']
 
                 if self.debug:
@@ -1228,7 +1280,10 @@ class IR3Generator:
                         str(ast_node.identifier.type) + "\n")
 
                 new_exp_node = MethodCall3Node(method_id=temp_md_id)
-                args = self._get_vlist(ast_node.child)
+
+                args = IR3Node()
+                if ast_node.child.expression:
+                    args = self._get_vlist(ast_node.child.expression)
 
                 class_instance_node = IR3Node(
                     value=ast_node.atom.value,
@@ -1507,17 +1562,16 @@ class IR3Generator:
 
         if self.debug:
             sys.stdout.write("Getting VList - Initiated.\n")
-            sys.stdout.write("Getting VList - ASTNode: " + str(ast_node) + "\n")
+            sys.stdout.write("Getting VList - ASTNode: " + str(ast_node.value) + "\n")
 
-        if ast_node.expression:
-            new_v_node = IR3Node(
-                value=ast_node.expression.value,
-                type=ast_node.expression.type
-            )
+        new_v_node = IR3Node(
+            value=ast_node.value,
+            type=ast_node.type
+        )
 
-        if ast_node.expression.child:
+        if ast_node.sibling:
             new_v_node = self._get_vlist(
-                ast_node.expression.child,
+                ast_node.sibling,
                 new_v_node
             )
 
@@ -1557,7 +1611,7 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        gen = IR3Generator(debug=True)
+        gen = IR3Generator(debug=False)
         gen.generate_ir3(f)
         gen.pretty_print()
 

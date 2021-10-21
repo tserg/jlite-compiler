@@ -24,7 +24,7 @@ class TypeCheckError(Exception):
         additional_message: str=''
     ) -> None:
         self.expression = expression
-        self.message = "Invalid type: "
+        self.message = "Type check error: "
         self.additional_message = additional_message
 
     def __str__(self) -> str:
