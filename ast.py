@@ -1438,7 +1438,7 @@ class InstanceNode(ASTNode):
     def _type_check_argument_list(
         self,
         env: List[Deque[Any]],
-        current_arg: List[Any],
+        current_args: List[Any],
         expected_args: List[Any],
         debug: bool=False
     ) -> None:
@@ -1456,7 +1456,7 @@ class InstanceNode(ASTNode):
             env_copy = copy.deepcopy(env)
             current_arg_type = self._get_arg_type(
                 current_arg,
-                env_copy2,
+                env_copy,
                 debug
             )
 
@@ -1601,8 +1601,8 @@ class InstanceNode(ASTNode):
                                         "Arguments list retrieved: " + \
                                         str(current_args) + "\n")
 
-                                expected_args = mds_with_same_identifier[0][1].basic_type_list
-                                expected_args_count = len(expected_args)
+                            expected_args = mds_with_same_identifier[0][1].basic_type_list
+                            expected_args_count = len(expected_args)
 
                             # If there is exactly 1 method with the given name
                             # Simple check for number of arguments
@@ -1672,17 +1672,23 @@ class InstanceNode(ASTNode):
                                     sys.stdout.write("InstanceNode - Current method to check: " + str(md) + "\n")
                                     sys.stdout.write("InstanceNode - FunctionType: " + str(md[1].basic_type_list) + "\n")
 
-                                if isinstance(self.child, ExpListNode) and \
-                                    self.child.expression:
-
-                                    expected_args = md[1].basic_type_list
-                                    expected_args_count = len(expected_args)
+                                expected_args = md[1].basic_type_list
+                                expected_args_count = len(expected_args)
 
                                 # If the number of arguments match
                                 if current_args_count == expected_args_count:
 
                                     # If the type of arguments match
                                     if current_args_type == expected_args:
+
+                                        # Detailed type check of argument type
+                                        self._type_check_argument_list(
+                                            env,
+                                            current_args,
+                                            expected_args,
+                                            debug
+                                        )
+
                                         method_found = True
 
                                         # Assign return type as type of current InstanceNode

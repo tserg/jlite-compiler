@@ -562,7 +562,7 @@ class IR3Generator:
                 sys.stdout.write("Getting MdDecl - Symbol table result - " + \
                     str(st_lookup) + "\n")
 
-            if len(st_lookup) > 1:
+            if type(st_lookup) == list:
                 args_type = ast_node.get_arguments().basic_type_list
 
                 for st_result in st_lookup:
@@ -1247,7 +1247,7 @@ class IR3Generator:
                         sys.stdout.write("Getting Exp - Symbol table result - " + \
                             str(st_lookup) + "\n")
 
-                    if len(st_lookup) > 1:
+                    if type(st_lookup) == list:
 
                         args_type = ast_node.child.get_arguments_type()
 
@@ -1282,15 +1282,14 @@ class IR3Generator:
 
                 new_exp_node = MethodCall3Node(method_id=temp_md_id)
 
-                args = IR3Node()
-                if ast_node.child.expression:
-                    args = self._get_vlist(ast_node.child.expression)
-
                 class_instance_node = IR3Node(
                     value=ast_node.atom.value,
                     type=ast_node.atom.type
                 )
-                class_instance_node.add_child(args)
+
+                if ast_node.child.expression:
+                    args = self._get_vlist(ast_node.child.expression)
+                    class_instance_node.add_child(args)
 
                 new_exp_node.set_arguments(class_instance_node)
 
@@ -1564,6 +1563,9 @@ class IR3Generator:
         if self.debug:
             sys.stdout.write("Getting VList - Initiated.\n")
             sys.stdout.write("Getting VList - ASTNode: " + str(ast_node.value) + "\n")
+
+        if not ast_node.value:
+            return v_node
 
         new_v_node = IR3Node(
             value=ast_node.value,
