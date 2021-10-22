@@ -30,11 +30,11 @@ Void main(Main this) {
 
 Void %Delivery_0(Delivery this) {
   driver = new Driver();
-  k = %Driver_5(driver);
+  k = %Driver_4(driver);
   i = %Driver_0(driver);
   i = %Driver_1(driver,i);
-  i = %Driver_3(driver,i,j);
-  p = %Driver_4(driver,i,j,q);
+  i = %Driver_2(driver,i,j);
+  p = %Driver_3(driver,i,j,q);
 }
 
 Int %Driver_0(Driver this) {
@@ -47,38 +47,32 @@ Int %Driver_1(Driver this, Int a) {
   Return a;
 }
 
-Int %Driver_2(Driver this, Bool t) {
+Int %Driver_2(Driver this, Int a, Int b) {
   Int _t2;
-  _t2 = 37;
+  _t2 = a + b;
   Return _t2;
 }
 
-Int %Driver_3(Driver this, Int a, Int b) {
-  Int _t3;
-  _t3 = a + b;
-  Return _t3;
-}
-
-Int %Driver_4(Driver this, Int a, Int b, Bool c) {
+Int %Driver_3(Driver this, Int a, Int b, Bool c) {
   if (c) goto 1;
-  Int _t4;
-  _t4 = a - b;
-  Return _t4;
+  Int _t3;
+  _t3 = a - b;
+  Return _t3;
   goto 2;
  Label 1:
-  Int _t5;
-  _t5 = a + b;
-  Return _t5;
+  Int _t4;
+  _t4 = a + b;
+  Return _t4;
  Label 2:
 }
 
-String %Driver_5(Driver this) {
-  String _t6;
-  _t6 = this.name;
-  Return _t6;
+String %Driver_4(Driver this) {
+  String _t5;
+  _t5 = this.name;
+  Return _t5;
 }
 
-Void %Driver_6(Driver this) {
+Void %Driver_5(Driver this) {
   Return;
 }
 

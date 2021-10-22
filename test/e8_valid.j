@@ -25,7 +25,6 @@ class Main {
 		i = driver.deliverOrder(i);
 		i = driver.deliverOrder(i, j);
 		p = driver.deliverOrder(i, j, q);
-
 	}
 
  }
@@ -42,9 +41,6 @@ class Main {
 	}
 	Int deliverOrder(Int a) {
 		return a;
-	}
-	String deliverOrder(Int t) {
-		return 37;
 	}
 	Int deliverOrder(Int a, Int b) {
 		return a+b;
