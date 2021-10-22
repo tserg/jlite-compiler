@@ -7,6 +7,7 @@ from collections import deque
 from typing import (
     Any,
     Callable,
+    Dict,
     List,
     Optional,
     Tuple,
@@ -337,6 +338,8 @@ class IR3Generator:
         cdata_node: Any=None
     ) -> Optional[IR3Node]:
 
+        new_cdata_node: Any
+
         if isinstance(ast_node, MainClassNode) or \
             isinstance(ast_node, ClassDeclNode):
 
@@ -419,7 +422,7 @@ class IR3Generator:
         symbol_table: SymbolTableStack,
         ast_node: Any,
         mddata_node: Any=None
-    ) -> Optional[IR3Node]:
+    ) -> Optional[Any]:
 
         if self.debug:
             sys.stdout.write("Getting CMtd - Current AST node: " + \
@@ -562,7 +565,7 @@ class IR3Generator:
         class_name: str,
         ast_node: Any,
         md_decl_node: Any=None
-    ) -> IR3Node:
+    ) -> CMtd3Node:
 
         if self.debug:
             sys.stdout.write("Getting MdDecl - Initiated.\n")
@@ -573,7 +576,7 @@ class IR3Generator:
             sys.stdout.write("Getting MdDecl - Symbol table: " + \
                 str(symbol_table) + "\n")
 
-        st_lookup = symbol_table.lookup(ast_node.method_name)
+        st_lookup: Any = symbol_table.lookup(ast_node.method_name)
         if st_lookup:
             if self.debug:
                 sys.stdout.write("Getting MdDecl - Symbol table result - " + \
@@ -725,7 +728,7 @@ class IR3Generator:
         symbol_table: SymbolTableStack,
         ast_node: Any,
         stmt_node: Any=None
-    ) -> IR3Node:
+    ) -> Any:
 
         new_stmt_node: Any = None
 
@@ -1139,7 +1142,7 @@ class IR3Generator:
         self,
         symbol_table: SymbolTableStack,
         ast_node: Any
-    ) -> IR3Node:
+    ) -> Any:
 
         if self.debug:
             sys.stdout.write("Getting Exp - Initiated.\n")
@@ -1310,7 +1313,7 @@ class IR3Generator:
                 if self.debug:
                     sys.stdout.write("Getting Exp - Method call detected.\n")
 
-                st_lookup = symbol_table.lookup(ast_node.identifier.value)
+                st_lookup: Any = symbol_table.lookup(ast_node.identifier.value)
                 if st_lookup:
                     if self.debug:
                         sys.stdout.write("Getting Exp - Symbol table result - " + \
@@ -1416,7 +1419,8 @@ class IR3Generator:
 
             symbol_table.insert(temp_var, ast_node.type)
 
-            if type(ast_node.left_operand) == ASTNode and \
+            if isinstance(ast_node, ArithmeticOpNode) and \
+                type(ast_node.left_operand) == ASTNode and \
                 not ast_node.left_operand.is_identifier and \
                 type(ast_node.right_operand) == ASTNode and \
                 not ast_node.right_operand.is_identifier:
@@ -1645,7 +1649,7 @@ class IR3Generator:
 
         return new_exp_node
 
-    def _get_vlist(self, ast_node: Any, v_node: Any=None) -> IR3Node:
+    def _get_vlist(self, ast_node: Any, v_node: Optional[Any]=None) -> Optional[Any]:
 
         if self.debug:
             sys.stdout.write("Getting VList - Initiated.\n")
@@ -1653,6 +1657,8 @@ class IR3Generator:
 
         if not ast_node.value:
             return v_node
+
+        new_v_node: Any
 
         new_v_node = IR3Node(
             value=ast_node.value,

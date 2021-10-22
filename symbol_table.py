@@ -81,7 +81,7 @@ class SymbolTableStack:
         :param Any state: current state of the symbol
 
         """
-
+        temp_list: Any
         scope = self.current_scope_depth
 
         if len(self.symbol_table_stack) == 0:
@@ -106,7 +106,7 @@ class SymbolTableStack:
                 }
             elif isinstance(type, FunctionType):
                 if isinstance(current_st[value], dict):
-                    # Initialise list if there is only one existing function
+                    # Initialise list if there is only one possible method call
                     existing = current_st[value]
                     temp_list = [existing]
                     temp_list.append({
@@ -119,7 +119,8 @@ class SymbolTableStack:
                     current_st[value] = temp_list
 
                 else:
-                    # Add to list if there is more than one existing function
+                    # Add to list if there is more than one possible method call
+                    # I.e
 
                     temp_list = current_st[value]
                     temp_list.append({

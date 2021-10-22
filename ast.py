@@ -738,7 +738,7 @@ class ClassDeclNode(ASTNode):
 
         local_env = self._initialise_local_environment()
         local_env_mds = [i for i in local_env if isinstance(i[1], FunctionType)]
-        checked = []
+        checked: List[Any] = []
 
         for md in local_env_mds:
 
@@ -1454,7 +1454,7 @@ class InstanceNode(ASTNode):
 
     def _type_check_argument_list(
         self,
-        env: List[Deque[Any]],
+        env: Optional[List[Deque[Any]]],
         current_args: List[Any],
         expected_args: List[Any],
         debug: bool=False
