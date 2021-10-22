@@ -1026,18 +1026,70 @@ class IR3Generator:
             if ast_node.return_value:
 
                 if self.debug:
-                    sys.stdout.write("Getting Stmt - Return value detected.\n")
+                    sys.stdout.write("Getting Stmt - Return value type: " + \
+                        str(ast_node.return_value) + " with value: " + \
+                        str(ast_node.return_value.value) +  "\n")
+                    sys.stdout.write("Getting Stmt - Return value node detected.\n")
 
-                return_exp = self._get_exp3(symbol_table, ast_node.return_value)
-                return_exp_last_node = self._get_last_child(return_exp)
+                if ast_node.return_value.is_identifier:
+                    # Set return value as variable name directly if return value
+                    # is an <id> as defined in JLITE
 
-                return_node = Return3Node(return_value=return_exp.value)
-                return_exp_last_node.add_child(return_node)
+                    return_node = Return3Node(return_value=ast_node.return_value.value)
+                    new_stmt_node = return_node
 
-                new_stmt_node = return_exp
+                else:
+                    return_exp = self._get_exp3(symbol_table, ast_node.return_value)
+
+                    if self.debug:
+                        sys.stdout.write("Getting Stmt - Return Exp found - " + \
+                        "first node: " + str(type(return_exp)) + " with value " + \
+                        str(return_exp.value) + ".\n")
+
+                    return_exp_last_node = self._get_last_child(return_exp)
+                    return_node = Return3Node(return_value=ast_node.value)
+
+                    if return_exp != return_exp_last_node:
+
+                        if self.debug:
+                            sys.stdout.write("Getting Stmt - Last return node is different: " + \
+                            str(type(return_exp_last_node)) + \
+                            "\n")
+
+                        return_node = Return3Node(return_value=return_exp_last_node.identifier)
+                        return_exp_last_node.add_child(return_node)
+                        new_stmt_node = return_exp
+
+                    elif type(return_exp) == ClassAttribute3Node:
+                        # Manually generate label
+
+                        # Create new temporary variable
+
+                        temp_var = "_t"+str(self._get_temp_var_count())
+                        temp_var_node = VarDecl3Node(
+                            value=temp_var,
+                            type=return_exp.type
+                        )
+
+                        symbol_table.insert(temp_var, return_exp.type)
+
+                        # Assign value to temporary variable
+
+                        temp_var_assignment_node = Assignment3Node(type=return_exp.type)
+                        temp_var_assignment_node.set_identifier(temp_var)
+                        temp_var_assignment_node.set_assigned_value(return_exp)
+                        temp_var_node.add_child(temp_var_assignment_node)
+
+                        return_node = Return3Node(return_value=temp_var)
+                        temp_var_assignment_node.add_child(return_node)
+                        new_stmt_node = temp_var_node
+
+                    else:
+
+                        return_exp.add_child(return_node)
+                        new_stmt_node = return_exp
 
             else:
-
                 if self.debug:
                     sys.stdout.write("Getting Stmt - No return value detected.\n")
 
@@ -1364,8 +1416,7 @@ class IR3Generator:
 
             symbol_table.insert(temp_var, ast_node.type)
 
-            if isinstance(ast_node, ArithmeticOpNode) and \
-                type(ast_node.left_operand) == ASTNode and \
+            if type(ast_node.left_operand) == ASTNode and \
                 not ast_node.left_operand.is_identifier and \
                 type(ast_node.right_operand) == ASTNode and \
                 not ast_node.right_operand.is_identifier:
@@ -1461,11 +1512,28 @@ class IR3Generator:
 
             # Link nodes together
 
-            left_operand_last_node.add_child(right_operand_node)
-            right_operand_last_node.add_child(temp_var_node)
-            temp_var_node.add_child(temp_var_assignment_node)
+            if left_operand_node == left_operand_last_node:
 
-            new_exp_node = left_operand_node
+                if right_operand_node != right_operand_last_node:
+
+                    new_exp_node = right_operand_node
+                    right_operand_last_node.add_child(temp_var_node)
+
+                elif right_operand_node == right_operand_last_node:
+                    new_exp_node = temp_var_node
+
+            elif left_operand_node != left_operand_last_node:
+
+                new_exp_node = left_operand_node
+
+                if right_operand_node == right_operand_last_node:
+                    left_operand_last_node.add_child(temp_var_node)
+
+                elif right_operand_node != right_operand_last_node:
+                    left_operand_last_node.add_child(right_operand_node)
+                    right_operand_last_node.add_child(temp_var_node)
+
+            temp_var_node.add_child(temp_var_assignment_node)
 
             if self.debug:
                 sys.stdout.write("Getting Exp - BinOp/ArithmeticOp completed.\n")
@@ -1526,7 +1594,7 @@ class IR3Generator:
                         "Checking if identifier is found in symbol table: " + \
                         str(identifier) + "\n")
 
-                    return IR3Node(value=ast_node.value, type=ast_node.type)
+                return IR3Node(value=ast_node.value, type=ast_node.type)
 
             else:
                 # <Const>

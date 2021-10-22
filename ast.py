@@ -1816,7 +1816,7 @@ class ClassInstanceNode(ASTNode):
 
 class ReturnNode(ASTNode):
 
-    return_value: Any
+    return_value: Optional[Any]
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
