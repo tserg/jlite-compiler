@@ -747,15 +747,32 @@ class ClassDeclNode(ASTNode):
 
             if overloaded_mds:
                 for other_md in overloaded_mds:
-                    if md[1].basic_type_list == other_md[1].basic_type_list:
+
+                    current_md_args = md[1].basic_type_list
+                    other_md_args = other_md[1].basic_type_list
+
+                    if current_md_args == other_md_args:
                         # If parameter types are identical, raise error
 
-                        raise TypeCheckError(
-                            str(md[0]),
-                            "Declared method in [" + str(self.class_name) + \
-                            "] takes in the same parameter types as "
-                            "earlier method with the same name.\n"
-                        )
+                        if md[2] != other_md[2]:
+
+                            raise TypeCheckError(
+                                str(md[0]),
+                                "Declared method in [" + str(self.class_name) + \
+                                "] with parameters " + str(current_md_args) + \
+                                 " and return type " + str(md[2]) + \
+                                " takes in the same parameter types as " + \
+                                "earlier method with the same name.\n"
+                            )
+
+                        else:
+                            raise TypeCheckError(
+                                str(md[0]),
+                                "Declared method in [" + str(self.class_name) + \
+                                "] with parameters " + str(current_md_args) + \
+                                 " and return type " + str(md[2]) + \
+                                " has been declared earlier.\n"
+                            )
 
             checked.append(md)
 
