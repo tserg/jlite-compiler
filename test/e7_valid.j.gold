@@ -1,6 +1,8 @@
 ======= CData3 =======
 
 class Main{
+  String z;
+  Int x;
 }
 
 class QuitSmoking{
@@ -13,20 +15,20 @@ class QuitSmoking{
 Void main(Main this, Bool i, Bool j, Bool k) {
   String z;
   Int x;
-  Bool _t1;
-  _t1 = i != j;
-  Int _t2;
-  _t2 = 1;
   Bool _t3;
-  _t3 = x < _t2;
-  Bool _t4;
-  _t4 = _t1 && _t3;
+  _t3 = i != j;
+  Int _t4;
+  _t4 = 1;
   Bool _t5;
-  _t5 = !k;
+  _t5 = x < _t4;
+  Bool _t2;
+  _t2 = _t3 && _t5;
   Bool _t6;
-  _t6 = _t4 || _t5;
+  _t6 = !k;
+  Bool _t1;
+  _t1 = _t2 || _t6;
  Label 1:
-  if (_t6) goto 2;
+  if (_t1) goto 2;
   goto 3;
  Label 2:
  Label 4:
@@ -37,25 +39,17 @@ Void main(Main this, Bool i, Bool j, Bool k) {
   goto 4;
  Label 6:
   String _t7;
-  _t7 = "a";
-  String _t8;
-  _t8 = "b";
-  String _t9;
-  _t9 = _t7 + _t8;
-  z = _t9;
+  _t7 = "ab";
+  z = _t7;
   goto 1;
  Label 3:
 }
 
 String %QuitSmoking_0(QuitSmoking this, Int i) {
-  Int _t10;
-  _t10 = 18;
-  Bool _t11;
-  _t11 = i >= _t10;
-  if (_t11) goto 7;
-  String _t12;
-  _t12 = "haha";
-  Return _t12;
+  if (i >= 18) goto 7;
+  String _t8;
+  _t8 = "haha";
+  Return _t8;
   goto 8;
  Label 7:
   is_smoker = true;
@@ -63,9 +57,9 @@ String %QuitSmoking_0(QuitSmoking this, Int i) {
 }
 
 Bool %QuitSmoking_1(QuitSmoking this) {
-  Bool _t13;
-  _t13 = true;
-  Return _t13;
+  Bool _t9;
+  _t9 = true;
+  Return _t9;
 }
 
 

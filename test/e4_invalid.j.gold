@@ -1,1 +1,1 @@
-jlite_type.TypeCheckError: Invalid type:  <ast.ASTNode object at 0x7f76ce6f8820>. Return type Bool is different from declared: Int
+jlite_type.TypeCheckError: Type check error:  false. Return type Bool is different from that declared for function in class [CountToTen]: Int

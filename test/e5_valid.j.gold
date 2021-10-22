@@ -1,6 +1,8 @@
 ======= CData3 =======
 
 class Main{
+  Bool z;
+  String x;
 }
 
 class CountToTen{

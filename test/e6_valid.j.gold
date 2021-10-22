@@ -1,6 +1,9 @@
 ======= CData3 =======
 
 class Main{
+  Bool e;
+  Int f;
+  String new_string;
 }
 
 class OrderMacs{
@@ -21,30 +24,30 @@ Void main(Main this, String a, String b, Bool c, Int d) {
   String _t1;
   _t1 = a + b;
   new_string = _t1;
-  Int _t2;
-  _t2 = 2;
-  Int _t3;
-  _t3 = d * _t2;
-  Int _t4;
-  _t4 = 7;
   Int _t5;
-  _t5 = _t3 / _t4;
+  _t5 = 2;
+  Int _t4;
+  _t4 = d * _t5;
   Int _t6;
-  _t6 = 15;
+  _t6 = 7;
+  Int _t3;
+  _t3 = _t4 / _t6;
   Int _t7;
-  _t7 = _t5 + _t6;
-  f = _t7;
-  Bool _t8;
-  _t8 = true;
-  Bool _t9;
-  _t9 = d >= f;
+  _t7 = 15;
+  Int _t2;
+  _t2 = _t3 + _t7;
+  f = _t2;
   Bool _t10;
-  _t10 = _t8 && _t9;
+  _t10 = true;
   Bool _t11;
-  _t11 = e || c;
+  _t11 = d >= f;
+  Bool _t9;
+  _t9 = _t10 && _t11;
   Bool _t12;
-  _t12 = _t10 || _t11;
-  if (_t12) goto 4;
+  _t12 = e || c;
+  Bool _t8;
+  _t8 = _t9 || _t12;
+  if (_t8) goto 4;
   e = true;
   goto 5;
  Label 4:
@@ -56,11 +59,7 @@ Void main(Main this, String a, String b, Bool c, Int d) {
 
 Int %OrderMacs_0(OrderMacs this) {
   Int j;
-  Int _t13;
-  _t13 = 10;
-  Bool _t14;
-  _t14 = i < _t13;
-  if (_t14) goto 6;
+  if (i < 10) goto 6;
   println("Do not order Macs");
   goto 7;
  Label 6:

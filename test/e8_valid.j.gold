@@ -1,0 +1,86 @@
+======= CData3 =======
+
+class Main{
+  Int i;
+  Int j;
+}
+
+class Delivery{
+  Driver driver;
+  Int i;
+  Int j;
+  Int p;
+  String k;
+  Bool q;
+}
+
+class Driver{
+  Int a;
+  Bool b;
+  String name;
+}
+
+=======CMtd3 =======
+
+Void main(Main this) {
+  Int i;
+  Int j;
+  i = j;
+}
+
+Void %Delivery_0(Delivery this) {
+  driver = new Driver();
+  k = %Driver_5(driver);
+  i = %Driver_0(driver);
+  i = %Driver_1(driver,i);
+  i = %Driver_3(driver,i,j);
+  p = %Driver_4(driver,i,j,q);
+}
+
+Int %Driver_0(Driver this) {
+  Int _t1;
+  _t1 = 0;
+  Return _t1;
+}
+
+Int %Driver_1(Driver this, Int a) {
+  Return a;
+}
+
+Int %Driver_2(Driver this, Bool t) {
+  Int _t2;
+  _t2 = 37;
+  Return _t2;
+}
+
+Int %Driver_3(Driver this, Int a, Int b) {
+  Int _t3;
+  _t3 = a + b;
+  Return _t3;
+}
+
+Int %Driver_4(Driver this, Int a, Int b, Bool c) {
+  if (c) goto 1;
+  Int _t4;
+  _t4 = a - b;
+  Return _t4;
+  goto 2;
+ Label 1:
+  Int _t5;
+  _t5 = a + b;
+  Return _t5;
+ Label 2:
+}
+
+String %Driver_5(Driver this) {
+  String _t6;
+  _t6 = this.name;
+  Return _t6;
+}
+
+Void %Driver_6(Driver this) {
+  Return;
+}
+
+
+=====fx== End of IR3 Program =======
