@@ -734,7 +734,7 @@ class ClassDeclNode(ASTNode):
             if current_var.sibling:
                 current_var = current_var.sibling
 
-    def _check_methods(self) -> None:
+    def _type_check_methods(self) -> None:
 
         local_env = self._initialise_local_environment()
         local_env_mds = [i for i in local_env if isinstance(i[1], FunctionType)]
@@ -794,7 +794,7 @@ class ClassDeclNode(ASTNode):
         if debug:
             sys.stdout.write("ClassDeclNode - No collision in field names.\n")
 
-        self._check_methods()
+        self._type_check_methods()
 
         if debug:
             sys.stdout.write("ClassDeclNode - No collision in method names.\n")
