@@ -347,8 +347,25 @@ class IR3Generator:
 
             # Get variable declarations
 
-            if isinstance(ast_node, ClassDeclNode) and \
-                ast_node.variable_declarations:
+            if isinstance(ast_node, MainClassNode):
+                if self.debug:
+                    sys.stdout.write("Getting CData - "
+                        "Variable declarations detected in main class: " + \
+                        str(ast_node.class_name) + "\n")
+
+                var_decl_node = self._get_var_decl(
+                    symbol_table,
+                    ast_node.main_variable_declarations
+                )
+
+                if self.debug:
+                    sys.stdout.write("Getting CData - "
+                        "Variable declarations added for main class: " + \
+                        str(ast_node.class_name) + "\n")
+
+                new_cdata_node.set_var_decl(var_decl_node)
+
+            elif isinstance(ast_node, ClassDeclNode):
 
                 if self.debug:
                     sys.stdout.write("Getting CData - "
@@ -389,7 +406,7 @@ class IR3Generator:
 
         # If there are more class declarations, call this function recursively
         if isinstance(ast_node.sibling, ClassDeclNode):
-            cdata_node = self._get_cdata3(
+            new_cdata_node = self._get_cdata3(
                 symbol_table,
                 ast_node.sibling,
                 new_cdata_node
@@ -1349,7 +1366,9 @@ class IR3Generator:
 
             if isinstance(ast_node, ArithmeticOpNode) and \
                 type(ast_node.left_operand) == ASTNode and \
-                type(ast_node.right_operand) == ASTNode:
+                not ast_node.left_operand.is_identifier and \
+                type(ast_node.right_operand) == ASTNode and \
+                not ast_node.right_operand.is_identifier:
 
                 # Short circuit if it is an arithmetic operation and both operands
                 # are constants
