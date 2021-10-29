@@ -112,6 +112,7 @@ class IR3Generator:
     ir3_tree: IR3Tree
     label_count: int
     temp_var_count: int
+    symbol_table: "SymbolTableStack"
 
     def __init__(self, debug: bool=False) -> None:
         self.parser = Parser()
@@ -210,14 +211,7 @@ class IR3Generator:
         self.label_count = 0
         self.temp_var_count = 0
 
-        # Set up initial environment
-        symbol_table = self._initialise_symbol_table()
-
-        if self.debug:
-            sys.stdout.write("Generating IR3 - Initialised symbol table: " + \
-                str(symbol_table) + "\n")
-
-        return self._program_expression(symbol_table, self.parser.ast.head)
+        return self._program_expression(self.parser.ast.head)
 
     def _compute_arithmetic_node_with_constants(
         self,
@@ -301,12 +295,12 @@ class IR3Generator:
 
     def _program_expression(
         self,
-        symbol_table: SymbolTableStack,
         ast: Any
     ) -> IR3Node:
 
         # Set up initial symbol table
         symbol_table = self._initialise_symbol_table()
+        self.symbol_table = symbol_table
 
         program_node = Program3Node()
 
@@ -350,25 +344,7 @@ class IR3Generator:
 
             # Get variable declarations
 
-            if isinstance(ast_node, MainClassNode):
-                if self.debug:
-                    sys.stdout.write("Getting CData - "
-                        "Variable declarations detected in main class: " + \
-                        str(ast_node.class_name) + "\n")
-
-                var_decl_node = self._get_var_decl(
-                    symbol_table,
-                    ast_node.main_variable_declarations
-                )
-
-                if self.debug:
-                    sys.stdout.write("Getting CData - "
-                        "Variable declarations added for main class: " + \
-                        str(ast_node.class_name) + "\n")
-
-                new_cdata_node.set_var_decl(var_decl_node)
-
-            elif isinstance(ast_node, ClassDeclNode):
+            if isinstance(ast_node, ClassDeclNode):
 
                 if self.debug:
                     sys.stdout.write("Getting CData - "
@@ -491,12 +467,13 @@ class IR3Generator:
                     ast_node.variable_declarations
                 )
 
-            new_md_decl_node = self._get_md_decl(
-                symbol_table,
-                ast_node.class_name,
-                ast_node.method_declarations,
-                mddata_node
-            )
+            if ast_node.method_declarations:
+                new_md_decl_node = self._get_md_decl(
+                    symbol_table,
+                    ast_node.class_name,
+                    ast_node.method_declarations,
+                    mddata_node
+                )
 
         symbol_table.pop_st()
 
