@@ -89,9 +89,7 @@ DFA: Dict[str, Any] = {
         '_': '2'
     },
     # Negative integer start state
-    '3': {
-        '0-9': '5'
-    },
+    '3': {},
     '4': {
     # String start state
         '"': '11',
