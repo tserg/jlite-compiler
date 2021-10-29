@@ -379,14 +379,16 @@ class ASTNode:
 class MainClassNode(ASTNode):
 
     class_name: str
-    main_arguments: Any
-    main_variable_declarations: Any
+    main_arguments: Optional[Any]
+    main_variable_declarations: Optional[Any]
     main_statements: Any
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.value = 'class'
         self.type = 'mainClass'
+        self.main_arguments = None
+        self.main_variable_declarations = None
 
     def set_class_name(self, class_name: str) -> None:
         self.class_name = class_name
@@ -649,11 +651,13 @@ class MainClassNode(ASTNode):
 class ClassDeclNode(ASTNode):
 
     class_name: str
-    variable_declarations: Any
-    method_declarations: Any
+    variable_declarations: Optional[Any]
+    method_declarations: Optional[Any]
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.variable_declarations = None
+        self.method_declarations = None
 
     def set_class_name(self, class_name: str) -> None:
         self.class_name = class_name
@@ -741,6 +745,9 @@ class ClassDeclNode(ASTNode):
         mds_completed = False
 
         current_mds = self.method_declarations
+
+        if not current_mds:
+            return local_environment
 
         while not mds_completed:
 
@@ -837,12 +844,14 @@ class ClassDeclNode(ASTNode):
                 self.class_name + '\n')
 
         # Check field names
-        self._check_variable_declaration_names()
+        if self.variable_declarations:
+            self._check_variable_declaration_names()
 
         if debug:
             sys.stdout.write("ClassDeclNode - No collision in field names.\n")
 
-        self._type_check_methods()
+        if self.method_declarations:
+            self._type_check_methods()
 
         if debug:
             sys.stdout.write("ClassDeclNode - No collision in method names.\n")
@@ -870,7 +879,8 @@ class ClassDeclNode(ASTNode):
             sys.stdout.write("ClassDeclNode - Adding 'this' to local environment: " + \
                 str(env[1]) + "\n")
 
-        self.method_declarations.type_check(env, debug, self.class_name)
+        if self.method_declarations:
+            self.method_declarations.type_check(env, debug, self.class_name)
 
         if self.child:
             self.child.type_check(env, debug, self.class_name)
@@ -880,8 +890,12 @@ class ClassDeclNode(ASTNode):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
         sys.stdout.write("class " + self.class_name + "{ \n")
-        self.variable_declarations.pretty_print(delimiter=';\n', preceding='  ')
-        self.method_declarations.pretty_print(delimiter=';\n', preceding='  ')
+
+        if self.variable_declarations:
+            self.variable_declarations.pretty_print(delimiter=';\n', preceding='  ')
+
+        if self.method_declarations:
+            self.method_declarations.pretty_print(delimiter=';\n', preceding='  ')
 
         if self.child:
             self.child.pretty_print(delimiter, preceding='  ')
