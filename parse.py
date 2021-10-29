@@ -784,7 +784,13 @@ class Parser:
                 root_node = PrintLnNode('println', 'println')
                 root_node.set_expression(t3)
 
-            elif next_token.token_name == "IDENTIFIER":
+            elif next_token.token_name == "IDENTIFIER" and \
+                lexer.peek(1).value != '.':
+
+                # If there is a ".", let else clause handle
+
+                if self.debug:
+                    sys.stdout.write("Stmt expression - Identifier found.\n")
 
                 t1 = self._eat("IDENTIFIER", lexer)
                 self._eat("=", lexer)
@@ -977,6 +983,7 @@ class Parser:
 
                 if self.debug:
                     sys.stdout.write("BExp expression found, returning to Exp expression" + "\n")
+                    sys.stdout.write("Next token: " + str(lexer.peek().value) + "\n")
 
                 return (t1, current_lexer)
 
@@ -1012,16 +1019,14 @@ class Parser:
                         return (t1, current_lexer)
 
                     except ParseError as e:
-                        raise e
+                        if self.debug:
+                            sys.stdout.write("SExp expression exception encountered, returned to Exp expression" + "\n")
 
-        except ParseError as e:
-            if self.debug:
-                sys.stdout.write("Atom expression exception encountered, backtracking" + "\n")
-            raise e
+                        raise e
 
         except:
             if self.debug:
-                sys.stdout.write("Atom expression exception encountered, backtracking" + "\n")
+                sys.stdout.write("Expression exception encountered, backtracking" + "\n")
 
             last_consumed_token = lexer.get_last_consumed_token()
             raise ParseError(
@@ -1050,6 +1055,8 @@ class Parser:
             )
 
         except ParseError as e:
+            if self.debug:
+                sys.stdout.write("BExp expression exception encountered, backtracking" + "\n")
             raise e
 
     def _bexpalpha_expression(self, lexer: Lexer, left_node: Any):
@@ -1279,9 +1286,11 @@ class Parser:
                 )
             next_token = lexer.peek()
 
+            current_lexer = copy.deepcopy(lexer)
+
             if next_token.token_name == "!":
-                t1 = self._eat("!", lexer)
-                t2, lexer = self._bgrd_expression(lexer)
+                t1 = self._eat("!", current_lexer)
+                t2, current_lexer = self._bgrd_expression(current_lexer)
 
                 negation_node = ComplementNode(
                     complement_expression=t2,
@@ -1291,25 +1300,28 @@ class Parser:
                 t1 = negation_node
 
             elif next_token.token_name == "true":
-                t1 = self._eat("true", lexer, 'Bool')
+                t1 = self._eat("true", current_lexer, 'Bool')
 
             elif next_token.token_name == "false":
-                t1 = self._eat("false", lexer, 'Bool')
+                t1 = self._eat("false", current_lexer, 'Bool')
 
             else:
                 try:
 
-                    if lexer.peek(1).token_name in "+-*/":
+                    if current_lexer.peek(1).token_name in "+-*/":
                         if self.debug:
                             sys.stdout.write("bgrd expression should not handle" + "\n")
                         # Defer to _aexp or _sexp if any of these operators
                         # are after the atom
                         raise InvalidExpressionError
 
-                    t1, lexer = self._atom_expression(lexer)
+                    if self.debug:
+                        sys.stdout.write("BGrd expression - Going to Atom expression.\n")
+
+                    t1, current_lexer = self._atom_expression(current_lexer)
 
                 except:
-                    last_consumed_token = lexer.get_last_consumed_token()
+                    last_consumed_token = current_lexer.get_last_consumed_token()
                     raise ParseError(
                         self._bgrd_expression.__name__,
                         last_consumed_token.value,
@@ -1317,15 +1329,27 @@ class Parser:
                         last_consumed_token.start_line
                     )
 
+            if self.debug:
+                sys.stdout.write("BGrd expression found.\n")
+                sys.stdout.write("Lexer next token: " + str(current_lexer.peek().value) + "\n")
+
+            if current_lexer.peek().value in '+-/*':
+
+                if self.debug:
+                    sys.stdout.write("Atom expression should not handle class attribute assignment." + "\n")
+                # Defer to _sexp if any of these operators are after the atom
+                raise InvalidExpressionError
+
             return (
                 t1,
-                lexer
+                current_lexer
             )
 
-        except ParseError as e:
-            raise e
-
         except:
+
+            if self.debug:
+                sys.stdout.write("BGrd exception encountered, backtracking" + "\n")
+
             last_consumed_token = lexer.get_last_consumed_token()
             raise ParseError(
                 self._bgrd_expression.__name__,
@@ -1753,11 +1777,6 @@ class Parser:
                 lexer
             )
 
-        except ParseError as e:
-            if self.debug:
-                sys.stdout.write("Atom expression exception encountered, backtracking" + "\n")
-            raise e
-
         except:
             if self.debug:
                 sys.stdout.write("Atom expression exception encountered, backtracking" + "\n")
@@ -1782,7 +1801,11 @@ class Parser:
 
             next_token = lexer.peek()
 
-            if next_token.token_name == ".":
+            if self.debug:
+                sys.stdout.write("Atomalpha - Next next token: " + str(lexer.peek(2).value) + "\n")
+
+            if next_token.token_name == "." and \
+                lexer.peek(2).value != '=':
                 current_lexer = copy.deepcopy(lexer)
                 self._eat(".", current_lexer)
 
@@ -1900,7 +1923,7 @@ class Parser:
         :param bool debug: display logging for troubleshooting
         """
         self.ast.type_check(debug)
-        sys.stdout.write("Type checking completed\n")
+        #sys.stdout.write("Type checking completed\n")
 
     def get_initial_env(self) -> None:
         """

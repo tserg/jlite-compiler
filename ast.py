@@ -1391,6 +1391,7 @@ class InstanceNode(ASTNode):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
+    '''
     def _get_arg_type(self, current_arg, env, debug=False):
 
         if debug:
@@ -1438,8 +1439,8 @@ class InstanceNode(ASTNode):
 
                     if debug:
                         sys.stdout.write("Current value: " + current_arg + '\n')
-                        sys.stdout.write("Checking for current env: " + \
-                            str(current_env) + '\n')
+                        #sys.stdout.write("Checking for current env: " + \
+                        #    str(current_env) + '\n')
 
                     if current_arg == var_declared[0]:
 
@@ -1451,6 +1452,7 @@ class InstanceNode(ASTNode):
                         break
 
         return derived_type
+    '''
 
     def _type_check_argument_list(
         self,
@@ -1462,20 +1464,15 @@ class InstanceNode(ASTNode):
 
         for i in range(len(current_args)):
 
-            current_arg = current_args[i]
+            current_arg = current_args[i][0]
+            current_arg_type = current_args[i][1]
 
             if debug:
                 sys.stdout.write(
                     "InstanceNode - Checking for type of argument: " + \
-                    current_arg + '\n'
+                    current_arg + " with type " + str(current_arg_type) + "\n"
                 )
 
-            env_copy = copy.deepcopy(env)
-            current_arg_type = self._get_arg_type(
-                current_arg,
-                env_copy,
-                debug
-            )
 
             # Checks if argument has been declared
             if not current_arg_type:
@@ -1673,7 +1670,7 @@ class InstanceNode(ASTNode):
                                 )
 
                                 current_args = self.child.get_arguments(debug)
-                                current_args_type = [self._get_arg_type(c_arg, env, debug) for c_arg in current_args]
+                                current_args_type = [i[1] for i in current_args]
 
                                 if debug:
                                     sys.stdout.write("InstanceNode - "
@@ -2204,7 +2201,7 @@ class ExpListNode(ASTNode):
                 completed = True
                 break
 
-            exp_list.append(current_node.value)
+            exp_list.append((current_node.value, current_node.type))
 
             if not current_node.sibling:
                 completed = True
