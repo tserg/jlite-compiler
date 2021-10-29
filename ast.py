@@ -1391,14 +1391,31 @@ class InstanceNode(ASTNode):
         if self.sibling:
             self.sibling.pretty_print(delimiter, preceding)
 
-    '''
-    def _get_arg_type(self, current_arg, env, debug=False):
+    def _get_arg_type(self, current_arg_tuple, env, debug=False):
 
         if debug:
             sys.stdout.write("InstanceNode - Retrieving argument type for: " + \
-                current_arg + '\n')
+                str(current_arg_tuple) + '\n')
             sys.stdout.write("InstanceNode - _get_arg_type - Env received: " + \
                 str(env) + '\n')
+
+        current_arg = current_arg_tuple[0]
+        current_arg_type = current_arg_tuple[1]
+
+        if debug:
+            sys.stdout.write("Printing arg tuple[1] for arg in InstanceNode: " + \
+                str(current_arg_type) + "\n")
+
+        # Check for BasicType
+
+        if isinstance(current_arg_type, BasicType):
+            if debug:
+                sys.stdout.write("BasicType found for arg in InstanceNode: " + \
+                    str(current_arg_type) + "\n")
+
+            return current_arg_type
+
+        # If not BasicType, look in environment
 
         env_checked = False
         found = False
@@ -1452,7 +1469,6 @@ class InstanceNode(ASTNode):
                         break
 
         return derived_type
-    '''
 
     def _type_check_argument_list(
         self,
@@ -1465,7 +1481,9 @@ class InstanceNode(ASTNode):
         for i in range(len(current_args)):
 
             current_arg = current_args[i][0]
-            current_arg_type = current_args[i][1]
+
+            env_copy = copy.deepcopy(env)
+            current_arg_type = self._get_arg_type(current_args[i], env_copy, debug=True)
 
             if debug:
                 sys.stdout.write(
@@ -1670,7 +1688,7 @@ class InstanceNode(ASTNode):
                                 )
 
                                 current_args = self.child.get_arguments(debug)
-                                current_args_type = [i[1] for i in current_args]
+                                current_args_type = [self._get_arg_type(i, env_copy, debug=True) for i in current_args]
 
                                 if debug:
                                     sys.stdout.write("InstanceNode - "
