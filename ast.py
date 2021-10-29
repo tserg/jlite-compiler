@@ -280,6 +280,54 @@ class ASTNode:
             else:
                 raise TypeCheckError(str(self.value), "Undeclared variable")
 
+    def _get_return_type_for_identifier(
+        self,
+        env: List[Deque[Any]],
+        debug: bool=False
+    ) -> Any:
+
+        env_checked = False
+        found = False
+        return_type = None
+
+        if debug:
+            sys.stdout.write("Getting return type for function call: " + \
+                str(self.value) + "\n")
+
+        env_copy = copy.deepcopy(env)
+
+        class_descriptor = env_copy[0]
+        local_environment = env_copy[1]
+
+        # Search local environment first
+        if len(local_environment) > 0:
+            for v in local_environment:
+                if self.value == v[0]:
+                    return_type = v[2]
+                    env_checked = True
+                    found = True
+
+        # Seach class descriptors next
+        while not env_checked:
+
+            if len(class_descriptor) == 0:
+                env_checked = True
+                break
+
+            current_class = class_descriptor.pop()
+
+            # Checks if class instance is being declared
+            if self.value == current_class[0] and \
+                type(current_class[1]) == FunctionType:
+
+                return_type = current_class[2]
+
+                env_checked = True
+                found = True
+                break
+
+        return return_type
+
     def type_check(
         self,
         env: List[Deque[Any]],
@@ -1872,7 +1920,30 @@ class ReturnNode(ASTNode):
         # Check for
         if self.return_value:
             self.return_value.type_check(env, debug, within_class)
-            self.type = self.return_value.type
+
+            if type(self.return_value.type) == FunctionType:
+
+                if debug:
+                    sys.stdout.write("ReturnNode - Function detected in return type.\n")
+
+                function_return_type = self.return_value._get_return_type_for_identifier(
+                    env=env,
+                    debug=True
+                )
+
+                if not function_return_type:
+                    raise TypeCheckError(
+                        self.return_value.value,
+                        "Unable to find return type for method call [" + \
+                        str(self.return_value.value) + \
+                        "] in class [" + \
+                        str(within_class) + "]: " + str(return_type))
+
+                self.type = function_return_type
+
+
+            elif type(self.return_value.type) == BasicType:
+                self.type = self.return_value.type
         else:
             # Set type to Void if its return value is None
             self.type = BasicType.VOID
