@@ -165,7 +165,32 @@ class Compiler:
 
         return is_in_register
 
-    def _get_registers(self, ir3_node: Assignment3Node) -> Any:
+    def _check_if_in_arguments(
+        self,
+        identifier: str,
+        md_args: List[str]
+    ) -> Optional[str]:
+
+        try:
+            arg_index = md_args.index(identifier)
+
+            arg_register = {
+                0: 'a1',
+                1: 'a2',
+                2: 'a3',
+                3: 'a4',
+            }[arg_index]
+
+            return arg_register
+
+        except:
+            return None
+
+    def _get_registers(
+        self,
+        ir3_node: Assignment3Node,
+        md_args: List[str]
+    ) -> Any:
 
         register_data = {}
 
@@ -182,6 +207,17 @@ class Compiler:
 
             if self.debug:
                 sys.stdout.write("Getting register for plain vanilla node.\n")
+
+            # If x is an argument, use that register
+
+            is_arg = self._check_if_in_arguments(
+                ir3_node.identifier,
+                md_args
+            )
+
+            if is_arg:
+                register_data = {'x': is_arg}
+                return register_data
 
             # If x is currently in a register, pick that register
             is_in_register = self._check_if_in_register(ir3_node.identifier)
@@ -239,6 +275,8 @@ class Compiler:
             )
 
             y_value = None
+
+
             if not left_operand_is_raw_value:
                 y_value = ir3_node.assigned_value.left_operand
 
@@ -263,6 +301,15 @@ class Compiler:
                         "\n")
 
                 if not v:
+                    continue
+
+                is_arg = self._check_if_in_arguments(
+                    v,
+                    md_args
+                )
+
+                if is_arg:
+                    register_data[k] = is_arg
                     continue
 
                 is_in_register = self._check_if_in_register(v)
@@ -459,9 +506,13 @@ class Compiler:
 
         # Set up callee-saved registers
 
+        method_name = ir3_node.method_id
+        if method_name[0] == "%":
+            method_name = method_name[1:]
+
         instruction_start_label = Instruction(
             self._get_incremented_instruction_count(),
-            str(ir3_node.method_id) + ":" + "\n"
+            "\n" + method_name + ":" + "\n"
         )
 
         instruction_push_callee_saved = Instruction(
@@ -497,8 +548,11 @@ class Compiler:
 
         # Convert statements to assembly code
 
+        md_args = ir3_node.get_arguments()
+
         stmt_start_instruction = self._convert_stmt_to_assembly(
-            ir3_node.statements
+            ir3_node.statements,
+            md_args
         )
         stmt_end_instruction = stmt_start_instruction.get_last_child()
 
@@ -571,10 +625,14 @@ class Compiler:
 
                 elif type(current_var_decl.type) == tuple:
 
+                    # If it is a class object
+
                     if self.debug:
                         sys.stdout.write("Calculating space for object decl: " + \
                             str(current_var_decl.value) + " of class " + \
                             str(current_var_decl.type[1])+ "\n")
+
+                    # Look for object class in class data
 
                     object_class = current_var_decl.type[1]
 
@@ -589,9 +647,14 @@ class Compiler:
 
                         if object_class == current_class_data.class_name:
 
+                            # Get identifiers of class attributes
+
                             object_attributes = current_class_data.get_var_decl_identifiers()
 
                             for a in object_attributes:
+
+                                # For each class attribute, increment the offset
+                                # and declare a new variable
 
                                 fp_offset += 4
 
@@ -609,7 +672,6 @@ class Compiler:
                         current_class_data = current_class_data.child
 
             current_var_decl = current_var_decl.child
-
 
         current_stmt = ir3_node.statements
         stmt_completed = False
@@ -641,7 +703,15 @@ class Compiler:
 
         return fp_offset
 
-    def _convert_stmt_to_assembly(self, ir3_node: Any) -> "Instruction":
+    def _convert_stmt_to_assembly(
+        self,
+        ir3_node: Any,
+        md_args: List[str]
+    ) -> "Instruction":
+
+        if self.debug:
+            sys.stdout.write("Converting stmt to assembly - Args: " + \
+                str(md_args) + "\n")
 
         first_instruction = None
         current_instruction = None
@@ -671,11 +741,19 @@ class Compiler:
 
             elif type(current_stmt) == Assignment3Node:
 
-                registers = self._get_registers(current_stmt)
+                registers = self._get_registers(
+                    current_stmt,
+                    md_args
+                )
 
                 if self.debug:
                     sys.stdout.write("Registers obtained: " + str(registers) + \
                         "\n")
+
+                x_is_arg = self._check_if_in_arguments(
+                    current_stmt.identifier,
+                    md_args
+                )
 
                 x_register = registers['x']
 
@@ -703,6 +781,11 @@ class Compiler:
 
                     # Check if y is raw value
 
+                    y_is_arg = self._check_if_in_arguments(
+                        current_stmt.assigned_value.left_operand,
+                        md_args
+                    )
+
                     y_is_raw = self._is_raw_value(
                         current_stmt.assigned_value.left_operand
                     )
@@ -712,6 +795,11 @@ class Compiler:
                         y_value = registers['y']
 
                     # Check if z is raw value
+
+                    z_is_arg = self._check_if_in_arguments(
+                        current_stmt.assigned_value.right_operand,
+                        md_args
+                    )
 
                     z_is_raw = self._is_raw_value(
                         current_stmt.assigned_value.right_operand
@@ -726,52 +814,43 @@ class Compiler:
                     if current_stmt.assigned_value.operator == '+':
 
                         if y_is_raw:
-
-                            # If y is a raw value, load z
-
-                            var_z_offset = self.address_descriptor[current_stmt.assigned_value.right_operand]['offset']
-
-                            new_instruction = Instruction(
-                                self._get_incremented_instruction_count(),
-                                instruction="ldr " + z_value + ",[fp,#-]" + \
-                                    str(var_z_offset) + "\n"
-                            )
-
-                            self._update_descriptors(
-                                register=z_value,
-                                identifier=current_stmt.assigned_value.right_operand
-                            )
+                            # If y is a raw value
 
                             instruction_binop = Instruction(
                                 self._get_incremented_instruction_count(),
                                 instruction="add " + x_register + "," + z_value + \
-                                    ",#" + str(y_value) + "\n",
-                                parent=new_instruction
+                                    ",#" + str(y_value) + "\n"
                             )
 
-                            new_instruction.set_child(instruction_binop)
+                            if not z_is_arg:
 
-                            self._update_descriptors(
-                                register=x_register,
-                                identifier=current_stmt.identifier
-                            )
+                                # If z is not an argument, load z
+
+                                var_z_offset = self.address_descriptor[current_stmt.assigned_value.right_operand]['offset']
+
+                                new_instruction = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="ldr " + z_value + ",[fp,#-]" + \
+                                        str(var_z_offset) + "\n"
+                                )
+
+                                self._update_descriptors(
+                                    register=z_value,
+                                    identifier=current_stmt.assigned_value.right_operand
+                                )
+
+                                instruction_binop.set_parent(new_instruction)
+                                new_instruction.set_child(instruction_binop)
+
+                            elif z_is_arg:
+
+                                # If z is an argument
+
+                                new_instruction = instruction_binop
 
                         elif z_is_raw:
 
-                            # If z is a raw value, load y
-
-                            var_y_offset = self.address_descriptor[current_stmt.assigned_value.left_operand]['offset']
-
-                            new_instruction = Instruction(
-                                self._get_incremented_instruction_count(),
-                                instruction="ldr " + y_value + ",[fp,#-" + \
-                                    str(var_y_offset) + "]\n"
-                            )
-
-                            self._update_descriptors(
-                                register=y_value,
-                                identifier=current_stmt.assigned_value.left_operand
-                            )
+                        # If z is a raw value
 
                             instruction_binop = Instruction(
                                 self._get_incremented_instruction_count(),
@@ -779,60 +858,138 @@ class Compiler:
                                     ",#" + str(z_value) + "\n"
                             )
 
-                            new_instruction.set_child(instruction_binop)
+                            if not y_is_arg:
 
-                            self._update_descriptors(
-                                register=x_register,
-                                identifier=current_stmt.identifier
-                            )
+                                # If y is not an argument, load y
 
+                                var_y_offset = self.address_descriptor[current_stmt.assigned_value.left_operand]['offset']
+
+                                new_instruction = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="ldr " + y_value + ",[fp,#-" + \
+                                        str(var_y_offset) + "]\n"
+                                )
+
+                                self._update_descriptors(
+                                    register=y_value,
+                                    identifier=current_stmt.assigned_value.left_operand
+                                )
+
+                                instruction_binop.set_parent(new_instruction)
+                                new_instruction.set_child(instruction_binop)
+
+                            elif y_is_arg:
+
+                                # If z is a raw value, load y
+
+                                new_instruction = instruction_binop
 
                         else:
 
                             # Load y and z
 
-                            var_y_offset = self.address_descriptor[current_stmt.assigned_value.left_operand]['offset']
+                            if not y_is_arg and not z_is_arg:
 
-                            new_instruction = Instruction(
-                                self._get_incremented_instruction_count(),
-                                instruction="ldr " + y_value + ",[fp,#-" + \
-                                    str(var_y_offset) + "]\n"
-                            )
+                                var_y_offset = self.address_descriptor[current_stmt.assigned_value.left_operand]['offset']
 
-                            self._update_descriptors(
-                                register=y_value,
-                                identifier=current_stmt.assigned_value.left_operand
-                            )
+                                new_instruction = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="ldr " + y_value + ",[fp,#-" + \
+                                        str(var_y_offset) + "]\n"
+                                )
 
-                            var_z_offset = self.address_descriptor[current_stmt.assigned_value.right_operand]['offset']
+                                self._update_descriptors(
+                                    register=y_value,
+                                    identifier=current_stmt.assigned_value.left_operand
+                                )
 
-                            instruction_load_z = Instruction(
-                                self._get_incremented_instruction_count(),
-                                instruction="ldr " + z_value + ",[fp,#-" + \
-                                    str(var_z_offset) + "]\n",
-                                parent=new_instruction
-                            )
+                                var_z_offset = self.address_descriptor[current_stmt.assigned_value.right_operand]['offset']
 
-                            self._update_descriptors(
-                                register=z_value,
-                                identifier=current_stmt.assigned_value.right_operand
-                            )
+                                instruction_load_z = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="ldr " + z_value + ",[fp,#-" + \
+                                        str(var_z_offset) + "]\n",
+                                    parent=new_instruction
+                                )
 
-                            new_instruction.set_child(instruction_load_z)
+                                self._update_descriptors(
+                                    register=z_value,
+                                    identifier=current_stmt.assigned_value.right_operand
+                                )
 
-                            instruction_binop = Instruction(
-                                self._get_incremented_instruction_count(),
-                                instruction="add " + x_register + "," + y_value + \
-                                    "," + z_value + "\n",
-                                parent=instruction_load_z
-                            )
+                                new_instruction.set_child(instruction_load_z)
 
-                            self._update_descriptors(
-                                register=x_register,
-                                identifier=current_stmt.identifier
-                            )
+                                instruction_binop = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="add " + x_register + "," + y_value + \
+                                        "," + z_value + "\n",
+                                    parent=instruction_load_z
+                                )
 
-                            instruction_load_z.set_child(instruction_binop)
+                                instruction_load_z.set_child(instruction_binop)
+
+                            elif y_is_arg and not z_is_arg:
+
+                                var_z_offset = self.address_descriptor[current_stmt.assigned_value.right_operand]['offset']
+
+                                new_instruction = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="ldr " + z_value + ",[fp,#-" + \
+                                        str(var_z_offset) + "]\n",
+                                    parent=new_instruction
+                                )
+
+                                self._update_descriptors(
+                                    register=z_value,
+                                    identifier=current_stmt.assigned_value.right_operand
+                                )
+
+                                instruction_binop = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="add " + x_register + "," + y_value + \
+                                        "," + z_value + "\n",
+                                    parent=instruction_load_z
+                                )
+
+                                new_instruction.set_child(instruction_binop)
+
+                            elif not y_is_arg and z_is_arg:
+
+                                var_y_offset = self.address_descriptor[current_stmt.assigned_value.left_operand]['offset']
+
+                                new_instruction = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="ldr " + y_value + ",[fp,#-" + \
+                                        str(var_y_offset) + "]\n"
+                                )
+
+                                self._update_descriptors(
+                                    register=y_value,
+                                    identifier=current_stmt.assigned_value.left_operand
+                                )
+
+                                instruction_binop = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="add " + x_register + "," + y_value + \
+                                        "," + z_value + "\n",
+                                    parent=instruction_load_z
+                                )
+
+                                if not x_is_arg:
+                                    self._update_descriptors(
+                                        register=x_register,
+                                        identifier=current_stmt.identifier
+                                    )
+
+                                new_instruction.set_child(instruction_binop)
+
+                            elif y_is_arg and z_is_arg:
+
+                                new_instruction = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="add " + x_register + "," + y_value + \
+                                        "," + z_value + "\n",
+                                )
 
                 else:
 
@@ -840,38 +997,47 @@ class Compiler:
 
                     y_register = registers['y']
 
-                    # Load y
-
-                    var_y_offset = self.address_descriptor[current_stmt.assigned_value]['offset']
-
-                    new_instruction = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="ldr " + y_register + ",[fp,#-" + \
-                            str(var_y_offset) + "]\n"
-                    )
-
-                    self._update_descriptors(
-                        register=y_register,
-                        identifier=current_stmt.assigned_value
-                    )
-
-                    # Assign
-
                     instruction_assign = Instruction(
                         self._get_incremented_instruction_count(),
                         instruction="mov " + x_register + "," + y_register + \
                             "\n",
-                        parent=new_instruction
                     )
+
+                    # Load y if it is not an argument
+
+                    if not y_is_arg:
+
+                        var_y_offset = self.address_descriptor[current_stmt.assigned_value]['offset']
+
+                        new_instruction = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="ldr " + y_register + ",[fp,#-" + \
+                                str(var_y_offset) + "]\n"
+                        )
+
+                        self._update_descriptors(
+                            register=y_register,
+                            identifier=current_stmt.assigned_value
+                        )
+
+                        # Assign
+
+                        instruction_assign.set_parent(new_instruction)
+                        new_instruction.set_child(instruction_assign)
+
+                    else:
+                        new_instruction = instruction_assign
+
+                # Update descriptor for x if it is not an argument
+
+                if not x_is_arg:
 
                     self._update_descriptors(
                         register=x_register,
                         identifier=current_stmt.identifier
                     )
 
-                    new_instruction.set_child(instruction_assign)
-
-                if current_stmt.identifier not in REGISTERS:
+                if current_stmt.identifier not in REGISTERS and not x_is_arg:
 
                     new_instruction_last = new_instruction.get_last_child()
 
@@ -897,12 +1063,6 @@ class Compiler:
                     else:
                         # If class attribute
                         pass
-                '''
-                new_instruction = self._convert_assignment_to_assembly(
-                    current_stmt,
-                    current_instruction
-                )
-                '''
 
             elif type(current_stmt) == VarDecl3Node:
                 new_instruction = None

@@ -176,6 +176,25 @@ class CMtd3Node(IR3Node):
     def set_statements(self, node: Any) -> None:
         self.statements = node
 
+    def get_arguments(self) -> List[str]:
+
+        result = []
+
+        completed = False
+        current_arg = self.arguments
+
+        while not completed:
+
+            if not current_arg:
+                completed = True
+                break
+
+            result.append(current_arg.value)
+
+            current_arg = current_arg.child
+
+        return result
+
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write(str(self.return_type) + " " + self.method_id + "(")
