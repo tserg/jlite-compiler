@@ -183,7 +183,11 @@ class IR3Generator:
 
         return symbol_table
 
-    def _get_last_child(self, ir3_node: Any) -> Any:
+    def _get_last_child(
+        self,
+        ir3_node: Any,
+        return_last_parent: bool=False
+    ) -> Any:
         """
         Helper function to get the last child of an IR3Node
 
@@ -193,10 +197,15 @@ class IR3Generator:
             return None
 
         last_node = ir3_node
+        last_parent_node = None
 
         if last_node.child:
             while last_node.child:
+                last_parent_node = last_node
                 last_node = last_node.child
+
+        if return_last_parent:
+            return last_node, last_parent_node
 
         return last_node
 
@@ -1119,7 +1128,8 @@ class IR3Generator:
 
     def _check_complex_operand_in_binop(
         self,
-        ir3_node: Union[ClassAttribute3Node, MethodCall3Node]
+        ir3_node: Union[ClassAttribute3Node, MethodCall3Node],
+        parent_ir3_node: Optional[Any]
     ) -> Any:
 
         if type(ir3_node) in [ClassAttribute3Node, MethodCall3Node]:
@@ -1138,8 +1148,16 @@ class IR3Generator:
             temp_var_assignment_node.set_assigned_value(ir3_node)
 
             temp_var_node.add_child(temp_var_assignment_node)
+            temp_var_assignment_node.add_child(ir3_node)
+
+            if parent_ir3_node:
+                parent_ir3_node.add_child(temp_var_node)
+            '''
             ir3_node.add_child(temp_var_node)
             ir3_node = temp_var_assignment_node
+            '''
+
+            return temp_var_assignment_node
 
         return ir3_node
 
@@ -1472,10 +1490,14 @@ class IR3Generator:
                     ast_node.right_operand
                 )
 
-                right_operand_last_node = self._get_last_child(right_operand_node)
+                right_operand_last_node, right_operand_last_parent_node = self._get_last_child(
+                    right_operand_node,
+                    return_last_parent=True
+                )
 
                 right_operand_last_node = self._check_complex_operand_in_binop(
-                    right_operand_last_node
+                    right_operand_last_node,
+                    right_operand_last_parent_node
                 )
 
                 new_binop_node = BinOp3Node(
@@ -1492,7 +1514,10 @@ class IR3Generator:
                     ast_node.left_operand
                 )
 
-                left_operand_last_node = self._get_last_child(left_operand_node)
+                left_operand_last_node, left_operand_last_parent_node = self._get_last_child(
+                    left_operand_node,
+                    return_last_parent=True
+                )
 
                 if self.debug:
                     sys.stdout.write("Getting Exp- BinOp/ArithmeticOp - " + \
@@ -1500,7 +1525,8 @@ class IR3Generator:
                         " with value " + str(left_operand_last_node.value) + "\n")
 
                 left_operand_last_node = self._check_complex_operand_in_binop(
-                    left_operand_last_node
+                    left_operand_last_node,
+                    left_operand_last_parent_node
                 )
 
                 new_binop_node = BinOp3Node(
@@ -1533,8 +1559,14 @@ class IR3Generator:
                         str(right_operand_node) + "\n")
 
                 # Get last node of left operand
-                left_operand_last_node = self._get_last_child(left_operand_node)
-                left_operand_last_node = self._check_complex_operand_in_binop(left_operand_last_node)
+                left_operand_last_node, left_operand_last_parent_node = self._get_last_child(
+                    left_operand_node,
+                    return_last_parent=True
+                )
+                left_operand_last_node = self._check_complex_operand_in_binop(
+                    left_operand_last_node,
+                    left_operand_last_parent_node
+                )
 
                 if self.debug:
                     sys.stdout.write("Getting Exp - "
@@ -1542,8 +1574,14 @@ class IR3Generator:
                         str(left_operand_last_node) + "\n")
 
                 # Get last node of right operand
-                right_operand_last_node = self._get_last_child(right_operand_node)
-                right_operand_last_node = self._check_complex_operand_in_binop(right_operand_last_node)
+                right_operand_last_node, right_operand_last_parent_node = self._get_last_child(
+                    right_operand_node,
+                    return_last_parent=True
+                )
+                right_operand_last_node = self._check_complex_operand_in_binop(
+                    right_operand_last_node,
+                    left_operand_last_parent_node
+                )
 
                 if self.debug:
                     sys.stdout.write("Getting Exp - "
