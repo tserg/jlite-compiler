@@ -113,6 +113,25 @@ class CData3Node(IR3Node):
     def set_var_decl(self, var_decl: Any) -> None:
         self.var_decl = var_decl
 
+    def get_total_bytes(self) -> int:
+
+        b_count = 0
+
+        completed = False
+        current_var_decl = self.var_decl
+
+        while not completed:
+
+            if not current_var_decl:
+                completed = True
+                break
+
+            b_count += 4
+
+            current_var_decl = current_var_decl.child
+
+        return b_count
+
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write("class " + self.class_name + "{\n" )
@@ -428,7 +447,7 @@ class Return3Node(IR3Node):
 
         if self.return_value:
             sys.stdout.write(" " + str(self.return_value))
-        
+
 
         sys.stdout.write(";\n")
 

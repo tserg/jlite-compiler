@@ -29,6 +29,7 @@ from ir3 import (
     Assignment3Node,
     VarDecl3Node,
     BinOp3Node,
+    CData3Node,
 )
 
 from jlite_type import (
@@ -438,7 +439,10 @@ class Compiler:
             if current_node:
 
                 self._reset_descriptors()
-                instruction = self._convert_cmtd3_to_assembly(current_node)
+                instruction = self._convert_cmtd3_to_assembly(
+                    current_node,
+                    ir3_tree.head.class_data
+                )
 
                 current_tail = self.instruction_tail
                 current_tail.set_child(instruction)
@@ -449,7 +453,8 @@ class Compiler:
 
     def _convert_cmtd3_to_assembly(
         self,
-        ir3_node: "CMtd3Node"
+        ir3_node: "CMtd3Node",
+        ir3_class_data: "CData3Node"
     ) -> "Instruction":
 
         # Set up callee-saved registers
@@ -478,7 +483,8 @@ class Compiler:
         # Set aside space for variable declarations
 
         var_decl_offset = self._calculate_offset_for_md_vardecl(
-            ir3_node
+            ir3_node,
+            ir3_class_data
         )
 
         instruction_set_space_for_var_decl = Instruction(
@@ -521,7 +527,8 @@ class Compiler:
 
     def _calculate_offset_for_md_vardecl(
         self,
-        ir3_node: "CMtd3Node"
+        ir3_node: "CMtd3Node",
+        ir3_class_data: "CData3Node"
     ) -> int:
 
         fp_offset = 24
@@ -537,20 +544,60 @@ class Compiler:
 
             if type(current_var_decl) == VarDecl3Node:
 
-                # Calculate offset
-                fp_offset += 4
+                # If variable is a basic type
+                if current_var_decl.type in [
+                    BasicType.INT,
+                    BasicType.STRING,
+                    BasicType.BOOL
+                ]:
 
-                # Add variable and offset to symbol table
-                if self.debug:
-                    sys.stdout.write("Calculating space for var decl: " + \
-                        str(current_var_decl.value) + "\n")
-                    sys.stdout.write("Offset: " + str(fp_offset) + "\n")
+                    # Calculate offset
+                    fp_offset += 4
 
-                self._declare_new_variable(current_var_decl.value, fp_offset)
+                    # Add variable and offset to symbol table
+                    if self.debug:
+                        sys.stdout.write("Calculating space for var decl: " + \
+                            str(current_var_decl.value) + "\n")
+                        sys.stdout.write("Offset: " + str(fp_offset) + "\n")
 
-                if self.debug:
-                    sys.stdout.write("Add var decl to address descriptor: " + \
-                        str(self.address_descriptor) + "\n")
+                    self._declare_new_variable(current_var_decl.value, fp_offset)
+
+                    if self.debug:
+                        sys.stdout.write("Add var decl to address descriptor: " + \
+                            str(self.address_descriptor) + "\n")
+
+                elif type(current_var_decl.type) == tuple:
+
+                    if self.debug:
+                        sys.stdout.write("Calculating space for object decl: " + \
+                            str(current_var_decl.value) + " of class " + \
+                            str(current_var_decl.type[1])+ "\n")
+
+                    object_class = current_var_decl.type[1]
+
+                    completed = False
+                    current_class_data = ir3_class_data
+
+                    while not completed:
+
+                        if not current_class_data:
+                            completed = True
+                            break
+
+                        if object_class == current_class_data.class_name:
+
+                            object_bytes = current_class_data.get_total_bytes()
+
+                            fp_offset += object_bytes
+
+                            if self.debug:
+                                sys.stdout.write("Space needed for object decl: " + \
+                                    str(object_bytes) + "\n")
+
+                            completed = True
+                            break
+
+                        current_class_data = current_class_data.child
 
             current_var_decl = current_var_decl.child
 
