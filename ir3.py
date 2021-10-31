@@ -113,9 +113,9 @@ class CData3Node(IR3Node):
     def set_var_decl(self, var_decl: Any) -> None:
         self.var_decl = var_decl
 
-    def get_total_bytes(self) -> int:
+    def get_var_decl_identifiers(self) -> List[str]:
 
-        b_count = 0
+        result = []
 
         completed = False
         current_var_decl = self.var_decl
@@ -126,11 +126,11 @@ class CData3Node(IR3Node):
                 completed = True
                 break
 
-            b_count += 4
+            result.append(current_var_decl.value)
 
             current_var_decl = current_var_decl.child
 
-        return b_count
+        return result
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 

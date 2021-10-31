@@ -560,7 +560,10 @@ class Compiler:
                             str(current_var_decl.value) + "\n")
                         sys.stdout.write("Offset: " + str(fp_offset) + "\n")
 
-                    self._declare_new_variable(current_var_decl.value, fp_offset)
+                    self._declare_new_variable(
+                        current_var_decl.value,
+                        fp_offset
+                    )
 
                     if self.debug:
                         sys.stdout.write("Add var decl to address descriptor: " + \
@@ -586,13 +589,19 @@ class Compiler:
 
                         if object_class == current_class_data.class_name:
 
-                            object_bytes = current_class_data.get_total_bytes()
+                            object_attributes = current_class_data.get_var_decl_identifiers()
 
-                            fp_offset += object_bytes
+                            for a in object_attributes:
 
-                            if self.debug:
-                                sys.stdout.write("Space needed for object decl: " + \
-                                    str(object_bytes) + "\n")
+                                fp_offset += 4
+
+                                a_identifier = current_var_decl.value + "." + \
+                                    a
+
+                                self._declare_new_variable(
+                                    a_identifier,
+                                    fp_offset
+                                )
 
                             completed = True
                             break
