@@ -393,7 +393,7 @@ class ClassAttribute3Node(IR3Node):
 
     def __str__(self):
 
-        return target_class + "." + target_attribute
+        return self.target_class + "." + self.target_attribute
 
 class Assignment3Node(IR3Node):
 
