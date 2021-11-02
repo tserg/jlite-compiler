@@ -1432,18 +1432,24 @@ class Compiler:
 
                             spilled_identifiers = self.register_descriptor[v[0]]
 
+                            stored_offsets = []
+
                             for s in spilled_identifiers:
                                 var_offset = self.address_descriptor[s]['offset']
 
-                                spill_instruction = Instruction(
-                                    self._get_incremented_instruction_count(),
-                                    instruction="str " + v[0] + ",[fp,#-" + \
-                                        str(var_offset) + "]\n"
-                                )
+                                if var_offset not in stored_offsets:
 
-                                spill_instruction.set_child(new_instruction)
-                                new_instruction.set_parent(spill_instruction)
-                                new_instruction = spill_instruction
+                                    spill_instruction = Instruction(
+                                        self._get_incremented_instruction_count(),
+                                        instruction="str " + v[0] + ",[fp,#-" + \
+                                            str(var_offset) + "]\n"
+                                    )
+
+                                    spill_instruction.set_child(new_instruction)
+                                    new_instruction.set_parent(spill_instruction)
+                                    new_instruction = spill_instruction
+
+                                    stored_offset.append(var_offset)
 
                             if self.debug:
                                 sys.stdout.write("Spilt register - str instruction added.\n")
