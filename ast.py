@@ -1597,12 +1597,15 @@ class InstanceNode(ASTNode):
             sys.stdout.write("InstanceNode - Type check completed for atom with type: " + \
                 str(self.atom.type) + '\n')
 
-        self.identifier.type_check(
-            env,
-            debug,
-            class_for_identifier_type_check,
-            return_type
-        )
+        try:
+            self.identifier.type_check(
+                env,
+                debug,
+                class_for_identifier_type_check,
+                return_type
+            )
+        except:
+            pass
 
         if debug:
             sys.stdout.write("InstanceNode - Type check completed for "
