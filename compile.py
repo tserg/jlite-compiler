@@ -1100,461 +1100,11 @@ class Compiler:
 
             elif type(current_stmt) == Assignment3Node:
 
-                if self.debug:
-                    sys.stdout.write("Converting stmt to assembly - Assignment\n")
-
-                registers = self._get_registers(
+                new_instruction = self._convert_assignment_to_assembly(
                     current_stmt,
                     md_args,
                     liveness_data
                 )
-
-                required_registers = self._get_required_registers(
-                    current_stmt
-                )
-
-                if self.debug:
-                    sys.stdout.write("Registers obtained: " + str(registers) + \
-                        "\n")
-
-                x_is_arg = self._check_if_in_arguments(
-                    current_stmt.identifier,
-                    md_args
-                )
-
-                x_register = registers['x'][0]
-
-                is_simple_assignment = self._is_raw_value(
-                    current_stmt.assigned_value
-                )
-
-                if is_simple_assignment:
-
-                    # x = CONSTANT
-                    new_instruction = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="mov " + x_register + ",#" + \
-                            str(current_stmt.assigned_value) + "\n"
-                    )
-
-                    self._update_descriptors(
-                        register=x_register,
-                        identifier=current_stmt.identifier
-                    )
-
-                elif type(current_stmt.assigned_value) == BinOp3Node:
-
-                    # x = y + z
-                    if self.debug:
-                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                            "x = y + z" + "\n")
-
-                    # Check if y is raw value
-
-                    y_is_arg = self._check_if_in_arguments(
-                        current_stmt.assigned_value.left_operand,
-                        md_args
-                    )
-
-                    y_is_raw = self._is_raw_value(
-                        current_stmt.assigned_value.left_operand
-                    )
-
-                    y_value = current_stmt.assigned_value.left_operand
-                    if not y_is_raw:
-                        y_value = registers['y'][0]
-
-                    # Check if z is raw value
-
-                    z_is_arg = self._check_if_in_arguments(
-                        current_stmt.assigned_value.right_operand,
-                        md_args
-                    )
-
-                    z_is_raw = self._is_raw_value(
-                        current_stmt.assigned_value.right_operand
-                    )
-
-                    z_value = current_stmt.assigned_value.right_operand
-                    if not z_is_raw:
-                        z_value = registers['z'][0]
-
-                    # Actual assignment
-
-                    if current_stmt.type == BasicType.INT:
-
-                        if current_stmt.assigned_value.operator in ['+', '-', '*']:
-
-                            operator_instruction = ARITHMETIC_OP[current_stmt.assigned_value.operator]
-
-                            if self.debug:
-                                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                    "x = y + z - Plus operator" + "\n")
-
-                            if y_is_raw:
-                                # If y is a raw value
-                                if self.debug:
-                                    sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                        "x = y + z - Loading z" + "\n")
-
-                                instruction_binop = Instruction(
-                                    self._get_incremented_instruction_count(),
-                                    instruction=operator_instruction + x_register + \
-                                        "," + z_value + ",#" + str(y_value) + "\n"
-                                )
-
-                                if not z_is_arg:
-
-                                    # If z is not an argument, load z
-
-                                    var_z_offset = self.address_descriptor[current_stmt.assigned_value.right_operand]['offset']
-
-                                    new_instruction = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction="ldr " + z_value + ",[fp,#-]" + \
-                                            str(var_z_offset) + "\n"
-                                    )
-
-                                    self._update_descriptors(
-                                        register=z_value,
-                                        identifier=current_stmt.assigned_value.right_operand
-                                    )
-
-                                    instruction_binop.set_parent(new_instruction)
-                                    new_instruction.set_child(instruction_binop)
-
-                                elif z_is_arg:
-
-                                    # If z is an argument
-
-                                    new_instruction = instruction_binop
-
-                            elif z_is_raw:
-
-                                # If z is a raw value
-                                if self.debug:
-                                    sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                        "x = y + z - Loading y" + "\n")
-
-                                instruction_binop = Instruction(
-                                    self._get_incremented_instruction_count(),
-                                    instruction=operator_instruction + x_register + \
-                                        "," + y_value + ",#" + str(z_value) + "\n"
-                                )
-
-                                if not y_is_arg:
-
-                                    # If y is not an argument, load y
-
-                                    var_y_offset = self.address_descriptor[current_stmt.assigned_value.left_operand]['offset']
-
-                                    new_instruction = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction="ldr " + y_value + ",[fp,#-" + \
-                                            str(var_y_offset) + "]\n"
-                                    )
-
-                                    self._update_descriptors(
-                                        register=y_value,
-                                        identifier=current_stmt.assigned_value.left_operand
-                                    )
-
-                                    instruction_binop.set_parent(new_instruction)
-                                    new_instruction.set_child(instruction_binop)
-
-                                elif y_is_arg:
-
-                                    # If z is a raw value, load y
-
-                                    new_instruction = instruction_binop
-
-                            else:
-
-                                # Load y and z
-                                if self.debug:
-                                    sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                        "x = y + z - Loading y and z" + "\n")
-
-                                if not y_is_arg and not z_is_arg:
-
-                                    if self.debug:
-                                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                            "x = y + z - Loading y and z - Both not args" + "\n")
-
-                                    if self.debug:
-                                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                            "x = y + z - Loading y and z - Both not args - register y: " + \
-                                            y_value + "\n")
-
-                                    if self.debug:
-                                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                            "x = y + z - Loading y and z - Both not args - register z: " + \
-                                            z_value + "\n")
-
-                                    var_y_offset = self.address_descriptor[current_stmt.assigned_value.left_operand]['offset']
-
-                                    new_instruction = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction="ldr " + y_value + ",[fp,#-" + \
-                                            str(var_y_offset) + "]\n"
-                                    )
-
-                                    self._update_descriptors(
-                                        register=y_value,
-                                        identifier=current_stmt.assigned_value.left_operand
-                                    )
-
-                                    var_z_offset = self.address_descriptor[current_stmt.assigned_value.right_operand]['offset']
-
-                                    instruction_load_z = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction="ldr " + z_value + ",[fp,#-" + \
-                                            str(var_z_offset) + "]\n",
-                                        parent=new_instruction
-                                    )
-
-                                    self._update_descriptors(
-                                        register=z_value,
-                                        identifier=current_stmt.assigned_value.right_operand
-                                    )
-
-                                    new_instruction.set_child(instruction_load_z)
-
-                                    instruction_binop = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction=operator_instruction + x_register + \
-                                            "," + y_value + "," + z_value + "\n",
-                                        parent=instruction_load_z
-                                    )
-
-                                    instruction_load_z.set_child(instruction_binop)
-
-                                elif y_is_arg and not z_is_arg:
-
-                                    if self.debug:
-                                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                            "x = y + z - Loading y and z - Only y is arg" + "\n")
-
-                                    var_z_offset = self.address_descriptor[current_stmt.assigned_value.right_operand]['offset']
-
-                                    new_instruction = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction="ldr " + z_value + ",[fp,#-" + \
-                                            str(var_z_offset) + "]\n",
-                                        parent=new_instruction
-                                    )
-
-                                    self._update_descriptors(
-                                        register=z_value,
-                                        identifier=current_stmt.assigned_value.right_operand
-                                    )
-
-                                    instruction_binop = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction=operator_instruction + x_register + \
-                                            "," + y_value + "," + z_value + "\n",
-                                        parent=instruction_load_z
-                                    )
-
-                                    new_instruction.set_child(instruction_binop)
-
-                                elif not y_is_arg and z_is_arg:
-
-                                    if self.debug:
-                                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                            "x = y + z - Loading y and z - Only z is arg" + "\n")
-
-                                    var_y_offset = self.address_descriptor[current_stmt.assigned_value.left_operand]['offset']
-
-                                    new_instruction = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction="ldr " + y_value + ",[fp,#-" + \
-                                            str(var_y_offset) + "]\n"
-                                    )
-
-                                    self._update_descriptors(
-                                        register=y_value,
-                                        identifier=current_stmt.assigned_value.left_operand
-                                    )
-
-                                    instruction_binop = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction=operator_instruction + x_register + \
-                                            "," + y_value + "," + z_value + "\n",
-                                        parent=instruction_load_z
-                                    )
-
-                                    if not x_is_arg:
-                                        self._update_descriptors(
-                                            register=x_register,
-                                            identifier=current_stmt.identifier
-                                        )
-
-                                    new_instruction.set_child(instruction_binop)
-
-                                elif y_is_arg and z_is_arg:
-
-                                    if self.debug:
-                                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                            "x = y + z - Loading y and z - Both args" + "\n")
-
-                                    new_instruction = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction=operator_instruction + x_register + \
-                                            "," + y_value + "," + z_value + "\n",
-                                    )
-                    else:
-
-                        # Placeholder: operator is not '+'
-
-                        if self.debug:
-                            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                "x = y + z - Not plus operator" + "\n")
-
-                        new_instruction = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="Test test in Assignment node, non plus " + str(debug_count) + "\n",
-                            parent=current_instruction
-                        )
-
-                    # Check for spilling and store to stack beforehand by adding
-                    # instruction at the top
-
-                    if self.debug:
-                        sys.stdout.write("Registers obtained: " + str(registers) + ".\n")
-
-                    for k, v in registers.items():
-
-                        if v[1]:
-
-                            if self.debug:
-                                sys.stdout.write("Spilt register - Generating str instruction.\n")
-
-                            spilled_identifiers = self.register_descriptor[v[0]]
-
-                            stored_offsets = []
-
-                            for s in spilled_identifiers:
-                                var_offset = self.address_descriptor[s]['offset']
-
-                                if var_offset not in stored_offsets:
-
-                                    spill_instruction = Instruction(
-                                        self._get_incremented_instruction_count(),
-                                        instruction="str " + v[0] + ",[fp,#-" + \
-                                            str(var_offset) + "]\n"
-                                    )
-
-                                    spill_instruction.set_child(new_instruction)
-                                    new_instruction.set_parent(spill_instruction)
-                                    new_instruction = spill_instruction
-
-                                    stored_offset.append(var_offset)
-
-                            if self.debug:
-                                sys.stdout.write("Spilt register - str instruction added.\n")
-
-                            self._update_descriptors(
-                                register=v[0],
-                                identifier=required_registers[k]
-                            )
-
-                elif type(current_stmt.assigned_value) == RelOp3Node:
-
-                    if self.debug:
-                        sys.stdout.write("Converting stmt to assembly - RelOp.\n")
-
-                    new_instruction = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="Test test RelOp " + str(debug_count) + "\n",
-                        parent=current_instruction
-                    )
-
-                else:
-
-                    if self.debug:
-                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                            "x = y" + "\n")
-
-                    # x = y
-
-                    y_register = registers['y'][0]
-
-                    if self.debug:
-                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                            "x = y - y register: " + str(y_register) + "\n")
-                        sys.stdout.write("x register: " + str(x_register) + "\n")
-
-                    instruction_assign = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="mov " + x_register + "," + y_register + \
-                            "\n",
-                    )
-
-                    # Load y if it is not an argument
-
-                    if not y_is_arg:
-
-                        var_y_offset = self.address_descriptor[current_stmt.assigned_value]['offset']
-
-                        new_instruction = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="ldr " + y_register + ",[fp,#-" + \
-                                str(var_y_offset) + "]\n"
-                        )
-
-                        self._update_descriptors(
-                            register=y_register,
-                            identifier=current_stmt.assigned_value
-                        )
-
-                        # Assign
-
-                        instruction_assign.set_parent(new_instruction)
-                        new_instruction.set_child(instruction_assign)
-
-                    else:
-                        new_instruction = instruction_assign
-
-                # Update descriptor for x if it is not an argument
-
-                if not x_is_arg:
-
-                    self._update_descriptors(
-                        register=x_register,
-                        identifier=current_stmt.identifier
-                    )
-
-                if self.debug:
-                    sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                        "Instruction: " + str(new_instruction) + "\n")
-
-                if current_stmt.identifier not in REGISTERS and not x_is_arg:
-
-                    new_instruction_last = new_instruction.get_last_child()
-
-                    # If LHS of assignment is not a register
-
-                    x_identifier = current_stmt.identifier
-                    if type(current_stmt.identifier) == ClassAttribute3Node:
-                        x_identifier = current_stmt.identifier.__str__()
-
-                    if x_identifier in self.address_descriptor:
-                        # If variable
-                        if self.debug:
-                            sys.stdout.write("Converting stmt to assembly - Assignment" + \
-                                " - Variable detected on LHS.\n")
-
-                        var_fp_offset = self.address_descriptor[x_identifier]['offset']
-
-                        store_instruction = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="str " + x_register + ",[fp,#-" + \
-                                str(var_fp_offset) + "]\n",
-                            parent=new_instruction_last
-                        )
-
-                        new_instruction_last.set_child(store_instruction)
 
             elif type(current_stmt) == VarDecl3Node:
                 # Ignore VarDecl3 node since no instructions are required
@@ -1747,10 +1297,470 @@ class Compiler:
     def _convert_assignment_to_assembly(
         self,
         assignment3node: Assignment3Node,
-        current_instruction: Optional["Instruction"],
+        md_args: List[str],
+        liveness_data: Dict[str, List[int]]
     ) -> "Instruction":
 
-        pass
+        if self.debug:
+            sys.stdout.write("Converting stmt to assembly - Assignment\n")
+
+        registers = self._get_registers(
+            assignment3node,
+            md_args,
+            liveness_data
+        )
+
+        required_registers = self._get_required_registers(
+            assignment3node
+        )
+
+        if self.debug:
+            sys.stdout.write("Registers obtained: " + str(registers) + \
+                "\n")
+
+        x_is_arg = self._check_if_in_arguments(
+            assignment3node.identifier,
+            md_args
+        )
+
+        x_register = registers['x'][0]
+
+        is_simple_assignment = self._is_raw_value(
+            assignment3node.assigned_value
+        )
+
+        if is_simple_assignment:
+
+            # x = CONSTANT
+            new_instruction = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mov " + x_register + ",#" + \
+                    str(assignment3node.assigned_value) + "\n"
+            )
+
+            self._update_descriptors(
+                register=x_register,
+                identifier=assignment3node.identifier
+            )
+
+        elif type(assignment3node.assigned_value) == BinOp3Node:
+
+            # x = y + z
+            if self.debug:
+                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                    "x = y + z" + "\n")
+
+            # Check if y is raw value
+
+            y_is_arg = self._check_if_in_arguments(
+                assignment3node.assigned_value.left_operand,
+                md_args
+            )
+
+            y_is_raw = self._is_raw_value(
+                assignment3node.assigned_value.left_operand
+            )
+
+            y_value = assignment3node.assigned_value.left_operand
+            if not y_is_raw:
+                y_value = registers['y'][0]
+
+            # Check if z is raw value
+
+            z_is_arg = self._check_if_in_arguments(
+                assignment3node.assigned_value.right_operand,
+                md_args
+            )
+
+            z_is_raw = self._is_raw_value(
+                assignment3node.assigned_value.right_operand
+            )
+
+            z_value = assignment3node.assigned_value.right_operand
+            if not z_is_raw:
+                z_value = registers['z'][0]
+
+            # Actual assignment
+
+            if assignment3node.type == BasicType.INT:
+
+                if assignment3node.assigned_value.operator in ['+', '-', '*']:
+
+                    operator_instruction = ARITHMETIC_OP[assignment3node.assigned_value.operator]
+
+                    if self.debug:
+                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                            "x = y + z - Plus operator" + "\n")
+
+                    if y_is_raw:
+                        # If y is a raw value
+                        if self.debug:
+                            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                "x = y + z - Loading z" + "\n")
+
+                        instruction_binop = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction=operator_instruction + x_register + \
+                                "," + z_value + ",#" + str(y_value) + "\n"
+                        )
+
+                        if not z_is_arg:
+
+                            # If z is not an argument, load z
+
+                            var_z_offset = self.address_descriptor[assignment3node.assigned_value.right_operand]['offset']
+
+                            new_instruction = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction="ldr " + z_value + ",[fp,#-]" + \
+                                    str(var_z_offset) + "\n"
+                            )
+
+                            self._update_descriptors(
+                                register=z_value,
+                                identifier=assignment3node.assigned_value.right_operand
+                            )
+
+                            instruction_binop.set_parent(new_instruction)
+                            new_instruction.set_child(instruction_binop)
+
+                        elif z_is_arg:
+
+                            # If z is an argument
+
+                            new_instruction = instruction_binop
+
+                    elif z_is_raw:
+
+                        # If z is a raw value
+                        if self.debug:
+                            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                "x = y + z - Loading y" + "\n")
+
+                        instruction_binop = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction=operator_instruction + x_register + \
+                                "," + y_value + ",#" + str(z_value) + "\n"
+                        )
+
+                        if not y_is_arg:
+
+                            # If y is not an argument, load y
+
+                            var_y_offset = self.address_descriptor[assignment3node.assigned_value.left_operand]['offset']
+
+                            new_instruction = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction="ldr " + y_value + ",[fp,#-" + \
+                                    str(var_y_offset) + "]\n"
+                            )
+
+                            self._update_descriptors(
+                                register=y_value,
+                                identifier=assignment3node.assigned_value.left_operand
+                            )
+
+                            instruction_binop.set_parent(new_instruction)
+                            new_instruction.set_child(instruction_binop)
+
+                        elif y_is_arg:
+
+                            # If z is a raw value, load y
+
+                            new_instruction = instruction_binop
+
+                    else:
+
+                        # Load y and z
+                        if self.debug:
+                            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                "x = y + z - Loading y and z" + "\n")
+
+                        if not y_is_arg and not z_is_arg:
+
+                            if self.debug:
+                                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                    "x = y + z - Loading y and z - Both not args" + "\n")
+
+                            if self.debug:
+                                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                    "x = y + z - Loading y and z - Both not args - register y: " + \
+                                    y_value + "\n")
+
+                            if self.debug:
+                                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                    "x = y + z - Loading y and z - Both not args - register z: " + \
+                                    z_value + "\n")
+
+                            var_y_offset = self.address_descriptor[assignment3node.assigned_value.left_operand]['offset']
+
+                            new_instruction = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction="ldr " + y_value + ",[fp,#-" + \
+                                    str(var_y_offset) + "]\n"
+                            )
+
+                            self._update_descriptors(
+                                register=y_value,
+                                identifier=assignment3node.assigned_value.left_operand
+                            )
+
+                            var_z_offset = self.address_descriptor[assignment3node.assigned_value.right_operand]['offset']
+
+                            instruction_load_z = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction="ldr " + z_value + ",[fp,#-" + \
+                                    str(var_z_offset) + "]\n",
+                                parent=new_instruction
+                            )
+
+                            self._update_descriptors(
+                                register=z_value,
+                                identifier=assignment3node.assigned_value.right_operand
+                            )
+
+                            new_instruction.set_child(instruction_load_z)
+
+                            instruction_binop = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction=operator_instruction + x_register + \
+                                    "," + y_value + "," + z_value + "\n",
+                                parent=instruction_load_z
+                            )
+
+                            instruction_load_z.set_child(instruction_binop)
+
+                        elif y_is_arg and not z_is_arg:
+
+                            if self.debug:
+                                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                    "x = y + z - Loading y and z - Only y is arg" + "\n")
+
+                            var_z_offset = self.address_descriptor[assignment3node.assigned_value.right_operand]['offset']
+
+                            new_instruction = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction="ldr " + z_value + ",[fp,#-" + \
+                                    str(var_z_offset) + "]\n",
+                                parent=new_instruction
+                            )
+
+                            self._update_descriptors(
+                                register=z_value,
+                                identifier=assignment3node.assigned_value.right_operand
+                            )
+
+                            instruction_binop = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction=operator_instruction + x_register + \
+                                    "," + y_value + "," + z_value + "\n",
+                                parent=instruction_load_z
+                            )
+
+                            new_instruction.set_child(instruction_binop)
+
+                        elif not y_is_arg and z_is_arg:
+
+                            if self.debug:
+                                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                    "x = y + z - Loading y and z - Only z is arg" + "\n")
+
+                            var_y_offset = self.address_descriptor[assignment3node.assigned_value.left_operand]['offset']
+
+                            new_instruction = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction="ldr " + y_value + ",[fp,#-" + \
+                                    str(var_y_offset) + "]\n"
+                            )
+
+                            self._update_descriptors(
+                                register=y_value,
+                                identifier=assignment3node.assigned_value.left_operand
+                            )
+
+                            instruction_binop = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction=operator_instruction + x_register + \
+                                    "," + y_value + "," + z_value + "\n",
+                                parent=instruction_load_z
+                            )
+
+                            if not x_is_arg:
+                                self._update_descriptors(
+                                    register=x_register,
+                                    identifier=assignment3node.identifier
+                                )
+
+                            new_instruction.set_child(instruction_binop)
+
+                        elif y_is_arg and z_is_arg:
+
+                            if self.debug:
+                                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                    "x = y + z - Loading y and z - Both args" + "\n")
+
+                            new_instruction = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction=operator_instruction + x_register + \
+                                    "," + y_value + "," + z_value + "\n",
+                            )
+            else:
+
+                # Placeholder: operator is not '+'
+
+                if self.debug:
+                    sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                        "x = y + z - Not plus operator" + "\n")
+
+                new_instruction = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="Test test in Assignment node, non plus " + str(debug_count) + "\n",
+                    parent=current_instruction
+                )
+
+            # Check for spilling and store to stack beforehand by adding
+            # instruction at the top
+
+            if self.debug:
+                sys.stdout.write("Registers obtained: " + str(registers) + ".\n")
+
+            for k, v in registers.items():
+
+                if v[1]:
+
+                    if self.debug:
+                        sys.stdout.write("Spilt register - Generating str instruction.\n")
+
+                    spilled_identifiers = self.register_descriptor[v[0]]
+
+                    stored_offsets = []
+
+                    for s in spilled_identifiers:
+                        var_offset = self.address_descriptor[s]['offset']
+
+                        if var_offset not in stored_offsets:
+
+                            spill_instruction = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction="str " + v[0] + ",[fp,#-" + \
+                                    str(var_offset) + "]\n"
+                            )
+
+                            spill_instruction.set_child(new_instruction)
+                            new_instruction.set_parent(spill_instruction)
+                            new_instruction = spill_instruction
+
+                            stored_offset.append(var_offset)
+
+                    if self.debug:
+                        sys.stdout.write("Spilt register - str instruction added.\n")
+
+                    self._update_descriptors(
+                        register=v[0],
+                        identifier=required_registers[k]
+                    )
+
+        elif type(assignment3node.assigned_value) == RelOp3Node:
+
+            if self.debug:
+                sys.stdout.write("Converting stmt to assembly - RelOp.\n")
+
+            new_instruction = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="Test test RelOp " + str(debug_count) + "\n",
+                parent=current_instruction
+            )
+
+        else:
+
+            if self.debug:
+                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                    "x = y" + "\n")
+
+            # x = y
+
+            y_register = registers['y'][0]
+
+            if self.debug:
+                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                    "x = y - y register: " + str(y_register) + "\n")
+                sys.stdout.write("x register: " + str(x_register) + "\n")
+
+            instruction_assign = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mov " + x_register + "," + y_register + \
+                    "\n",
+            )
+
+            # Load y if it is not an argument
+            y_is_arg = self._check_if_in_arguments(
+                assignment3node.assigned_value,
+                md_args
+            )
+            if not y_is_arg:
+
+                var_y_offset = self.address_descriptor[assignment3node.assigned_value]['offset']
+
+                new_instruction = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + y_register + ",[fp,#-" + \
+                        str(var_y_offset) + "]\n"
+                )
+
+                self._update_descriptors(
+                    register=y_register,
+                    identifier=assignment3node.assigned_value
+                )
+
+                # Assign
+
+                instruction_assign.set_parent(new_instruction)
+                new_instruction.set_child(instruction_assign)
+
+            else:
+                new_instruction = instruction_assign
+
+        # Update descriptor for x if it is not an argument
+
+        if not x_is_arg:
+
+            self._update_descriptors(
+                register=x_register,
+                identifier=assignment3node.identifier
+            )
+
+        if self.debug:
+            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                "Instruction: " + str(new_instruction) + "\n")
+
+        if assignment3node.identifier not in REGISTERS and not x_is_arg:
+
+            new_instruction_last = new_instruction.get_last_child()
+
+            # If LHS of assignment is not a register
+
+            x_identifier = assignment3node.identifier
+            if type(assignment3node.identifier) == ClassAttribute3Node:
+                x_identifier = assignment3node.identifier.__str__()
+
+            if x_identifier in self.address_descriptor:
+                # If variable
+                if self.debug:
+                    sys.stdout.write("Converting stmt to assembly - Assignment" + \
+                        " - Variable detected on LHS.\n")
+
+                var_fp_offset = self.address_descriptor[x_identifier]['offset']
+
+                store_instruction = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="str " + x_register + ",[fp,#-" + \
+                        str(var_fp_offset) + "]\n",
+                    parent=new_instruction_last
+                )
+
+                new_instruction_last.set_child(store_instruction)
+
+        return new_instruction
 
     def _compile(
         self,
