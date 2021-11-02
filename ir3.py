@@ -40,6 +40,7 @@ class IR3Node:
     value: str
     type: Any
     #is_identifier: bool
+    md_line_no: Optional[int]
     child: Any
 
     def __init__(
@@ -53,6 +54,7 @@ class IR3Node:
         self.type = type
         #self.is_identifier = is_identifier
         self.child = child
+        self.md_line_no = None
 
     def add_child(self, node: Any) -> None:
         """
@@ -61,6 +63,9 @@ class IR3Node:
         :param Any node: Node to set as child
         """
         self.child = node
+
+    def set_md_line_no(self, line_no: int) -> None:
+        self.md_line_no = line_no
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
@@ -385,6 +390,10 @@ class ClassAttribute3Node(IR3Node):
 
         if self.child:
             self.child.pretty_print(delimiter, preceding)
+
+    def __str__(self):
+
+        return target_class + "." + target_attribute
 
 class Assignment3Node(IR3Node):
 
