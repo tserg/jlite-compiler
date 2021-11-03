@@ -33,6 +33,7 @@ from ir3 import (
     RelOp3Node,
     Return3Node,
     ClassAttribute3Node,
+    ClassInstance3Node,
 )
 
 from jlite_type import (
@@ -129,6 +130,76 @@ class Compiler:
             offset = None
 
         return offset
+
+    def _get_space_required_for_object(self, class_name: str) -> Optional[int]:
+
+        if self.debug:
+            sys.stdout.write("Calculating space required for object of class: " + \
+                class_name + "\n")
+
+        completed = False
+        current_class_data = self.ir3_generator.ir3_tree.head.class_data
+
+        while not completed:
+
+            if not current_class_data:
+                completed = True
+                break
+
+            if self.debug:
+                sys.stdout.write("Calculating space required for object - Checking class: " + \
+                    current_class_data.class_name + "\n")
+
+            if class_name == current_class_data.class_name:
+
+                # Get identifiers of class attributes
+
+                object_attributes = current_class_data.get_var_decl_identifiers()
+
+                return len(object_attributes) * 4
+
+            current_class_data = current_class_data.child
+
+        return None
+
+    def _calculate_class_attribute_offset(
+        self,
+        ir3_node: ClassAttribute3Node
+    ) -> Optional[int]:
+
+        attribute_name = ir3_node.target_attribute
+        class_name = ir3_node.class_name
+
+        try:
+
+            completed = False
+            current_class_data = self.ir3_generator.ir3_tree.head.class_data
+
+            while not completed:
+
+                if not current_class_data:
+                    completed = True
+                    break
+
+                if class_name == current_class_data.class_name:
+
+                    # Get identifiers of class attributes
+
+                    object_attributes = current_class_data.get_var_decl_identifiers()
+
+                    offset = 0
+
+                    for a in object_attributes:
+
+                        if a == attribute_name:
+                            return offset
+
+                        offset += 4
+
+                current_class_data = current_class_data.child
+
+        except:
+            return None
 
     def _get_md_liveness_data(
         self,
@@ -268,23 +339,27 @@ class Compiler:
         except:
             is_integer = False
 
-        if type(value) == str and \
-                value[0] == '"' and \
-                value[-1] == '"':
+        is_string = False
+        try:
+            if type(value) == str and \
+                    value[0] == '"' and \
+                    value[-1] == '"':
 
-            is_string = True
+                is_string = True
 
-        else:
-            is_string = False
+        except:
+            pass
 
-        if type(value) == str and \
-            (value == 'true' or \
-            value == 'false'):
+        is_boolean = False
+        try:
+            if type(value) == str and \
+                (value == 'true' or \
+                value == 'false'):
 
-            is_boolean = True
+                is_boolean = True
 
-        else:
-            is_boolean = False
+        except:
+            pass
 
         return is_integer or is_string or is_boolean
 
@@ -351,18 +426,21 @@ class Compiler:
         return False
 
     def _check_for_empty_register(
-        self
+        self,
+        excluded_registers: List[str]
     ) -> Optional[str]:
 
         for k, v in self.register_descriptor.items():
 
-            if len(v) == 0:
+            if k not in excluded_registers:
 
-                if self.debug:
-                    sys.stdout.write("Empty register found: " + \
-                        str(k) + "\n")
+                if len(v) == 0:
 
-                return k
+                    if self.debug:
+                        sys.stdout.write("Empty register found: " + \
+                            str(k) + "\n")
+
+                    return k
 
         if self.debug:
             sys.stdout.write("No empty registers available.\n")
@@ -370,7 +448,8 @@ class Compiler:
         return None
 
     def _check_for_register_with_replaceable_value(
-        self
+        self,
+        excluded_registers: List[str]
     ) -> Optional[str]:
 
         if self.debug:
@@ -378,20 +457,22 @@ class Compiler:
 
         for k, v in self.register_descriptor.items():
 
-            for r in v:
+            if k not in excluded_registers:
 
-                # Check each reference and see if there is an alternative location
+                for r in v:
 
-                try:
-                    if len(self.address_descriptor[r]['references']) > 1:
+                    # Check each reference and see if there is an alternative location
 
-                        if self.debug:
-                            sys.stdout.write("Getting register - Check #1 Alternative locations passed.\n")
+                    try:
+                        if len(self.address_descriptor[r]['references']) > 1:
 
-                        return k
+                            if self.debug:
+                                sys.stdout.write("Getting register - Check #1 Alternative locations passed.\n")
 
-                except:
-                    pass
+                            return k
+
+                    except:
+                        pass
 
 
         return None
@@ -400,7 +481,8 @@ class Compiler:
         self,
         identifier: str,
         current_line_no: int,
-        liveness_data: Dict[str, List[int]]
+        liveness_data: Dict[str, List[int]],
+        excluded_registers: List[str]
     ) -> Optional[str]:
 
         if self.debug:
@@ -413,16 +495,18 @@ class Compiler:
 
         for k, v in self.register_descriptor.items():
 
-            for r in v:
-                current_register_value_last_use = max([max(liveness_data[r]) for r in v])
+            if k not in excluded_registers:
 
-                if current_line_no > current_register_value_last_use:
+                for r in v:
+                    current_register_value_last_use = max([max(liveness_data[r]) for r in v])
 
-                    if self.debug:
-                        sys.stdout.write("Value in register not used subsequently. Register found: " + \
-                            str(k) + "\n")
+                    if current_line_no > current_register_value_last_use:
 
-                    return k
+                        if self.debug:
+                            sys.stdout.write("Value in register not used subsequently. Register found: " + \
+                                str(k) + "\n")
+
+                        return k
 
         return None
 
@@ -431,6 +515,7 @@ class Compiler:
         identifier: str,
         other_ref: str,
         other_ref_reg: Optional[str],
+        excluded_registers: List[str]
     ) -> Optional[str]:
 
         if self.debug:
@@ -438,7 +523,7 @@ class Compiler:
 
         for k, v in self.register_descriptor.items():
 
-            if k != other_ref_reg:
+            if k not in excluded_registers and k != other_ref_reg:
                 # If current register is not already assigned to
                 # y or z
 
@@ -462,7 +547,8 @@ class Compiler:
         self,
         identifier: str,
         current_line_no: int,
-        liveness_data: Dict[str, List[int]]
+        liveness_data: Dict[str, List[int]],
+        excluded_registers: List[str]
     ) -> str:
 
         if self.debug:
@@ -473,26 +559,28 @@ class Compiler:
 
         for k, v in self.register_descriptor.items():
 
-            total_spill_cost = 0
+            if k not in excluded_registers:
 
-            for r in v:
+                total_spill_cost = 0
 
-                # For each identifier referenced in the current register,
-                # calculate the number of times it appears in a later instruction
+                for r in v:
 
-                current_identifier_liveness = liveness_data[r]
-                subsequent_reference_count = len(
-                    [i for i in current_identifier_liveness if i > current_line_no]
-                )
-                total_spill_cost += subsequent_reference_count
+                    # For each identifier referenced in the current register,
+                    # calculate the number of times it appears in a later instruction
 
-            if self.debug:
-                sys.stdout.write("Spill cost of register " + k + ": " + \
-                    str(total_spill_cost) + "\n")
+                    current_identifier_liveness = liveness_data[r]
+                    subsequent_reference_count = len(
+                        [i for i in current_identifier_liveness if i > current_line_no]
+                    )
+                    total_spill_cost += subsequent_reference_count
 
-            if total_spill_cost < min_spill_cost:
-                min_spill_cost = total_spill_cost
-                min_spill_cost_reg = k
+                if self.debug:
+                    sys.stdout.write("Spill cost of register " + k + ": " + \
+                        str(total_spill_cost) + "\n")
+
+                if total_spill_cost < min_spill_cost:
+                    min_spill_cost = total_spill_cost
+                    min_spill_cost_reg = k
 
         if self.debug:
             sys.stdout.write("Checking for spilled register - Register obtained: " + \
@@ -509,9 +597,33 @@ class Compiler:
 
             is_simple_assignment = self._is_raw_value(ir3_node.assigned_value)
 
-            if is_simple_assignment:
+            if type(ir3_node.identifier) == ClassAttribute3Node:
 
-                # Only requires one register for x = CONSTANT
+                # Requires two registers
+                # 1. x = new Object
+                # 2. Base address of object
+
+                # Need to guarantee register for base address of object is different
+                # from register for value to assign
+
+                required_registers = {
+                    'y': ir3_node.identifier,
+                    'z': 'placeholder'
+                }
+
+                return required_registers
+
+            elif type(ir3_node.assigned_value) == ClassInstance3Node:
+
+                required_registers = {
+                    'x': ir3_node.identifier,
+                }
+
+                return required_registers
+
+            elif is_simple_assignment:
+
+                # Only requires one register for x = CONSTANT or x = new Object
 
                 if self.debug:
                     sys.stdout.write("Getting register for plain vanilla node.\n")
@@ -519,6 +631,8 @@ class Compiler:
                 required_registers = {
                     'x': ir3_node.identifier
                 }
+
+                return required_registers
 
             elif type(ir3_node.assigned_value) == BinOp3Node:
 
@@ -555,6 +669,8 @@ class Compiler:
                     'z': z_value
                 }
 
+                return required_registers
+
             else:
 
                 # x = y
@@ -573,6 +689,12 @@ class Compiler:
                 'x': ir3_node.return_value
             }
 
+        elif type(ir3_node) == ClassAttribute3Node:
+
+            required_registers = {
+                'x': ir3_node.object_name
+            }
+
         return required_registers
 
     def _get_registers(
@@ -588,12 +710,10 @@ class Compiler:
 
         register_data = {}
 
-        if self.debug:
-            sys.stdout.write("\nGetting register for assigned value node of type: " + \
-                str(type(ir3_node.assigned_value)) + " and value " + \
-                str(ir3_node.assigned_value) + "\n")
-
         required_registers = self._get_required_registers(ir3_node)
+
+        # Store registers that have been selected to prevent re-selection
+        excluded_registers = []
 
         for k, v in required_registers.items():
 
@@ -624,6 +744,7 @@ class Compiler:
                         str(is_in_register) + "\n")
 
                 register_data[k] = (is_in_register[0], False)
+                excluded_registers.append(is_in_register[0])
                 continue
 
             if self.debug:
@@ -636,18 +757,24 @@ class Compiler:
                 sys.stdout.write("Getting register - current register descriptor: " +
                     str(self.register_descriptor) + "\n")
 
-            empty_register = self._check_for_empty_register()
+            empty_register = self._check_for_empty_register(
+                excluded_registers
+            )
             if empty_register:
                 register_data[k] = (empty_register, False)
+                excluded_registers.append(empty_register)
                 continue
 
             # If x is not in a register and no register is available:
 
             # 1. if there is an alternative location, it can be replaced
 
-            empty_register = self._check_for_register_with_replaceable_value()
+            empty_register = self._check_for_register_with_replaceable_value(
+                excluded_registers
+            )
             if empty_register:
                 register_data[k] = (empty_register, False)
+                excluded_registers.append(empty_register)
                 continue
 
             if self.debug:
@@ -660,29 +787,35 @@ class Compiler:
 
             if k == 'y' or k == 'z':
 
+                other_ref = None
+                other_ref_reg = None
+
                 if k == 'y':
-                    other_ref = required_registers['z']
 
                     try:
+                        other_ref = required_registers['z']
                         other_ref_reg = register_data['z']
                     except:
-                        other_ref_reg = None
+                        pass
 
                 elif k == 'z':
-                    other_ref = required_registers['y']
+
 
                     try:
+                        other_ref = required_registers['y']
                         other_ref_reg = register_data['y']
                     except:
-                        other_ref_reg = None
+                        pass
 
                 empty_register = self._check_for_equivalent_register(
                     v,
                     other_ref,
-                    other_ref_reg
+                    other_ref_reg,
+                    excluded_registers
                 )
                 if empty_register:
                     register_data[k] = (empty_register, False)
+                    excluded_registers.append(empty_register)
                     continue
 
             if self.debug:
@@ -696,10 +829,12 @@ class Compiler:
             replaced_register = self._check_for_no_subsequent_use(
                 k,
                 ir3_node.md_line_no,
-                liveness_data
+                liveness_data,
+                excluded_registers
             )
             if replaced_register:
                 register_data[k] = (replaced_register, False)
+                excluded_registers.append(replaced_register)
                 continue
 
             # 4. Calculate spilling cost and replace register with lowest cost
@@ -710,10 +845,12 @@ class Compiler:
             spilled_register = self._get_spilled_register(
                 v,
                 ir3_node.md_line_no,
-                liveness_data
+                liveness_data,
+                excluded_registers
             )
             if spilled_register:
                 register_data[k] = (spilled_register, True)
+                excluded_registers.append(spilled_register)
                 continue
 
         return register_data
@@ -731,14 +868,12 @@ class Compiler:
             sys.stdout.write("Address descriptor: " + str(self.address_descriptor) + \
                 "\n")
 
-        # Check if identifier is a ClassAttribute3Node
-
-        if type(identifier) == ClassAttribute3Node:
-            identifier = identifier.__str__()
-
         # Save current references in register
 
-        current_register_reference = self.register_descriptor[register]
+        try:
+            current_register_reference = self.register_descriptor[register]
+        except:
+            current_register_reference = None
 
         # Remove register references in address descriptor
 
@@ -749,13 +884,26 @@ class Compiler:
                 except:
                     pass
 
-        # Set register to identifier in register descriptor
+        # Check if identifier is a ClassAttribute3Node
 
-        self.register_descriptor[register] = deque([identifier])
+        if type(identifier) == ClassAttribute3Node:
 
-        # Set identifier to register in address descriptor
+            # Set register to empty list since it is a temporary store
+            # before storing to memory
 
-        self.address_descriptor[identifier]['references'].append(register)
+            self.register_descriptor[register] = deque([])
+
+        else:
+            # Set register to identifier in register descriptor
+
+            self.register_descriptor[register] = deque([identifier])
+
+            # Set identifier to register in address descriptor
+
+            try:
+                self.address_descriptor[identifier]['references'].append(register)
+            except:
+                pass
 
         if self.debug:
             sys.stdout.write("\nDescriptors updated.\n")
@@ -956,31 +1104,25 @@ class Compiler:
 
             if type(current_var_decl) == VarDecl3Node:
 
-                # If variable is a basic type
-                if current_var_decl.type in [
-                    BasicType.INT,
-                    BasicType.STRING,
-                    BasicType.BOOL
-                ]:
+                # Calculate offset
+                fp_offset += 4
 
-                    # Calculate offset
-                    fp_offset += 4
+                # Add variable and offset to symbol table
+                if self.debug:
+                    sys.stdout.write("Calculating space for var decl: " + \
+                        str(current_var_decl.value) + "\n")
+                    sys.stdout.write("Offset: " + str(fp_offset) + "\n")
 
-                    # Add variable and offset to symbol table
-                    if self.debug:
-                        sys.stdout.write("Calculating space for var decl: " + \
-                            str(current_var_decl.value) + "\n")
-                        sys.stdout.write("Offset: " + str(fp_offset) + "\n")
+                self._declare_new_variable(
+                    current_var_decl.value,
+                    fp_offset
+                )
 
-                    self._declare_new_variable(
-                        current_var_decl.value,
-                        fp_offset
-                    )
+                if self.debug:
+                    sys.stdout.write("Add var decl to address descriptor: " + \
+                        str(self.address_descriptor) + "\n")
 
-                    if self.debug:
-                        sys.stdout.write("Add var decl to address descriptor: " + \
-                            str(self.address_descriptor) + "\n")
-
+                '''
                 elif type(current_var_decl.type) == tuple:
 
                     # If it is a class object
@@ -1009,6 +1151,8 @@ class Compiler:
 
                             object_attributes = current_class_data.get_var_decl_identifiers()
 
+                            relative_offset = 0
+
                             for a in object_attributes:
 
                                 # For each class attribute, increment the offset
@@ -1021,14 +1165,17 @@ class Compiler:
 
                                 self._declare_new_variable(
                                     a_identifier,
-                                    fp_offset
+                                    fp_offset,
+                                    relative_offset
                                 )
+
+                                relative_offset += 4
 
                             completed = True
                             break
 
                         current_class_data = current_class_data.child
-
+                '''
             current_var_decl = current_var_decl.child
 
         current_stmt = ir3_node.statements
@@ -1291,7 +1438,15 @@ class Compiler:
             md_args
         )
 
-        x_register = registers['x'][0]
+        if type(assignment3node.identifier) == ClassAttribute3Node:
+
+            # Manually override with y register for class attribute
+            # Need to guarantee register for base address of object is different
+            # from register for value to assign
+            x_register = registers['y'][0]
+
+        else:
+            x_register = registers['x'][0]
 
         is_simple_assignment = self._is_raw_value(
             assignment3node.assigned_value
@@ -1310,6 +1465,48 @@ class Compiler:
                 register=x_register,
                 identifier=assignment3node.identifier
             )
+
+        elif type(assignment3node.assigned_value) == ClassInstance3Node:
+
+            #  x = new Object
+
+            # Get the space required for object
+            space_required = self._get_space_required_for_object(
+                assignment3node.assigned_value.target_class
+            )
+
+            # Set argument register to the space required
+            instruction_create_space = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mov a1,#" + str(space_required) + "\n"
+            )
+
+            # Create space in memory
+            instruction_malloc = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="bl malloc\n",
+                parent=instruction_create_space
+            )
+
+            instruction_create_space.set_child(instruction_malloc)
+
+            # Get offset of object
+
+            object_offset = self.address_descriptor[
+                assignment3node.identifier
+            ]['offset']
+
+            # Store address returned in stack
+
+            instruction_store_base_address = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="str a1,[fp,#-" + str(object_offset) + "]\n",
+                parent=instruction_malloc
+            )
+
+            instruction_malloc.set_child(instruction_store_base_address)
+
+            new_instruction = instruction_create_space
 
         elif type(assignment3node.assigned_value) == BinOp3Node:
 
@@ -1688,7 +1885,7 @@ class Compiler:
             else:
                 new_instruction = instruction_assign
 
-        # Update descriptor for x if it is not an argument
+        # Update descriptor for x if it is not an argument and not a class attribute
 
         if not x_is_arg:
 
@@ -1701,32 +1898,95 @@ class Compiler:
             sys.stdout.write("Converting stmt to assembly - Assignment - " + \
                 "Instruction: " + str(new_instruction) + "\n")
 
-        if assignment3node.identifier not in REGISTERS and not x_is_arg:
+        if assignment3node.identifier not in REGISTERS and \
+            not x_is_arg and \
+            not type(assignment3node.assigned_value) == ClassInstance3Node:
+
+            # If LHS of assignment is not a register, not an argument, and
+            # it is not declaring a new object, then store the value of identifier
+            # to stack
+
+            sys.stdout.write("Converting stmt to assembly - updating register x of type: " + \
+                str(type(assignment3node.identifier)) + "\n")
 
             new_instruction_last = new_instruction.get_last_child()
 
-            # If LHS of assignment is not a register
+            if self.debug:
+                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                    "Last instruction: " + str(new_instruction_last) + "\n")
+                sys.stdout.write("Converting stmt to assembly - Storing value of x: " + \
+                    str(assignment3node.identifier) + " with type " + \
+                    str(type(assignment3node.identifier))+ "\n")
 
-            x_identifier = assignment3node.identifier
             if type(assignment3node.identifier) == ClassAttribute3Node:
-                x_identifier = assignment3node.identifier.__str__()
+                # If class attribute
 
-            if x_identifier in self.address_descriptor:
-                # If variable
                 if self.debug:
-                    sys.stdout.write("Converting stmt to assembly - Assignment" + \
-                        " - Variable detected on LHS.\n")
+                    sys.stdout.write("Converting stmt to assembly - x is class attribute.\n")
 
-                var_fp_offset = self.address_descriptor[x_identifier]['offset']
 
-                store_instruction = Instruction(
+                # Get base address of object
+                object_address_offset = self.address_descriptor[
+                    assignment3node.identifier.object_name
+                ]['offset']
+
+                # Load base address into a register
+                base_address_register = registers['z'][0]
+
+                instruction_load_base_address = Instruction(
                     self._get_incremented_instruction_count(),
-                    instruction="str " + x_register + ",[fp,#-" + \
-                        str(var_fp_offset) + "]\n",
+                    instruction="ldr " + base_address_register + ",[fp,#-" + \
+                        str(object_address_offset) + "]\n",
                     parent=new_instruction_last
                 )
 
-                new_instruction_last.set_child(store_instruction)
+                new_instruction_last.set_child(instruction_load_base_address)
+
+                # Calculate offset of class attribute in object
+
+                class_attribute_offset = self._calculate_class_attribute_offset(
+                    assignment3node.identifier
+                )
+
+                # Generate instruction
+
+                instruction_store_to_class_attribute = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="str " + x_register + ",[" + base_address_register + \
+                        ",#" + str(class_attribute_offset) + "]\n",
+                    parent=instruction_load_base_address
+                )
+
+                instruction_load_base_address.set_child(instruction_store_to_class_attribute)
+                store_instruction = instruction_load_base_address
+
+            else:
+
+                x_identifier = assignment3node.identifier
+                if x_identifier in self.address_descriptor:
+                    # If variable
+                    if self.debug:
+                        sys.stdout.write("Converting stmt to assembly - Assignment" + \
+                            " - Variable detected on LHS.\n")
+
+
+
+                    var_fp_offset = self.address_descriptor[x_identifier]['offset']
+
+                    if self.debug:
+                        sys.stdout.write("Converting stmt to assembly - Storing value of x: " + \
+                            str(assignment3node.identifier) + " with type " + \
+                            str(type(assignment3node.identifier)) + " in register " + \
+                            x_register + " with offset " + str(var_fp_offset) + "\n")
+
+                    store_instruction = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction="str " + x_register + ",[fp,#-" + \
+                            str(var_fp_offset) + "]\n",
+                        parent=new_instruction_last
+                    )
+
+                    new_instruction_last.set_child(store_instruction)
 
         return new_instruction
 
@@ -1744,8 +2004,10 @@ class Compiler:
 
         return_identifier = ir3_node.return_value
 
-        return_identifier_reg = self._check_if_in_register(return_identifier)[0]
-        if not return_identifier_reg:
+        try:
+            return_identifier_reg = self._check_if_in_register(return_identifier)[0]
+
+        except:
 
             return_identifier_reg = self._get_registers(
                 ir3_node,

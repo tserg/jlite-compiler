@@ -57,3 +57,7 @@ class Instruction:
 
         if self.child:
             self.child.pretty_print()
+
+    def __str__(self):
+
+        return self.assembly_code
