@@ -1431,6 +1431,7 @@ class InstanceNode(ASTNode):
 
     atom: Any
     identifier: Any
+    class_name: str
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -1592,6 +1593,7 @@ class InstanceNode(ASTNode):
         self.atom.type_check(env, debug, within_class, return_type)
 
         class_for_identifier_type_check = self.atom.type[1]
+        self.class_name = class_for_identifier_type_check
 
         if debug:
             sys.stdout.write("InstanceNode - Type check completed for atom with type: " + \

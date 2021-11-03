@@ -780,7 +780,8 @@ class IR3Generator:
                 class_attribute_node = ClassAttribute3Node(
                     type=ast_node.identifier.type,
                     target_class=ast_node.identifier.atom.value,
-                    target_attribute=ast_node.identifier.identifier.value
+                    target_attribute=ast_node.identifier.identifier.value,
+                    class_name=ast_node.identifier.class_name
                 )
 
                 new_stmt_node.set_identifier(class_attribute_node)
@@ -1402,7 +1403,8 @@ class IR3Generator:
                 new_exp_node = ClassAttribute3Node(
                     type=ast_node.identifier.type,
                     target_class=ast_node.atom.value,
-                    target_attribute=ast_node.identifier.value
+                    target_attribute=ast_node.identifier.value,
+                    class_name=ast_node.class_name
                 )
 
                 if self.debug:

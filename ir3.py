@@ -371,17 +371,20 @@ class ClassAttribute3Node(IR3Node):
 
     target_class: str
     target_attribute: str
+    class_name: str
 
     def __init__(
         self,
         target_class: str,
         target_attribute: str,
+        class_name: str,
         *args,
         **kwargs
     ) -> None:
         super().__init__(*args, **kwargs)
         self.target_class = target_class
         self.target_attribute = target_attribute
+        self.class_name = class_name
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
