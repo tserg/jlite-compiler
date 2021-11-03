@@ -369,26 +369,26 @@ class ClassInstance3Node(IR3Node):
 
 class ClassAttribute3Node(IR3Node):
 
-    target_class: str
+    object_name: str
     target_attribute: str
     class_name: str
 
     def __init__(
         self,
-        target_class: str,
+        object_name: str,
         target_attribute: str,
         class_name: str,
         *args,
         **kwargs
     ) -> None:
         super().__init__(*args, **kwargs)
-        self.target_class = target_class
+        self.object_name = object_name
         self.target_attribute = target_attribute
         self.class_name = class_name
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        sys.stdout.write(preceding + str(self.target_class) + \
+        sys.stdout.write(preceding + str(self.object_name) + \
             "." + str(self.target_attribute))
 
         if self.child:
@@ -396,7 +396,7 @@ class ClassAttribute3Node(IR3Node):
 
     def __str__(self):
 
-        return self.target_class + "." + self.target_attribute
+        return self.object_name + "." + self.target_attribute
 
 class Assignment3Node(IR3Node):
 

@@ -779,7 +779,7 @@ class IR3Generator:
 
                 class_attribute_node = ClassAttribute3Node(
                     type=ast_node.identifier.type,
-                    target_class=ast_node.identifier.atom.value,
+                    object_name=ast_node.identifier.atom.value,
                     target_attribute=ast_node.identifier.identifier.value,
                     class_name=ast_node.identifier.class_name
                 )
@@ -1402,7 +1402,7 @@ class IR3Generator:
 
                 new_exp_node = ClassAttribute3Node(
                     type=ast_node.identifier.type,
-                    target_class=ast_node.atom.value,
+                    object_name=ast_node.atom.value,
                     target_attribute=ast_node.identifier.value,
                     class_name=ast_node.class_name
                 )
