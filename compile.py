@@ -1111,44 +1111,12 @@ class Compiler:
                 pass
 
             elif type(current_stmt) == Return3Node:
-                if self.debug:
-                    sys.stdout.write("Converting stmt to assembly - Return.\n")
 
-                # Check if return value identifier is already in a register
-
-                return_identifier = current_stmt.return_value
-
-                return_identifier_reg = self._check_if_in_register(return_identifier)[0]
-                if not return_identifier_reg:
-
-                    return_identifier_reg = self._get_registers(
-                        current_stmt,
-                        md_args,
-                        liveness_data
-                    )['x']
-
-                return_identifier_offset = self.address_descriptor[return_identifier]['offset']
-
-                new_instruction = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + return_identifier_reg + ",[fp,#-" + \
-                        str(return_identifier_offset) + "]" + "\n"
+                new_instruction = self._convert_return_statement_to_assembly(
+                    current_stmt,
+                    md_args,
+                    liveness_data
                 )
-
-                self._update_descriptors(
-                    register=return_identifier_reg,
-                    identifier=return_identifier
-                )
-
-                # Otherwise, load from stack
-
-                instruction_move_to_argument_reg = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="mov a1," + return_identifier_reg + "\n",
-                    parent=new_instruction
-                )
-
-                new_instruction.set_child(instruction_move_to_argument_reg)
 
             else:
 
@@ -1759,6 +1727,54 @@ class Compiler:
                 )
 
                 new_instruction_last.set_child(store_instruction)
+
+        return new_instruction
+
+    def _convert_return_statement_to_assembly(
+        self,
+        ir3_node: Return3Node,
+        md_args: List[str],
+        liveness_data: Dict[str, List[int]]
+    ):
+
+        if self.debug:
+            sys.stdout.write("Converting stmt to assembly - Return.\n")
+
+        # Check if return value identifier is already in a register
+
+        return_identifier = ir3_node.return_value
+
+        return_identifier_reg = self._check_if_in_register(return_identifier)[0]
+        if not return_identifier_reg:
+
+            return_identifier_reg = self._get_registers(
+                ir3_node,
+                md_args,
+                liveness_data
+            )['x']
+
+        return_identifier_offset = self.address_descriptor[return_identifier]['offset']
+
+        new_instruction = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="ldr " + return_identifier_reg + ",[fp,#-" + \
+                str(return_identifier_offset) + "]" + "\n"
+        )
+
+        self._update_descriptors(
+            register=return_identifier_reg,
+            identifier=return_identifier
+        )
+
+        # Otherwise, load from stack
+
+        instruction_move_to_argument_reg = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="mov a1," + return_identifier_reg + "\n",
+            parent=new_instruction
+        )
+
+        new_instruction.set_child(instruction_move_to_argument_reg)
 
         return new_instruction
 
