@@ -739,7 +739,14 @@ class IR3Generator:
                 sys.stdout.write("Getting Stmt - PrintLn value: " + \
                     str(ast_node.expression.value) + "\n")
 
-            if isinstance(ast_node.expression, ArithmeticOpNode):
+            if type(ast_node.expression) == ASTNode:
+                new_stmt_node = PrintLn3Node(
+                    expression=ast_node.expression.value,
+                    type=ast_node.expression.type,
+                    is_raw_value=ast_node.expression.is_raw_value
+                )
+
+            else:
 
                 if self.debug:
                     sys.stdout.write("Getting Stmt - "
@@ -759,12 +766,7 @@ class IR3Generator:
                 last_of_expression.add_child(println_node)
                 new_stmt_node = expression_node
 
-            else:
-                new_stmt_node = PrintLn3Node(
-                    expression=ast_node.expression.value,
-                    type=ast_node.expression.type,
-                    is_raw_value=ast_node.expression.is_raw_value
-                )
+
 
         elif isinstance(ast_node, AssignmentNode):
             if self.debug:
