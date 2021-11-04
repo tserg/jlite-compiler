@@ -1941,7 +1941,56 @@ class Compiler:
                 assignment3node.assigned_value,
                 md_args
             )
-            if not y_is_arg and not assignment3node.assigned_value_is_raw_value:
+
+            if type(assignment3node.assigned_value) == ClassAttribute3Node:
+
+                # Get base address of object
+                object_address_offset = self.address_descriptor[
+                    assignment3node.assigned_value.object_name
+                ]['offset']
+
+                # Load base address into a register
+                base_address_register = registers['y'][0]
+
+                instruction_load_base_address = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + base_address_register + ",[fp,#-" + \
+                        str(object_address_offset) + "]\n",
+                )
+
+                self._update_descriptors(
+                    register=base_address_register,
+                    identifier=assignment3node.assigned_value.object_name
+                )
+
+                # Calculate offset of class attribute in object
+
+                class_attribute_offset = self._calculate_class_attribute_offset(
+                    ir3_node=assignment3node.assigned_value
+                )
+
+                # Generate instruction
+
+                instruction_load_class_attribute = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + base_address_register + ",[" + base_address_register + \
+                        ",#" + str(class_attribute_offset) + "]\n",
+                    parent=instruction_load_base_address
+                )
+
+                self._update_descriptors(
+                    register=base_address_register,
+                    identifier=assignment3node.assigned_value.__str__()
+                )
+
+                instruction_load_base_address.set_child(instruction_load_class_attribute)
+                
+                instruction_load_class_attribute.set_child(instruction_assign)
+                instruction_assign.set_parent(instruction_load_class_attribute)
+
+                new_instruction = instruction_load_base_address
+
+            elif not y_is_arg and not assignment3node.assigned_value_is_raw_value:
 
                 if self.debug:
                     sys.stdout.write("Testing: " + str(assignment3node.assigned_value_is_raw_value) + "\n")
@@ -2097,10 +2146,13 @@ class Compiler:
                 liveness_data
             )['x']
 
+        # Check if identifier is in address descriptor
         try:
-            # Check if identifier is in address descriptor
-
             return_identifier_offset = self.address_descriptor[return_identifier]['offset']
+        except:
+            return_identifier_offset = None
+
+        if return_identifier_offset:
 
             new_instruction = Instruction(
                 self._get_incremented_instruction_count(),
@@ -2123,7 +2175,7 @@ class Compiler:
 
             new_instruction.set_child(instruction_move_to_argument_reg)
 
-        except:
+        else:
 
             # Otherwise, check if it is in class attribute
 
