@@ -746,6 +746,38 @@ class IR3Generator:
                     is_raw_value=ast_node.expression.is_raw_value
                 )
 
+            elif type(ast_node.expression) == InstanceNode:
+
+                if self.debug:
+                    sys.stdout.write("Getting Stmt - "
+                        "PrintLn for class attribute detected.\n")
+
+                println_class_attribute = self._get_exp3(symbol_table, ast_node.expression)
+
+                temp_var = "_t"+str(self._get_temp_var_count())
+                temp_var_node = VarDecl3Node(
+                    value=temp_var,
+                    type=ast_node.expression.type
+                )
+
+                symbol_table.insert(temp_var, ast_node.expression.type)
+
+                # Assign value to temporary variable
+
+                temp_var_assignment_node = Assignment3Node(type=ast_node.expression.type)
+                temp_var_assignment_node.set_identifier(temp_var)
+                temp_var_assignment_node.set_assigned_value(println_class_attribute)
+                temp_var_node.add_child(temp_var_assignment_node)
+
+                println_node = PrintLn3Node(
+                    expression=temp_var,
+                    type=ast_node.expression.type,
+                    is_raw_value=ast_node.expression.is_raw_value
+                )
+
+                temp_var_assignment_node.add_child(println_node)
+                new_stmt_node = temp_var_node
+
             else:
 
                 if self.debug:
@@ -1411,11 +1443,12 @@ class IR3Generator:
 
                 if ast_node.child.expression:
                     args = self._get_vlist(ast_node.child.expression)
+                    if self.debug:
+                        sys.stdout.write("Getting Exp - Method call detected - first arg: " + \
+                            str(args.value) + " of type " + str(args.type) + "\n")
                     class_instance_node.add_child(args)
 
-                if self.debug:
-                    sys.stdout.write("Getting Exp - Method call detected - first arg: " + \
-                        str(args.value) + " of type " + str(args.type) + "\n")
+
 
                 new_exp_node.set_arguments(class_instance_node)
 
