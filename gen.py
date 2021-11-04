@@ -293,7 +293,9 @@ class IR3Generator:
                 type=BasicType.BOOL,
                 left_operand=ast_node.condition.left_operand.value,
                 right_operand=ast_node.condition.right_operand.value,
-                operator=ast_node.condition.value
+                operator=ast_node.condition.value,
+                left_operand_is_raw_value=ast_node.condition.left_operand.is_raw_value,
+                right_operand_is_raw_value=ast_node.condition.right_operand.is_raw_value
             )
 
         else:
@@ -760,7 +762,8 @@ class IR3Generator:
             else:
                 new_stmt_node = PrintLn3Node(
                     expression=ast_node.expression.value,
-                    type=ast_node.expression.type
+                    type=ast_node.expression.type,
+                    is_raw_value=ast_node.expression.is_raw_value
                 )
 
         elif isinstance(ast_node, AssignmentNode):
@@ -797,8 +800,14 @@ class IR3Generator:
                     sys.stdout.write("Getting Stmt - "
                         "AssignmentNode - Constant: " + \
                         str(ast_node.assigned_value.value) + "\n")
+                    sys.stdout.write("Getting Stmt - "
+                        "AssignmentNode - Is raw value: " + \
+                        str(ast_node.assigned_value.is_raw_value) + "\n")
 
-                new_stmt_node.set_assigned_value(ast_node.assigned_value.value)
+                new_stmt_node.set_assigned_value(
+                    ast_node.assigned_value.value,
+                    ast_node.assigned_value.is_raw_value
+                )
 
             else:
                 if self.debug:
@@ -1121,7 +1130,9 @@ class IR3Generator:
                 type=ast_node.type,
                 left_operand=ast_node.left_operand.value,
                 right_operand=ast_node.right_operand.value,
-                operator=ast_node.value
+                operator=ast_node.value,
+                left_operand_is_raw_value=ast_node.left_operand.is_raw_value,
+                right_operand_is_raw_value=ast_node.right_operand.is_raw_value
             )
 
         else:
@@ -1314,7 +1325,9 @@ class IR3Generator:
                 type=BasicType.BOOL,
                 left_operand=left_operand_last_child_id,
                 right_operand=right_operand_last_child_id,
-                operator=ast_node.value
+                operator=ast_node.value,
+                left_operand_is_raw_value=ast_node.left_operand.is_raw_value,
+                right_operand_is_raw_value=ast_node.right_operand.is_raw_value
             )
 
             temp_var_assignment_node.set_assigned_value(relop_node)
@@ -1469,7 +1482,10 @@ class IR3Generator:
 
                 temp_var_assignment_node = Assignment3Node(type=ast_node.type)
                 temp_var_assignment_node.set_identifier(temp_var)
-                temp_var_assignment_node.set_assigned_value(computed_value)
+                temp_var_assignment_node.set_assigned_value(
+                    computed_value,
+                    assigned_value_is_raw_value=True
+                )
 
                 temp_var_node.add_child(temp_var_assignment_node)
                 new_exp_node = temp_var_node
@@ -1482,7 +1498,9 @@ class IR3Generator:
                     type=ast_node.type,
                     left_operand=ast_node.left_operand.value,
                     right_operand=ast_node.right_operand.value,
-                    operator=ast_node.value
+                    operator=ast_node.value,
+                    left_operand_is_raw_value=ast_node.left_operand.is_raw_value,
+                    right_operand_is_raw_value=ast_node.right_operand.is_raw_value
                 )
 
             elif type(ast_node.left_operand) == ASTNode:
@@ -1506,7 +1524,9 @@ class IR3Generator:
                     type=ast_node.type,
                     left_operand=ast_node.left_operand.value,
                     right_operand=right_operand_last_node.identifier,
-                    operator=ast_node.value
+                    operator=ast_node.value,
+                    left_operand_is_raw_value=ast_node.left_operand.is_raw_value,
+                    right_operand_is_raw_value=ast_node.right_operand.is_raw_value
                 )
 
             elif type(ast_node.right_operand) == ASTNode:
@@ -1535,7 +1555,9 @@ class IR3Generator:
                     type=ast_node.type,
                     left_operand=left_operand_last_node.identifier,
                     right_operand=ast_node.right_operand.value,
-                    operator=ast_node.value
+                    operator=ast_node.value,
+                    left_operand_is_raw_value=ast_node.left_operand.is_raw_value,
+                    right_operand_is_raw_value=ast_node.right_operand.is_raw_value
                 )
 
             else:
@@ -1594,7 +1616,9 @@ class IR3Generator:
                     type=ast_node.type,
                     left_operand=left_operand_last_node.identifier,
                     right_operand=right_operand_last_node.identifier,
-                    operator=ast_node.value
+                    operator=ast_node.value,
+                    left_operand_is_raw_value=ast_node.left_operand.is_raw_value,
+                    right_operand_is_raw_value=ast_node.right_operand.is_raw_value
                 )
 
             # Assign value to temporary variable
@@ -1670,7 +1694,8 @@ class IR3Generator:
 
 
                 assignment_node.set_assigned_value(
-                    ast_node.assigned_value.value
+                    ast_node.assigned_value.value,
+                    assigned_value_is_raw_value=ast_node.assigned_value.is_raw_value
                 )
                 new_exp_node = assignment_node
 
@@ -1736,7 +1761,14 @@ class IR3Generator:
                     value=ast_node.value,
                     type=ast_node.type
                 )
-                temp_var_assignment_node.set_assigned_value(assigned_value_node)
+                temp_var_assignment_node.set_assigned_value(
+                    assigned_value_node,
+                    assigned_value_is_raw_value=ast_node.is_raw_value
+                )
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - raw value found: " + \
+                        str(ast_node.value))
 
                 temp_var_node.add_child(temp_var_assignment_node)
                 if self.debug:
@@ -1752,6 +1784,7 @@ class IR3Generator:
         if self.debug:
             sys.stdout.write("Getting VList - Initiated.\n")
             sys.stdout.write("Getting VList - ASTNode: " + str(ast_node.value) + "\n")
+            sys.stdout.write("Getting VList - ASTNode type: " + str(type(ast_node)) + "\n")
 
         if not ast_node.value:
             return v_node
@@ -1760,7 +1793,8 @@ class IR3Generator:
 
         new_v_node = IR3Node(
             value=ast_node.value,
-            type=ast_node.type
+            type=ast_node.type,
+            is_raw_value=ast_node.is_raw_value
         )
 
         if ast_node.sibling:

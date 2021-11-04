@@ -48,6 +48,7 @@ class ASTNode:
     value: str
     type: Any
     is_identifier: bool
+    is_raw_value: bool
     child: Any
     sibling: Any
 
@@ -56,12 +57,14 @@ class ASTNode:
         value: str='',
         type: str='',
         is_identifier: bool=False,
+        is_raw_value: bool=False,
         child: Optional[Any]=None,
         sibling: Optional[Any]=None
     ) -> None:
         self.value = value
         self.type = type
         self.is_identifier = is_identifier
+        self.is_raw_value = is_raw_value
         self.child = child
         self.sibling = sibling
 
@@ -328,6 +331,46 @@ class ASTNode:
 
         return return_type
 
+    def _check_is_raw_value(self, debug=False):
+
+        if debug:
+            sys.stdout.write("ASTNode - Checking for raw value for: " + \
+                str(self.value) + "\n")
+
+        try:
+            is_integer = int(self.value)
+        except:
+            is_integer = False
+
+        is_string = False
+        try:
+            if type(value) == str and \
+                    value[0] == '"' and \
+                    value[-1] == '"':
+
+                is_string = True
+
+        except:
+            pass
+
+        is_boolean = False
+        try:
+            if type(value) == str and \
+                (value == 'true' or \
+                value == 'false'):
+
+                is_boolean = True
+
+        except:
+            pass
+
+        if is_integer or is_string or is_boolean:
+            if debug:
+                sys.stdout.write("ASTNode - Raw value found: " + \
+                    str(self.value) + "\n")
+
+            self.is_raw_value = True
+
     def type_check(
         self,
         env: List[Deque[Any]],
@@ -368,6 +411,8 @@ class ASTNode:
             if debug:
                 sys.stdout.write("Type of non-identifier assigned: " + \
                     str(type(self.type)) + "\n")
+
+        self._check_is_raw_value(debug)
 
         if self.child:
             self.child.type_check(env, debug, within_class)

@@ -1949,7 +1949,7 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        parser = Parser(debug=True)
+        parser = Parser(debug=False)
         parser.parse(f)
 
         parser.pretty_print()

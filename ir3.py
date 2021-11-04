@@ -42,6 +42,7 @@ class IR3Node:
     #is_identifier: bool
     md_line_no: Optional[int]
     child: Any
+    is_raw_value: bool
 
     def __init__(
         self,
@@ -49,12 +50,14 @@ class IR3Node:
         type: str='',
         #is_identifier: bool=False,
         child: Optional[Any]=None,
+        is_raw_value: bool=False
     ) -> None:
         self.value = value
         self.type = type
         #self.is_identifier = is_identifier
         self.child = child
         self.md_line_no = None
+        self.is_raw_value = is_raw_value
 
     def add_child(self, node: Any) -> None:
         """
@@ -194,7 +197,7 @@ class CMtd3Node(IR3Node):
                 completed = True
                 break
 
-            result.append(current_arg.value)
+            result.append((current_arg.value, current_arg.type))
 
             current_arg = current_arg.child
 
@@ -402,17 +405,24 @@ class Assignment3Node(IR3Node):
 
     identifier: Any
     assigned_value: Any
+    assigned_value_is_raw_value: bool
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.identifier = None
         self.assigned_value = None
+        self.assigned_value_is_raw_value = False
 
     def set_identifier(self, identifier: Any) -> None:
         self.identifier = identifier
 
-    def set_assigned_value(self, assigned_value: Any) -> None:
+    def set_assigned_value(
+        self,
+        assigned_value: Any,
+        assigned_value_is_raw_value: bool=False
+    ) -> None:
         self.assigned_value = assigned_value
+        self.assigned_value_is_raw_value = assigned_value_is_raw_value
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
@@ -491,11 +501,16 @@ class RelOp3Node(IR3Node):
     right_operand: Any
     operator: str
 
+    left_operand_is_raw_value: bool
+    right_operand_is_raw_value: bool
+
     def __init__(
         self,
         left_operand: str,
         right_operand: str,
         operator: str,
+        left_operand_is_raw_value: bool,
+        right_operand_is_raw_value: bool,
         *args,
         **kwargs
     ) -> None:
@@ -503,6 +518,9 @@ class RelOp3Node(IR3Node):
         self.left_operand = left_operand
         self.right_operand = right_operand
         self.operator = operator
+        self.left_operand_is_raw_value = left_operand_is_raw_value
+        self.right_operand_is_raw_value = right_operand_is_raw_value
+
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
@@ -518,11 +536,16 @@ class BinOp3Node(IR3Node):
     right_operand: Any
     operator: str
 
+    left_operand_is_raw_value: bool
+    right_operand_is_raw_value: bool
+
     def __init__(
         self,
         left_operand: Any,
         right_operand: Any,
         operator: str,
+        left_operand_is_raw_value: bool=False,
+        right_operand_is_raw_value: bool=False,
         *args,
         **kwargs
     ) -> None:
@@ -530,6 +553,8 @@ class BinOp3Node(IR3Node):
         self.left_operand = left_operand
         self.right_operand = right_operand
         self.operator = operator
+        self.left_operand_is_raw_value = left_operand_is_raw_value
+        self.right_operand_is_raw_value = right_operand_is_raw_value
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
