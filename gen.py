@@ -1402,9 +1402,18 @@ class IR3Generator:
                     type=ast_node.atom.type
                 )
 
+                if self.debug:
+                    sys.stdout.write("Getting Exp - Method call detected - Class Instance value: " + \
+                        str(ast_node.atom.value) + " of type: " + \
+                        str(ast_node.atom.type) + "\n")
+
                 if ast_node.child.expression:
                     args = self._get_vlist(ast_node.child.expression)
                     class_instance_node.add_child(args)
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - Method call detected - first arg: " + \
+                        str(args.value) + " of type " + str(args.type) + "\n")
 
                 new_exp_node.set_arguments(class_instance_node)
 

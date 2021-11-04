@@ -34,6 +34,7 @@ from ir3 import (
     Return3Node,
     ClassAttribute3Node,
     ClassInstance3Node,
+    MethodCall3Node,
 )
 
 from jlite_type import (
@@ -41,6 +42,13 @@ from jlite_type import (
 )
 
 REGISTERS = ['v1', 'v2', 'v3', 'v4', 'v5']
+
+ARG_REGISTERS = {
+    0: 'a1',
+    1: 'a2',
+    2: 'a3',
+    3: 'a4',
+}
 
 ARITHMETIC_OP = {
     '+': 'add ',
@@ -164,11 +172,15 @@ class Compiler:
 
     def _calculate_class_attribute_offset(
         self,
-        ir3_node: ClassAttribute3Node
+        ir3_node: Optional[ClassAttribute3Node]=None,
+        class_name: Optional[str]=None,
+        attribute_name: Optional[str]=None
     ) -> Optional[int]:
 
-        attribute_name = ir3_node.target_attribute
-        class_name = ir3_node.class_name
+        if ir3_node:
+
+            attribute_name = ir3_node.target_attribute
+            class_name = ir3_node.class_name
 
         try:
 
@@ -244,6 +256,7 @@ class Compiler:
                         liveness_data[identifier] = [instruction_count]
 
                 assigned_value = current_stmt.assigned_value
+                assigned_value_is_raw_value = current_stmt.assigned_value_is_raw_value
 
                 if isinstance(assigned_value, IR3Node) == True:
 
@@ -252,10 +265,10 @@ class Compiler:
                         left_operand = assigned_value.left_operand
                         right_operand = assigned_value.right_operand
 
-                        left_operand_is_non_arg_id = self._check_if_non_arg_identifier(
+                        left_operand_is_non_arg_id = self._check_if_in_arguments(
                             left_operand,
                             md_args
-                        )
+                        ) or assigned_value.left_operand_is_raw_value
 
                         if left_operand_is_non_arg_id:
 
@@ -265,10 +278,10 @@ class Compiler:
                             else:
                                 liveness_data[left_operand] = [instruction_count]
 
-                        right_operand_is_non_arg_id = self._check_if_non_arg_identifier(
+                        right_operand_is_non_arg_id = self._check_if_in_arguments(
                             right_operand,
                             md_args
-                        )
+                        ) or assigned_value.right_operand_is_raw_value
 
                         if right_operand_is_non_arg_id:
 
@@ -280,12 +293,13 @@ class Compiler:
 
                     else:
                         # Base IR3Node
+                        assigned_value_is_raw_value = assigned_value.is_raw_value
                         assigned_value = assigned_value.value
 
-                        assigned_value_is_non_arg_id = self._check_if_non_arg_identifier(
+                        assigned_value_is_non_arg_id = self._check_if_in_arguments(
                             assigned_value,
                             md_args
-                        )
+                        ) or assigned_value_is_raw_value
 
                         if assigned_value_is_non_arg_id:
 
@@ -297,10 +311,10 @@ class Compiler:
 
                 else:
 
-                    assigned_value_is_non_arg_id = self._check_if_non_arg_identifier(
+                    assigned_value_is_non_arg_id = self._check_if_in_arguments(
                         assigned_value,
                         md_args
-                    )
+                    ) or assigned_value_is_raw_value
 
                     if assigned_value_is_non_arg_id:
 
@@ -314,10 +328,10 @@ class Compiler:
 
                 expression = current_stmt.expression
 
-                expression_is_non_arg_id = self._check_if_non_arg_identifier(
+                expression_is_non_arg_id = self._check_if_in_arguments(
                     expression,
                     md_args
-                )
+                ) or current_stmt.is_raw_value
 
                 if expression_is_non_arg_id:
 
@@ -330,38 +344,6 @@ class Compiler:
             current_stmt = current_stmt.child
 
         return liveness_data
-
-
-    def _is_raw_value(self, value: str) -> bool:
-
-        try:
-            is_integer = int(value)
-        except:
-            is_integer = False
-
-        is_string = False
-        try:
-            if type(value) == str and \
-                    value[0] == '"' and \
-                    value[-1] == '"':
-
-                is_string = True
-
-        except:
-            pass
-
-        is_boolean = False
-        try:
-            if type(value) == str and \
-                (value == 'true' or \
-                value == 'false'):
-
-                is_boolean = True
-
-        except:
-            pass
-
-        return is_integer or is_string or is_boolean
 
     def _check_if_in_register(
         self,
@@ -384,46 +366,19 @@ class Compiler:
         md_args: List[str]
     ) -> Optional[str]:
 
-        try:
-
-            if self.debug:
-                sys.stdout.write("Checking if identifier [" + identifier + \
+        if self.debug:
+                sys.stdout.write("Checking if identifier [" + str(identifier) + \
                     "] is in arguments: " + str(md_args) + "\n")
 
-            arg_index = md_args.index(identifier)
+        arg_index = [i for i in range(len(md_args)) if md_args[i][0] == identifier]
 
-            arg_register = {
-                0: 'a1',
-                1: 'a2',
-                2: 'a3',
-                3: 'a4',
-            }[arg_index]
+        if len(arg_index) > 0:
+            arg_register = ARG_REGISTERS[arg_index[0]]
 
             return arg_register
 
-        except:
+        else:
             return None
-
-    def _check_if_non_arg_identifier(
-        self,
-        identifier: str,
-        md_args: List[str]
-    ) -> bool:
-
-        identifier_is_raw = self._is_raw_value(identifier)
-
-        if identifier_is_raw:
-            return False
-
-        identifier_is_arg = self._check_if_in_arguments(
-            identifier,
-            md_args
-        )
-
-        if not identifier_is_arg:
-            return True
-
-        return False
 
     def _check_for_empty_register(
         self,
@@ -595,7 +550,7 @@ class Compiler:
 
         if type(ir3_node) == Assignment3Node:
 
-            is_simple_assignment = self._is_raw_value(ir3_node.assigned_value)
+            is_simple_assignment = ir3_node.assigned_value_is_raw_value
 
             if type(ir3_node.identifier) == ClassAttribute3Node:
 
@@ -645,19 +600,14 @@ class Compiler:
                     sys.stdout.write("Right operand: " + \
                         str(ir3_node.assigned_value.right_operand) + "\n")
 
-                left_operand_is_raw_value = self._is_raw_value(
-                    ir3_node.assigned_value.left_operand
-                )
+                left_operand_is_raw_value = ir3_node.assigned_value.left_operand_is_raw_value
 
                 y_value = None
-
 
                 if not left_operand_is_raw_value:
                     y_value = ir3_node.assigned_value.left_operand
 
-                right_operand_is_raw_value = self._is_raw_value(
-                    ir3_node.assigned_value.right_operand
-                )
+                right_operand_is_raw_value = ir3_node.assigned_value.right_operand_is_raw_value
 
                 z_value = None
                 if not right_operand_is_raw_value:
@@ -960,7 +910,12 @@ class Compiler:
         self._initialise_assembler_directive()
         self.instruction_tail = self.instruction_head.get_last_child()
 
-        current_node = ir3_tree.head.method_data
+        main_instruction = self._convert_cmtd3_to_assembly(
+            ir3_tree.head.method_data,
+            ir3_tree.head.class_data
+        )
+
+        current_node = ir3_tree.head.method_data.child
         completed = False
 
         while not completed:
@@ -985,6 +940,11 @@ class Compiler:
                 self.instruction_tail = instruction.get_last_child()
 
                 current_node = current_node.child
+
+        current_tail = self.instruction_tail
+        current_tail.set_child(main_instruction)
+        main_instruction.set_parent(current_tail)
+        self.instruction_tail = main_instruction.get_last_child()
 
     def _convert_cmtd3_to_assembly(
         self,
@@ -1448,9 +1408,7 @@ class Compiler:
         else:
             x_register = registers['x'][0]
 
-        is_simple_assignment = self._is_raw_value(
-            assignment3node.assigned_value
-        )
+        is_simple_assignment = assignment3node.assigned_value_is_raw_value
 
         if is_simple_assignment:
 
@@ -1522,9 +1480,7 @@ class Compiler:
                 md_args
             )
 
-            y_is_raw = self._is_raw_value(
-                assignment3node.assigned_value.left_operand
-            )
+            y_is_raw = assignment3node.assigned_value.left_operand_is_raw_value
 
             y_value = assignment3node.assigned_value.left_operand
             if not y_is_raw:
@@ -1537,9 +1493,7 @@ class Compiler:
                 md_args
             )
 
-            z_is_raw = self._is_raw_value(
-                assignment3node.assigned_value.right_operand
-            )
+            z_is_raw = assignment3node.assigned_value.right_operand_is_raw_value
 
             z_value = assignment3node.assigned_value.right_operand
             if not z_is_raw:
@@ -1719,7 +1673,7 @@ class Compiler:
                                 self._get_incremented_instruction_count(),
                                 instruction=operator_instruction + x_register + \
                                     "," + y_value + "," + z_value + "\n",
-                                parent=instruction_load_z
+                                parent=new_instruction
                             )
 
                             new_instruction.set_child(instruction_binop)
@@ -1747,7 +1701,7 @@ class Compiler:
                                 self._get_incremented_instruction_count(),
                                 instruction=operator_instruction + x_register + \
                                     "," + y_value + "," + z_value + "\n",
-                                parent=instruction_load_z
+                                parent=new_instruction
                             )
 
                             if not x_is_arg:
@@ -1779,8 +1733,7 @@ class Compiler:
 
                 new_instruction = Instruction(
                     self._get_incremented_instruction_count(),
-                    instruction="Test test in Assignment node, non plus " + str(debug_count) + "\n",
-                    parent=current_instruction
+                    instruction="Test test in Assignment node, non plus " + str(debug_count) + "\n"
                 )
 
             # Check for spilling and store to stack beforehand by adding
@@ -1832,9 +1785,135 @@ class Compiler:
 
             new_instruction = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="Test test RelOp " + str(debug_count) + "\n",
-                parent=current_instruction
+                instruction="Test test RelOp " + str(debug_count) + "\n"
             )
+
+        elif type(assignment3node.assigned_value) == MethodCall3Node:
+
+            method_call_node = assignment3node.assigned_value
+
+            if self.debug:
+                sys.stdout.write("Converting stmt to assembly - MethodCall3.\n")
+
+            # Move the base address of the class to a1
+
+            this_arg_identifier = method_call_node.arguments.value
+
+            if this_arg_identifier == 'this':
+                # If first argument is a reference to 'this', retain the first argument register
+
+                instruction_load_arguments = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="mov a1,a1\n"
+                )
+
+            else:
+                base_address_offset = self.address_descriptor[this_arg_identifier]['offset']
+
+                instruction_load_arguments = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr a1,[fp,#-" + str(base_address_offset) +"]\n"
+                )
+
+
+            next_arg = method_call_node.arguments.child
+            arg_count = 1
+            completed = False
+            latest_instruction_load_argument = instruction_load_arguments
+
+            while not completed:
+
+                if not next_arg:
+                    completed = True
+                    break
+
+                if next_arg:
+
+                    # For each argument, check if it is a raw value or an identifier
+
+                    next_arg_reg = ARG_REGISTERS[arg_count]
+
+                    if next_arg.is_raw_value:
+                        # If raw value, move to register directly
+
+                        if self.debug:
+                            sys.stdout.write("Converting stmt to assembly - MethodCall3 - raw value arg detected.\n")
+
+                        if next_arg.type == BasicType.INT:
+                            instruction_load_next_argument = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction="mov " + next_arg_reg + ",#" + \
+                                    str(next_arg.value) + "\n",
+                                parent=latest_instruction_load_argument
+                            )
+
+                        if next_arg.type == BasicType.STRING:
+                            pass
+
+                        if next_arg.type == BasicType.BOOL:
+                            pass
+
+                    else:
+
+                        if type(next_arg) == ClassAttribute3Node:
+                            if self.debug:
+                                sys.stdout.write("Converting stmt to assembly - MethodCall3 - Class attribute arg detected.\n")
+                            pass
+
+                        else:
+                            if self.debug:
+                                sys.stdout.write("Converting stmt to assembly - MethodCall3 - Identifier arg detected: " +
+                                    next_arg.value + "\n")
+
+                            next_arg_in_reg = self._check_if_in_arguments(
+                                next_arg.value,
+                                md_args
+                            )
+
+                            if next_arg_in_reg:
+
+                                instruction_load_next_argument = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="mov " + next_arg_reg + "," + \
+                                        next_arg_in_reg + "\n",
+                                    parent=latest_instruction_load_argument
+                                )
+
+                            else:
+                                var_offset = self.address_descriptor[next_arg.value]['offset']
+
+                                instruction_load_next_argument = Instruction(
+                                    self._get_incremented_instruction_count(),
+                                    instruction="ldr " + next_arg_reg + ",[fp,#-" + \
+                                        str(var_offset) + "]\n",
+                                    parent=latest_instruction_load_argument
+                                )
+                        # move to an argument register
+
+                    arg_count += 1
+                    next_arg = next_arg.child
+                    latest_instruction_load_argument.set_child(instruction_load_next_argument)
+                    latest_instruction_load_argument = instruction_load_next_argument
+
+            instruction_load_arguments_last_child = instruction_load_arguments.get_last_child()
+
+            instruction_branch_to_function= Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="bl " + method_call_node.method_id[1:] + "\n",
+                parent=instruction_load_arguments_last_child
+            )
+
+            instruction_load_arguments_last_child.set_child(instruction_branch_to_function)
+
+            instruction_move_return_value_to_x_register = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mov " + x_register + ",a1\n",
+                parent=instruction_branch_to_function
+            )
+
+            instruction_branch_to_function.set_child(instruction_move_return_value_to_x_register)
+
+            new_instruction = instruction_load_arguments
 
         else:
 
@@ -1862,7 +1941,10 @@ class Compiler:
                 assignment3node.assigned_value,
                 md_args
             )
-            if not y_is_arg:
+            if not y_is_arg and not assignment3node.assigned_value_is_raw_value:
+
+                if self.debug:
+                    sys.stdout.write("Testing: " + str(assignment3node.assigned_value_is_raw_value) + "\n")
 
                 var_y_offset = self.address_descriptor[assignment3node.assigned_value]['offset']
 
@@ -1945,7 +2027,7 @@ class Compiler:
                 # Calculate offset of class attribute in object
 
                 class_attribute_offset = self._calculate_class_attribute_offset(
-                    assignment3node.identifier
+                    ir3_node=assignment3node.identifier
                 )
 
                 # Generate instruction
@@ -2015,28 +2097,62 @@ class Compiler:
                 liveness_data
             )['x']
 
-        return_identifier_offset = self.address_descriptor[return_identifier]['offset']
+        try:
+            # Check if identifier is in address descriptor
 
-        new_instruction = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="ldr " + return_identifier_reg + ",[fp,#-" + \
-                str(return_identifier_offset) + "]" + "\n"
-        )
+            return_identifier_offset = self.address_descriptor[return_identifier]['offset']
 
-        self._update_descriptors(
-            register=return_identifier_reg,
-            identifier=return_identifier
-        )
+            new_instruction = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr " + return_identifier_reg + ",[fp,#-" + \
+                    str(return_identifier_offset) + "]" + "\n"
+            )
 
-        # Otherwise, load from stack
+            self._update_descriptors(
+                register=return_identifier_reg,
+                identifier=return_identifier
+            )
 
-        instruction_move_to_argument_reg = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="mov a1," + return_identifier_reg + "\n",
-            parent=new_instruction
-        )
+            # Otherwise, load from stack
 
-        new_instruction.set_child(instruction_move_to_argument_reg)
+            instruction_move_to_argument_reg = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mov a1," + return_identifier_reg + "\n",
+                parent=new_instruction
+            )
+
+            new_instruction.set_child(instruction_move_to_argument_reg)
+
+        except:
+
+            # Otherwise, check if it is in class attribute
+
+            # Get current class
+
+            current_class = md_args[0][1]
+
+            if self.debug:
+                sys.stdout.write("Converting return statement to assembly - Checking for class attribute: " + \
+                    str(ir3_node.return_value) + " in current class: " + str(current_class) + "\n")
+
+            # Get offset
+
+            class_attribute_offset = self._calculate_class_attribute_offset(
+                class_name=current_class,
+                attribute_name=ir3_node.return_value
+            )
+
+            if self.debug:
+                sys.stdout.write("Converting return statement to assembly - Getting offset for class attribute " + \
+                    str(ir3_node.return_value) + " in current class: " + str(current_class) + \
+                    ": " + str(class_attribute_offset) + "\n")
+
+            # Load base address + offset in register a1 into a1
+
+            new_instruction = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr a1,[a1,#" + str(class_attribute_offset) + "]\n"
+            )
 
         return new_instruction
 
