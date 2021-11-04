@@ -50,6 +50,13 @@ ARG_REGISTERS = {
     3: 'a4',
 }
 
+ARG_REGISTER_TO_STACK_OFFSET = {
+    'a1': 0,
+    'a2': 4,
+    'a3': 8,
+    'a4': 12
+}
+
 ARITHMETIC_OP = {
     '+': 'add ',
     '-': 'sub ',
@@ -1955,14 +1962,24 @@ class Compiler:
 
                             if next_arg_in_reg:
 
+                                # Since arguments have been pushed onto the stack,
+                                # retrieve arguments from the stack instead
+                                # with offset from stack pointer
+
+                                arg_reg_stack_offset = ARG_REGISTER_TO_STACK_OFFSET[next_arg_in_reg]
+
                                 instruction_load_next_argument = Instruction(
                                     self._get_incremented_instruction_count(),
-                                    instruction="mov " + next_arg_reg + "," + \
-                                        next_arg_in_reg + "\n",
+                                    instruction="ldr " + next_arg_reg + ",[sp,#" + \
+                                        str(arg_reg_stack_offset) + "]\n",
                                     parent=latest_instruction_load_argument
                                 )
 
                             else:
+
+                                # Otherwise, retrieve arguments from stack
+                                # with offset from frame pointer
+
                                 var_offset = self.address_descriptor[next_arg.value]['offset']
 
                                 instruction_load_next_argument = Instruction(
@@ -1996,7 +2013,29 @@ class Compiler:
 
             instruction_branch_to_function.set_child(instruction_move_return_value_to_x_register)
 
-            new_instruction = instruction_load_arguments
+            # Pop argument registers onto the stack to save argument values
+            # in case there are nested function calls
+
+            instruction_save_arg_registers = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="stmfd sp!,{a1,a2,a3,a4}\n"
+            )
+
+            # Restore argument registers from stack to restore argument values
+            # after nested function call
+
+            instruction_pop_arg_registers = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
+            )
+
+            instruction_save_arg_registers.set_child(instruction_load_arguments)
+            instruction_load_arguments.set_parent(instruction_save_arg_registers)
+
+            instruction_move_return_value_to_x_register.set_child(instruction_pop_arg_registers)
+            instruction_pop_arg_registers.set_parent(instruction_move_return_value_to_x_register)
+
+            new_instruction = instruction_save_arg_registers
 
         else:
 
