@@ -1062,16 +1062,23 @@ class IR3Generator:
 
                 if self.debug:
                     sys.stdout.write("Getting Stmt - Return value type: " + \
-                        str(ast_node.return_value) + " with value: " + \
+                        str(type(ast_node.return_value)) + " with value: " + \
                         str(ast_node.return_value.value) +  "\n")
                     sys.stdout.write("Getting Stmt - Return value node detected.\n")
 
-                if ast_node.return_value.is_identifier:
+                if ast_node.return_value.is_identifier and \
+                    type(ast_node.return_value.type) != FunctionType:
                     # Set return value as variable name directly if return value
                     # is an <id> as defined in JLITE
 
                     return_node = Return3Node(return_value=ast_node.return_value.value)
                     new_stmt_node = return_node
+
+                    if self.debug:
+                        sys.stdout.write("Getting Stmt - Return exp identifier found: " + \
+                            str(ast_node.return_value) + " with value: " + \
+                            str(ast_node.return_value.value) + " and type " + \
+                            str(ast_node.return_value.type) + "\n")
 
                 else:
                     return_exp = self._get_exp3(symbol_table, ast_node.return_value)
@@ -1090,6 +1097,11 @@ class IR3Generator:
                             sys.stdout.write("Getting Stmt - Last return node is different: " + \
                             str(type(return_exp_last_node)) + \
                             "\n")
+
+                            if type(return_exp_last_node) == MethodCall3Node:
+                                sys.stdout.write("Getting Stmt - Last return node is different: " + \
+                                str(type(return_exp_last_node)) + " with method_id " + \
+                                str(return_exp_last_node.method_id) + "\n")
 
                         return_node = Return3Node(return_value=return_exp_last_node.identifier)
                         return_exp_last_node.add_child(return_node)
@@ -1428,8 +1440,13 @@ class IR3Generator:
                             str(temp_md_id) + "\n")
                         sys.stdout.write("Getting Exp - Identifier value: " + \
                             str(ast_node.identifier.type) + "\n")
+                        sys.stdout.write("Getting Exp - Return type of method: " + \
+                            str(st_lookup['type'].return_type) + "\n")
 
-                new_exp_node = MethodCall3Node(method_id=temp_md_id)
+                md_call_node = MethodCall3Node(
+                    method_id=temp_md_id,
+                    return_type=st_lookup['type']
+                )
 
                 class_instance_node = IR3Node(
                     value=ast_node.atom.value,
@@ -1442,15 +1459,30 @@ class IR3Generator:
                         str(ast_node.atom.type) + "\n")
 
                 if ast_node.child.expression:
-                    args = self._get_vlist(ast_node.child.expression)
+                    args, prior_instructions = self._get_vlist(
+                        symbol_table,
+                        ast_node.child.expression
+                    )
+
                     if self.debug:
                         sys.stdout.write("Getting Exp - Method call detected - first arg: " + \
                             str(args.value) + " of type " + str(args.type) + "\n")
+
+                        if prior_instructions:
+                            sys.stdout.write("Getting Exp - Method call detected - Prior instructions retrieved.\n")
+
+
                     class_instance_node.add_child(args)
 
+                md_call_node.set_arguments(class_instance_node)
 
 
-                new_exp_node.set_arguments(class_instance_node)
+
+                new_exp_node = md_call_node
+                if prior_instructions:
+                    prior_instructions_last = self._get_last_child(prior_instructions)
+                    prior_instructions_last.add_child(md_call_node)
+                    new_exp_node = prior_instructions
 
             else:
                 # <id3>.<id3>
@@ -1765,7 +1797,126 @@ class IR3Generator:
                         "Checking if identifier is found in symbol table: " + \
                         str(identifier) + "\n")
 
-                return IR3Node(value=ast_node.value, type=ast_node.type)
+                if type(identifier['type']) == FunctionType:
+                    if self.debug:
+                        sys.stdout.write("Getting Exp - FunctionType detected.\n")
+                        sys.stdout.write("Getting Exp - Method call detected.\n")
+                        sys.stdout.write("Getting Exp - Type: " + str(ast_node.type) + "\n")
+
+                    # Check for method name in symbol table
+                    st_lookup: Any = symbol_table.lookup(ast_node.value)
+
+                    if st_lookup:
+                        if self.debug:
+                            sys.stdout.write("Getting Exp - Symbol table result - " + \
+                                str(st_lookup) + "\n")
+
+                        if type(st_lookup) == list:
+
+                            args_type = ast_node.child.get_arguments_type()
+
+                            if self.debug:
+                                sys.stdout.write("Getting Exp - Arguments of ExpListNode - " + \
+                                    str(args_type) + "\n")
+
+                            for st_result in st_lookup:
+
+                                if self.debug:
+                                    sys.stdout.write("Getting Exp - Symbol table multiple results - " + \
+                                        str(st_result) + "\n")
+                                    sys.stdout.write(str(args_type) + "\n")
+                                    sys.stdout.write(str(st_result['type'].basic_type_list) + "\n")
+
+                                if st_result['type'].basic_type_list == args_type:
+                                    temp_md_id = st_result['temp_id']
+
+                                    sys.stdout.write("Getting Exp - Overloaded method found.\n")
+                        else:
+                            temp_md_id = st_lookup['temp_id']
+                    else:
+                        temp_md_id = st_lookup['temp_id']
+
+                    md_call_node = MethodCall3Node(
+                        method_id=temp_md_id,
+                        return_type=identifier['type'].return_type
+                    )
+
+                    class_instance_node = IR3Node(
+                        value="this",
+                        type=identifier['type'].class_name
+                    )
+
+                    md_call_node.set_arguments(class_instance_node)
+
+                    if self.debug:
+                        sys.stdout.write("Getting Exp - Method call detected - Class Instance value: " + \
+                            str(ast_node.value) + " of type: " + \
+                            str(ast_node.type) + "\n")
+
+
+                    prior_instructions = None
+                    if ast_node.child.expression:
+                        args, prior_instructions = self._get_vlist(
+                            symbol_table,
+                            ast_node.child.expression
+                        )
+
+                        if self.debug:
+                            sys.stdout.write("Getting Exp - Method call detected - first arg: " + \
+                                str(args.value) + " of type " + str(args.type) + "\n")
+
+                            if prior_instructions:
+                                sys.stdout.write("Getting Exp - Method call detected - Prior instructions retrieved.\n")
+
+
+                        class_instance_node.add_child(args)
+
+                    # >>>>>>>>>>>>
+
+                    temp_var_count = self._get_temp_var_count()
+                    temp_var = "_t"+str(temp_var_count)
+
+                    temp_var_node = VarDecl3Node(
+                        value=temp_var,
+                        type=identifier['type'].return_type
+                    )
+
+                    symbol_table.insert(
+                        temp_var,
+                        identifier['type'].return_type,
+                        state=None
+                    )
+
+                    if self.debug:
+                        sys.stdout.write("Getting Exp - "
+                            "Inserting into symbol table: " + \
+                            str(symbol_table) + "\n")
+
+                    temp_var_assignment_node = Assignment3Node(
+                        type=identifier['type'].return_type
+                    )
+                    temp_var_assignment_node.set_identifier(temp_var)
+
+                    temp_var_assignment_node.set_assigned_value(
+                        md_call_node,
+                        assigned_value_is_raw_value=False
+                    )
+
+                    temp_var_node.add_child(temp_var_assignment_node)
+
+
+
+                    new_exp_node = temp_var_node
+                    if prior_instructions:
+                        prior_instructions_last = self._get_last_child(prior_instructions)
+                        prior_instructions_last.add_child(temp_var_node)
+                        new_exp_node = prior_instructions
+
+                    # >>>>>>>>>>..
+
+                else:
+
+                    return IR3Node(value=ast_node.value, type=ast_node.type)
 
             else:
                 # <Const>
@@ -1823,7 +1974,13 @@ class IR3Generator:
 
         return new_exp_node
 
-    def _get_vlist(self, ast_node: Any, v_node: Optional[Any]=None) -> Optional[Any]:
+    def _get_vlist(
+        self,
+        symbol_table: SymbolTableStack,
+        ast_node: Any,
+        v_node: Optional[Any]=None,
+        prior_instructions: Optional[Any]=None
+    ) -> Optional[Any]:
 
         if self.debug:
             sys.stdout.write("Getting VList - Initiated.\n")
@@ -1835,25 +1992,127 @@ class IR3Generator:
 
         new_v_node: Any
 
-        new_v_node = IR3Node(
-            value=ast_node.value,
-            type=ast_node.type,
-            is_raw_value=ast_node.is_raw_value
-        )
+        if type(ast_node) != ASTNode or \
+            (type(ast_node) == ASTNode and type(ast_node.type) == FunctionType):
+
+            if self.debug:
+                sys.stdout.write("Getting VList - Complex node detected: " + \
+                    str(type(ast_node)) + "\n")
+
+            symbol_table_copy = copy.deepcopy(symbol_table)
+
+            # Prepare prior instructions if it is a complex node e.g. method call
+
+            new_prior_instructions = self._get_exp3(symbol_table_copy, ast_node)
+
+            if new_prior_instructions:
+
+                if self.debug:
+                    sys.stdout.write("Getting VList - Complex node detected - Prior instructions generated: " + \
+                        str(type(new_prior_instructions)) + "\n")
+
+                new_prior_instructions_last = self._get_last_child(new_prior_instructions)
+
+                if self.debug:
+                    sys.stdout.write("Getting VList - Complex node detected - Prior instructions last child generated: " + \
+                        str(type(new_prior_instructions_last)) + "\n")
+
+                if new_prior_instructions_last == new_prior_instructions and \
+                    type(new_prior_instructions_last) == MethodCall3Node:
+
+                    if self.debug:
+                        sys.stdout.write("Getting VList - Method call is last node of prior instructions.\n")
+
+
+                    temp_var_count = self._get_temp_var_count()
+                    temp_var = "_t"+str(temp_var_count)
+
+                    temp_var_node = VarDecl3Node(
+                        value=temp_var,
+                        type=ast_node.type.return_type
+                    )
+
+                    symbol_table.insert(
+                        temp_var,
+                        ast_node.type.return_type,
+                        state=None
+                    )
+
+                    if self.debug:
+                        sys.stdout.write("Getting Exp - "
+                            "Inserting into symbol table: " + \
+                            str(symbol_table) + "\n")
+
+                    temp_var_assignment_node = Assignment3Node(
+                        type=ast_node.type.return_type
+                    )
+                    temp_var_assignment_node.set_identifier(temp_var)
+
+                    temp_var_assignment_node.set_assigned_value(
+                        new_prior_instructions_last,
+                        assigned_value_is_raw_value=False
+                    )
+
+                    temp_var_node.add_child(temp_var_assignment_node)
+                    if self.debug:
+                        sys.stdout.write("Getting Exp - temp var node child: " + \
+                            str(temp_var_node.child) + "\n")
+
+                    new_prior_instructions = temp_var_node
+
+                    new_v_node = IR3Node(
+                        value=temp_var_assignment_node.identifier,
+                        type=temp_var_assignment_node.type,
+                        is_raw_value=False
+                    )
+
+                else:
+                    new_v_node = IR3Node(
+                        value=new_prior_instructions_last.identifier,
+                        type=new_prior_instructions_last.type,
+                        is_raw_value=False
+                    )
+
+            else:
+
+                new_v_node = IR3Node(
+                    value=ast_node.value,
+                    type=ast_node.type,
+                    is_raw_value=ast_node.is_raw_value
+                )
+
+            if prior_instructions and new_prior_instructions:
+                prior_instructions_last = self._get_last_child(prior_instructions)
+                prior_instructions_last.add_child(new_prior_instructions)
+
+            elif new_prior_instructions:
+                prior_instructions = new_prior_instructions
+
+        else:
+
+            new_v_node = IR3Node(
+                value=ast_node.value,
+                type=ast_node.type,
+                is_raw_value=ast_node.is_raw_value
+            )
 
         if ast_node.sibling:
-            new_v_node = self._get_vlist(
+            symbol_table_copy = copy.deepcopy(symbol_table)
+            new_v_node, prior_instructions = self._get_vlist(
+                symbol_table_copy,
                 ast_node.sibling,
-                new_v_node
+                new_v_node,
+                prior_instructions
             )
 
         if v_node:
-            v_node.add_child(new_v_node)
+            v_node_last = self._get_last_child(v_node)
+            v_node_last.add_child(new_v_node)
 
         else:
             v_node = new_v_node
 
-        return v_node
+        return v_node, prior_instructions
 
     def generate_ir3(self, f) -> None:
         """
