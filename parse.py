@@ -180,7 +180,8 @@ class Parser:
     def _kleene_closure_loop(
         self,
         expression: Callable,
-        lexer: Lexer
+        lexer: Lexer,
+        **kwargs
     ) -> Any:
         """
         Helper function to execute Kleene's closure on a given expression
@@ -200,7 +201,7 @@ class Parser:
                     + "\n"
                 )
 
-            root_node, lexer = expression(lexer)
+            root_node, lexer = expression(lexer, **kwargs)
 
             if root_node:
 
@@ -219,7 +220,7 @@ class Parser:
                         )
 
                     try:
-                        temp_node, current_lexer = expression(current_lexer)
+                        temp_node, current_lexer = expression(current_lexer, **kwargs)
                         if self.debug:
                             sys.stdout.write("Successful rep. Next token in Kleene's closure loop: " + current_lexer.peek().value + "\n")
 
@@ -395,7 +396,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _classdeclaration_expression(self, lexer: Lexer):
+    def _classdeclaration_expression(self, lexer: Lexer, **kwargs):
 
         try:
 
@@ -414,7 +415,7 @@ class Parser:
             if self.debug:
                 sys.stdout.write("VarDecl expression found, returned to ClassDecl." + "\n")
 
-            t5, lexer = self._kleene_closure_loop(self._mddecl_expression, lexer)
+            t5, lexer = self._kleene_closure_loop(self._mddecl_expression, lexer, class_name=t2.value)
 
             if self.debug:
                 sys.stdout.write("MdDecl expression found, returned to ClassDecl." + "\n")
@@ -448,7 +449,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _vardecl_expression(self, lexer: Lexer):
+    def _vardecl_expression(self, lexer: Lexer, **kwargs):
 
         try:
 
@@ -482,7 +483,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _mddecl_expression(self, lexer: Lexer):
+    def _mddecl_expression(self, lexer: Lexer, **kwargs):
 
         try:
 
@@ -492,6 +493,8 @@ class Parser:
                     self._mddecl_expression.__name__
                     + "\n"
                 )
+                sys.stdout.write("Mddecl - Propagate class name: " + \
+                    kwargs['class_name'] + "\n")
 
             t1, lexer = self._type_expression(lexer)
             t2 = self._eat("IDENTIFIER", lexer)
@@ -507,6 +510,7 @@ class Parser:
 
             root_node = MdDeclNode(t1.value, 'MdDecl')
 
+            root_node.set_class_name(kwargs['class_name'])
             root_node.set_method_name(t2.value)
             root_node.set_return_type(t1.value)
             root_node.set_arguments(args)
@@ -530,7 +534,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _fmllist_expression(self, lexer: Lexer):
+    def _fmllist_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -565,7 +569,7 @@ class Parser:
             return (None, lexer)
 
 
-    def _fmlrest_expression(self, lexer: Lexer):
+    def _fmlrest_expression(self, lexer: Lexer, **kwargs):
 
         try:
 
@@ -602,7 +606,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _type_expression(self, lexer: Lexer):
+    def _type_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -656,7 +660,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _mdbody_expression(self, lexer: Lexer):
+    def _mdbody_expression(self, lexer: Lexer, **kwargs):
 
         try:
 
@@ -699,7 +703,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _stmt_expression(self, lexer: Lexer):
+    def _stmt_expression(self, lexer: Lexer, **kwargs):
         root_node: Any
         try:
             if self.debug:
@@ -810,6 +814,8 @@ class Parser:
 
                 if self.debug:
                     sys.stdout.write("Stmt expression - 'return' found" + "\n")
+                    sys.stdout.write("Stmt expression - Stmtbeta expression retrieved: " + \
+                        str(type(t2)) + " with value " + str(t2.value) + "\n")
                     sys.stdout.write("Next token: " + lexer.peek().value + '\n')
 
                     sys.stdout.write("Return node to be created.\n")
@@ -823,9 +829,6 @@ class Parser:
                     return_node.set_return_value(t2)
 
                 root_node = return_node
-
-                if self.debug:
-                    sys.stdout.write("Return node created.\n")
 
             else:
 
@@ -851,7 +854,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _stmtbeta_expression(self, lexer: Lexer):
+    def _stmtbeta_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -878,6 +881,23 @@ class Parser:
                     if t1.child:
                         sys.stdout.write('Exp expression index 1: ' + t1.child.value + "\n")
 
+                    if t1:
+
+                        completed = False
+                        current_node = t1
+
+                        while not completed:
+
+                            if not current_node:
+                                completed = True
+                                break
+
+                            sys.stdout.write("Stmtbeta expression - Exp node of type: " + \
+                                str(type(current_node)) + " with value " + \
+                                str(current_node.value) + "\n")
+
+                            current_node = current_node.child
+
                 self._eat(";", lexer)
 
                 return (
@@ -894,7 +914,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _stmtalpha_expression(self, lexer: Lexer, atom_node: ASTNode):
+    def _stmtalpha_expression(self, lexer: Lexer, atom_node: ASTNode, **kwargs):
 
         try:
             if self.debug:
@@ -966,7 +986,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _exp_expression(self, lexer: Lexer):
+    def _exp_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1036,7 +1056,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _bexp_expression(self, lexer: Lexer):
+    def _bexp_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1059,7 +1079,7 @@ class Parser:
                 sys.stdout.write("BExp expression exception encountered, backtracking" + "\n")
             raise e
 
-    def _bexpalpha_expression(self, lexer: Lexer, left_node: Any):
+    def _bexpalpha_expression(self, lexer: Lexer, left_node: Any, **kwargs):
 
         try:
             if self.debug:
@@ -1093,7 +1113,7 @@ class Parser:
         except:
             return (left_node, lexer)
 
-    def _conj_expression(self, lexer: Lexer):
+    def _conj_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1113,7 +1133,7 @@ class Parser:
         except ParseError as e:
             raise e
 
-    def _conjalpha_expression(self, lexer: Lexer, left_node: Any):
+    def _conjalpha_expression(self, lexer: Lexer, left_node: Any, **kwargs):
 
         try:
             if self.debug:
@@ -1146,7 +1166,7 @@ class Parser:
         except:
             return (left_node, lexer)
 
-    def _rexp_expression(self, lexer: Lexer):
+    def _rexp_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1223,7 +1243,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _bop_expression(self, lexer: Lexer):
+    def _bop_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1275,7 +1295,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _bgrd_expression(self, lexer: Lexer):
+    def _bgrd_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1358,7 +1378,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _aexp_expression(self, lexer: Lexer):
+    def _aexp_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1404,7 +1424,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _aexpalpha_expression(self, lexer: Lexer, left_node: Any):
+    def _aexpalpha_expression(self, lexer: Lexer, left_node: Any, **kwargs):
 
         try:
             if self.debug:
@@ -1448,7 +1468,7 @@ class Parser:
         except:
             return (left_node, lexer)
 
-    def _term_expression(self, lexer: Lexer):
+    def _term_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1482,7 +1502,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _termalpha_expression(self, lexer: Lexer, left_node: Any):
+    def _termalpha_expression(self, lexer: Lexer, left_node: Any, **kwargs):
 
         try:
             if self.debug:
@@ -1525,7 +1545,7 @@ class Parser:
         except:
             return (left_node, lexer)
 
-    def _ftr_expression(self, lexer: Lexer):
+    def _ftr_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1603,7 +1623,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _sexp_expression(self, lexer: Lexer):
+    def _sexp_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1648,7 +1668,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _sexpalpha_expression(self, lexer: Lexer, left_node: Any):
+    def _sexpalpha_expression(self, lexer: Lexer, left_node: Any, **kwargs):
 
         try:
             if self.debug:
@@ -1684,7 +1704,7 @@ class Parser:
 
             return (left_node, lexer)
 
-    def _atom_expression(self, lexer: Lexer):
+    def _atom_expression(self, lexer: Lexer, **kwargs):
 
         try:
             if self.debug:
@@ -1789,7 +1809,7 @@ class Parser:
                 last_consumed_token.start_line
             )
 
-    def _atomalpha_expression(self, lexer: Lexer, left_node: Any):
+    def _atomalpha_expression(self, lexer: Lexer, left_node: Any, **kwargs):
 
         try:
             if self.debug:
@@ -1859,7 +1879,7 @@ class Parser:
             return (left_node, lexer)
 
 
-    def _explist_expression(self, lexer: Lexer):
+    def _explist_expression(self, lexer: Lexer, **kwargs):
 
         try:
             t1, lexer = self._exp_expression(lexer)
@@ -1882,7 +1902,7 @@ class Parser:
             explist_node = ExpListNode('ExpList', 'expression_list')
             return (explist_node, lexer)
 
-    def _exprest_expression(self, lexer: Lexer):
+    def _exprest_expression(self, lexer: Lexer, **kwargs):
 
         try:
             self._eat(",", lexer)
@@ -1949,12 +1969,12 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        parser = Parser(debug=False)
+        parser = Parser(debug=True)
         parser.parse(f)
 
         parser.pretty_print()
 
-        parser.type_check(debug=True)
+        parser.type_check(debug=False)
         #parser.get_initial_env()
         #sys.stdout.write(str(parser.parse_tree.total_nodes()))
 

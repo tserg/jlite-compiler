@@ -58,10 +58,19 @@ class FunctionType():
     """
 
     # List of basic types that are taken as arguments
+    class_name: str
     basic_type_list: List[Any]
+    return_type: Any
 
-    def __init__(self, basic_type_list: List[Any]) -> None:
+    def __init__(
+        self,
+        class_name: str,
+        basic_type_list: List[Any],
+        return_type: Any
+    ) -> None:
+        self.class_name = class_name
         self.basic_type_list = basic_type_list
+        self.return_type = return_type
 
 TYPE_CONVERSION_DICT: Dict[str, "BasicType"] = {
     'Int': BasicType.INT,

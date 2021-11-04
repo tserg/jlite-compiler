@@ -103,9 +103,8 @@ class ASTNode:
         if self.child:
             sys.stdout.write(' ')
             self.child.pretty_print()
+            sys.stdout.write(delimiter)
 
-
-        sys.stdout.write(delimiter)
         if self.sibling:
 
             sys.stdout.write(preceding)
@@ -484,7 +483,7 @@ class MainClassNode(ASTNode):
 
         method_signature = [(
             'main',
-            FunctionType(args),
+            FunctionType(self.class_name, args, BasicType.VOID),
             BasicType.VOID
         )]
 
@@ -529,7 +528,7 @@ class MainClassNode(ASTNode):
 
         local_environment.append((
             'main',
-            FunctionType(args),
+            FunctionType(self.class_name, args, BasicType.VOID),
             BasicType.VOID
         ))
 
@@ -952,6 +951,7 @@ class ClassDeclNode(ASTNode):
 
 class MdDeclNode(ASTNode):
 
+    class_name: str
     method_name: str
     return_type: str
     arguments: Any
@@ -960,6 +960,9 @@ class MdDeclNode(ASTNode):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+    def set_class_name(self, class_name: str) -> None:
+        self.class_name = class_name
 
     def set_method_name(self, method_name: str) -> None:
         self.method_name = method_name
@@ -1012,7 +1015,7 @@ class MdDeclNode(ASTNode):
         if debug:
             sys.stdout.write("Getting arguments for method: " + str(args) + "\n")
 
-        return FunctionType(args)
+        return FunctionType(self.class_name, args, self.get_return_type())
 
     def get_return_type(self) -> Union["BasicType", Tuple["BasicType", str]]:
 
@@ -2408,7 +2411,7 @@ class ExpListNode(ASTNode):
         sys.stdout.write('(')
 
         if self.expression:
-            self.expression.pretty_print(',', preceding)
+            self.expression.pretty_print(delimiter=',', preceding=preceding)
 
         sys.stdout.write(')')
 
