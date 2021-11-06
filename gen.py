@@ -805,6 +805,8 @@ class IR3Generator:
                 sys.stdout.write("Getting Stmt - Assignment detected.\n")
                 sys.stdout.write("Getting Stmt - Identifier: " + \
                     str(ast_node.identifier) + "\n")
+                sys.stdout.write("Getting Stmt - Type: " + \
+                    str(ast_node.type) + "\n")
 
             new_stmt_node = Assignment3Node(type=ast_node.type)
 

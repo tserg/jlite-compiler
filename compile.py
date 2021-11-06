@@ -63,6 +63,11 @@ ARITHMETIC_OP = {
     '*': 'mul ',
 }
 
+BINARY_OP = {
+    '||': '',
+    '&&': '',
+}
+
 class Compiler:
     """
     Compiler instance to generate ARM assembly code from input file
@@ -1443,17 +1448,48 @@ class Compiler:
 
         if is_simple_assignment:
 
-            # x = CONSTANT
-            new_instruction = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mov " + x_register + ",#" + \
-                    str(assignment3node.assigned_value) + "\n"
-            )
+            if assignment3node.type in [BasicType.INT, BasicType.BOOL]:
 
-            self._update_descriptors(
-                register=x_register,
-                identifier=assignment3node.identifier
-            )
+                if assignment3node.type == BasicType.INT:
+
+                    assigned_value = str(assignment3node.assigned_value)
+
+                elif assignment3node.type == BasicType.BOOL:
+
+                    if assignment3node.assigned_value == 'true':
+
+                        assigned_value = "1"
+
+                    elif assignment3node.assigned_value == 'false':
+
+                         assigned_value = "0"
+
+                # x = CONSTANT
+                new_instruction = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="mov " + x_register + ",#" + \
+                        str(assigned_value) + "\n"
+                )
+
+                self._update_descriptors(
+                    register=x_register,
+                    identifier=assigned_value
+                )
+
+            elif assignment3node.type == BasicType.STRING:
+
+                pass
+
+            else:
+
+                if self.debug:
+                    sys.stdout.write("Converting stmt to assembly - Assignment - node type: " + \
+                        str(assignment3node.type) + "\n")
+
+                new_instruction = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="Error in simple assignment.\n"
+                )
 
         elif type(assignment3node.assigned_value) == ClassInstance3Node:
 
@@ -1835,6 +1871,13 @@ class Compiler:
                             )
 
                             new_instruction = instruction_move_y_from_argument_register
+
+                '''
+                elif assignment3node.type = BasicType.BOOL:
+
+                    operator_instruction = BINARY_OP[assignment3node.assigned_value.operator]
+                    pass
+                '''
             else:
 
                 # Placeholder: operator is not '+'

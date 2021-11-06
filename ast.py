@@ -334,7 +334,8 @@ class ASTNode:
 
         if debug:
             sys.stdout.write("ASTNode - Checking for raw value for: " + \
-                str(self.value) + "\n")
+                str(self.value) + " of type " + str(self.type) + \
+                " of python type " + str(type(self.value)) + "\n")
 
         try:
             is_integer = int(self.value)
@@ -343,9 +344,9 @@ class ASTNode:
 
         is_string = False
         try:
-            if type(value) == str and \
-                    value[0] == '"' and \
-                    value[-1] == '"':
+            if type(self.value) == str and \
+                    self.value[0] == '"' and \
+                    self.value[-1] == '"':
 
                 is_string = True
 
@@ -354,9 +355,9 @@ class ASTNode:
 
         is_boolean = False
         try:
-            if type(value) == str and \
-                (value == 'true' or \
-                value == 'false'):
+            if type(self.value) == str and \
+                (self.value == 'true' or \
+                self.value == 'false'):
 
                 is_boolean = True
 
@@ -1455,6 +1456,8 @@ class AssignmentNode(ASTNode):
                 '] does not match declared identifier type [' + \
                 str(self.identifier.type) +'] in class [' + \
                 str(within_class) + "]" )
+
+        self.type = self.assigned_value.type
 
         if debug:
             sys.stdout.write("AssignmentNode - "
