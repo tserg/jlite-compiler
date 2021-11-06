@@ -1381,15 +1381,35 @@ class Compiler:
                 if self.debug:
                     sys.stdout.write("Converting println to assembly - Identifier detected.\n")
 
-                instruction_load_print_value_assembly_code = "mov a2,#100\n"
-
-                instruction_initialise_print_true_assembly_code = print_data_label + \
-                    ': .asciz "true\n"' + "\n"
+                print_true_label = print_data_label
+                instruction_initialise_print_true_assembly_code = print_true_label + \
+                    ': .asciz "true"' + "\n"
 
                 print_false_label = "d" + str(self.data_label_count)
                 self.data_label_count += 1
-                instruction_initialise_print_false_assembly_code = print_data_label + \
-                    ': .asciz "false\n"' + "\n"
+                instruction_initialise_print_false_assembly_code = print_false_label + \
+                    ': .asciz "false"' + "\n"
+
+                # Load boolean identifier
+
+                # Check if identifier is in register
+                identifier_in_register = self._check_if_in_register(
+                    println3node.expression
+                )
+
+                if identifier_in_register:
+                    # Move value from existing register to a1
+                    instruction_load_print_value_assembly_code = "mov a1," + \
+                        identifier_in_register[0] + "\n"
+
+                else:
+                    # Load value from stack
+                    identifier_offset = self._get_variable_offset(
+                        println3node.expression
+                    )
+
+                    instruction_load_print_value_assembly_code = "ldr a1,[fp,#-" + \
+                        str(identifier_offset) + "]\n"
 
         instruction_load_print_data=None
         if println3node.type == BasicType.BOOL and \
@@ -1415,12 +1435,89 @@ class Compiler:
 
             # If true, get true label. If false, get false label
 
-            instruction_load_print_data = Instruction(
+            instruction_load_boolean = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="ldr a1,=" + print_data_label + "\n",
+                instruction=instruction_load_print_value_assembly_code,
                 parent=current_instruction
             )
 
+            current_instruction.set_child(instruction_load_print_data)
+
+            # Compare with 0
+
+            instruction_compare_boolean_with_false = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="cmp a1,#0\n",
+                parent=instruction_load_boolean
+            )
+
+            instruction_load_boolean.set_child(instruction_compare_boolean_with_false)
+
+            # If true, value is 0/False branch
+
+            instruction_go_to_false_branch = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="beq ." + println3node.value + "_" + \
+                    print_false_label + 'False\n',
+                parent=instruction_compare_boolean_with_false
+            )
+
+            instruction_compare_boolean_with_false.set_child(instruction_go_to_false_branch)
+
+            # Load argument for true
+
+            instruction_load_true = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr a1,=" + print_true_label + "\n",
+                parent=instruction_go_to_false_branch
+            )
+
+            instruction_go_to_false_branch.set_child(instruction_load_true)
+
+            # Branch to exit
+
+            instruction_branch_exit = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="b ." + println3node.value + "_" + print_true_label + \
+                    "_exit\n",
+                parent=instruction_load_true
+            )
+
+            instruction_load_true.set_child(instruction_branch_exit)
+
+            # False branch
+
+            instruction_false_branch = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="." + println3node.value + "_" + \
+                    print_false_label + 'False:\n',
+                parent=instruction_branch_exit
+            )
+
+            instruction_branch_exit.set_child(instruction_false_branch)
+
+            # Load argument for false
+
+            instruction_load_false = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr a1,=" + print_false_label + "\n",
+                parent=instruction_false_branch
+            )
+
+            instruction_false_branch.set_child(instruction_load_false)
+
+            # Exit branch
+
+            instruction_exit_label = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="._" + print_true_label + \
+                    "_exit:\n",
+                parent=instruction_load_false
+            )
+
+            instruction_load_false.set_child(instruction_exit_label)
+
+            instruction_load_print_value = instruction_exit_label
 
         elif not (println3node.type == BasicType.STRING and not println3node.is_raw_value):
 
@@ -1441,10 +1538,13 @@ class Compiler:
         if current_instruction and instruction_load_print_data:
             current_instruction.set_child(instruction_load_print_data)
 
-        instruction_load_print_value = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction=instruction_load_print_value_assembly_code
-        )
+        if not (println3node.type == BasicType.BOOL and \
+            not println3node.is_raw_value):
+
+            instruction_load_print_value = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction=instruction_load_print_value_assembly_code
+            )
 
         if instruction_load_print_data:
             # No need for additional loading for string identifier
@@ -1475,7 +1575,13 @@ class Compiler:
             instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
         )
 
-        if instruction_load_print_data:
+        if println3node.type == BasicType.BOOL and \
+            not println3node.is_raw_value:
+
+            instruction_save_arg_registers.set_child(instruction_load_boolean)
+            instruction_load_boolean.set_parent(instruction_save_arg_registers)
+
+        elif instruction_load_print_data:
             instruction_save_arg_registers.set_child(instruction_load_print_data)
             instruction_load_print_data.set_parent(instruction_save_arg_registers)
 
