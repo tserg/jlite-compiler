@@ -64,8 +64,13 @@ ARITHMETIC_OP = {
 }
 
 BINARY_OP = {
-    '||': '',
-    '&&': '',
+    '||': 'orr ',
+    '&&': 'and ',
+}
+
+BOOL_CONVERSION = {
+    'true': 1,
+    'false': 0,
 }
 
 class Compiler:
@@ -1645,13 +1650,7 @@ class Compiler:
 
                 elif assignment3node.type == BasicType.BOOL:
 
-                    if assignment3node.assigned_value == 'true':
-
-                        assigned_value = "1"
-
-                    elif assignment3node.assigned_value == 'false':
-
-                         assigned_value = "0"
+                    assigned_value = BOOL_CONVERSION[assignment3node.assigned_value]
 
                 # x = CONSTANT
                 new_instruction = Instruction(
@@ -1813,8 +1812,8 @@ class Compiler:
 
                             new_instruction = Instruction(
                                 self._get_incremented_instruction_count(),
-                                instruction="ldr " + z_value + ",[fp,#-]" + \
-                                    str(var_z_offset) + "\n"
+                                instruction="ldr " + z_value + ",[fp,#-" + \
+                                    str(var_z_offset) + "]\n"
                             )
 
                             self._update_descriptors(
@@ -2087,31 +2086,29 @@ class Compiler:
 
                             new_instruction = instruction_move_y_from_argument_register
 
-                '''
-                elif assignment3node.type = BasicType.BOOL:
+            elif assignment3node.type == BasicType.BOOL:
 
-                    operator_instruction = BINARY_OP[assignment3node.assigned_value.operator]
-                    pass
-                '''
-            if assignment3node.type == BasicType.INT:
-
-                if assignment3node.assigned_value.operator in ['+', '-', '*']:
-
-                    operator_instruction = ARITHMETIC_OP[assignment3node.assigned_value.operator]
-
-                elif assignment3node.assigned_value.operator in ['||', '&&']:
-
-                    operator_instruction = BINARY_OP[assignment3node.assigned_value.operator]
+                operator_instruction = BINARY_OP[assignment3node.assigned_value.operator]
 
                 if self.debug:
                     sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                        "x = y + z - Plus operator" + "\n")
+                        "x = y BOOL z - Binary operator: " + \
+                        assignment3node.assigned_value.operator + "\n")
+                    sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                        "x = y BOOL z - BinOp: " + operator_instruction + "\n")
+
+                # Convert raw values if any
+                if y_is_raw:
+                    y_value = BOOL_CONVERSION[y_value]
+
+                if z_is_raw:
+                    z_value = BOOL_CONVERSION[z_value]
 
                 if y_is_raw:
                     # If y is a raw value
                     if self.debug:
                         sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                            "x = y + z - Loading z" + "\n")
+                            "x = y BOOL z - Loading z" + "\n")
 
                     instruction_binop = Instruction(
                         self._get_incremented_instruction_count(),
@@ -2127,8 +2124,8 @@ class Compiler:
 
                         new_instruction = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction="ldr " + z_value + ",[fp,#-]" + \
-                                str(var_z_offset) + "\n"
+                            instruction="ldr " + z_value + ",[fp,#-" + \
+                                str(var_z_offset) + "]\n"
                         )
 
                         self._update_descriptors(
@@ -2164,7 +2161,7 @@ class Compiler:
                     # If z is a raw value
                     if self.debug:
                         sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                            "x = y + z - Loading y" + "\n")
+                            "x = y BOOL z - Loading y" + "\n")
 
                     instruction_binop = Instruction(
                         self._get_incremented_instruction_count(),
@@ -2216,22 +2213,22 @@ class Compiler:
                     # Load y and z
                     if self.debug:
                         sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                            "x = y + z - Loading y and z" + "\n")
+                            "x = y BOOL z - Loading y and z" + "\n")
 
                     if not y_is_arg and not z_is_arg:
 
                         if self.debug:
                             sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                "x = y + z - Loading y and z - Both not args" + "\n")
+                                "x = y BOOL z - Loading y and z - Both not args" + "\n")
 
                         if self.debug:
                             sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                "x = y + z - Loading y and z - Both not args - register y: " + \
+                                "x = y BOOL z - Loading y and z - Both not args - register y: " + \
                                 y_value + "\n")
 
                         if self.debug:
                             sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                "x = y + z - Loading y and z - Both not args - register z: " + \
+                                "x = y BOOL z - Loading y and z - Both not args - register z: " + \
                                 z_value + "\n")
 
                         var_y_offset = self.address_descriptor[assignment3node.assigned_value.left_operand]['offset']
@@ -2276,7 +2273,7 @@ class Compiler:
 
                         if self.debug:
                             sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                "x = y + z - Loading y and z - Only y is arg" + "\n")
+                                "x = y BOOL z - Loading y and z - Only y is arg" + "\n")
 
                         instruction_move_from_argument_register = Instruction(
                             self._get_incremented_instruction_count(),
@@ -2318,7 +2315,7 @@ class Compiler:
 
                         if self.debug:
                             sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                "x = y + z - Loading y and z - Only z is arg" + "\n")
+                                "x = y BOOL z - Loading y and z - Only z is arg" + "\n")
 
                         instruction_move_from_argument_register = Instruction(
                             self._get_incremented_instruction_count(),
@@ -2361,7 +2358,7 @@ class Compiler:
 
                         if self.debug:
                             sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                                "x = y + z - Loading y and z - Both args" + "\n")
+                                "x = y BOOL z - Loading y and z - Both args" + "\n")
 
                         instruction_move_y_from_argument_register = Instruction(
                             self._get_incremented_instruction_count(),
@@ -2401,12 +2398,6 @@ class Compiler:
 
                         new_instruction = instruction_move_y_from_argument_register
 
-                '''
-                elif assignment3node.type = BasicType.BOOL:
-
-                    operator_instruction = BINARY_OP[assignment3node.assigned_value.operator]
-                    pass
-                '''
             else:
 
                 # Placeholder: operator is not '+'
@@ -2417,7 +2408,7 @@ class Compiler:
 
                 new_instruction = Instruction(
                     self._get_incremented_instruction_count(),
-                    instruction="Test test in Assignment node, non plus " + str(debug_count) + "\n"
+                    instruction="Test test in Assignment node, non plus\n"
                 )
 
             # Check for spilling and store to stack beforehand by adding
@@ -2469,7 +2460,7 @@ class Compiler:
 
             new_instruction = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="Test test RelOp " + str(debug_count) + "\n"
+                instruction="Test test RelOp\n"
             )
 
         elif type(assignment3node.assigned_value) == MethodCall3Node:
