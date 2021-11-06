@@ -1485,6 +1485,7 @@ class IR3Generator:
                         str(ast_node.atom.value) + " of type: " + \
                         str(ast_node.atom.type) + "\n")
 
+                prior_instructions = None
                 if ast_node.child.expression:
                     args, prior_instructions = self._get_vlist(
                         symbol_table,
