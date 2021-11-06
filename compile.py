@@ -819,6 +819,22 @@ class Compiler:
 
         return register_data
 
+    def _update_label(
+        self,
+        identifier: Any,
+        label: str
+    ) -> None:
+
+        if self.debug:
+            sys.stdout.write("\nDescriptors before label update.\n")
+            sys.stdout.write("Address descriptor: " + str(self.address_descriptor) + \
+                "\n")
+
+        # Update sole reference to label
+
+        # There should be one reference only for a string identifier
+        self.address_descriptor[identifier]['references'] = deque([label])
+
     def _update_descriptors(
         self,
         register: str,
@@ -1280,22 +1296,22 @@ class Compiler:
         print_data_label = "d" + str(self.data_label_count)
         self.data_label_count += 1
 
+        if self.debug:
+            sys.stdout.write("Converting println to assembly - Expression: " + \
+                str(println3node.expression) + "\n")
+
         if println3node.type == BasicType.INT:
 
             if self.debug:
                 sys.stdout.write("Converting println to assembly - Integer detected.\n")
 
-            try:
-            # Check if it is integer
-                print_data = int(println3node.expression)
-                instruction_load_print_value_assembly_code = "mov a2,#" + \
-                    str(print_data) + "\n"
+            if println3node.is_raw_value:
+                # Check if it is raw integer
+                    print_data = int(println3node.expression)
+                    instruction_load_print_value_assembly_code = "mov a2,#" + \
+                        str(print_data) + "\n"
 
-            except:
-
-                if self.debug:
-                    sys.stdout.write("Converting println to assembly - Expression: " + \
-                        str(println3node.expression) + "\n")
+            else:
 
                 # Check if identifier is in register
                 identifier_in_register = self._check_if_in_register(
@@ -1317,25 +1333,47 @@ class Compiler:
                         str(identifier_offset) + "]\n"
 
             instruction_initialise_print_data_assembly_code = print_data_label + \
-                ": .asciz \"%i\"\n"
+                ": .asciz \"%i\\n\"\n"
 
         elif println3node.type == BasicType.STRING:
 
             if self.debug:
-                sys.stdout.write("Converting println to assembly - expression: " + \
-                    str(println3node.expression) + "\n")
+                sys.stdout.write("Converting println to assembly - String detected.\n")
 
-            # Check if it is a string
+            # Check if it is a raw string
 
-            if println3node.expression[0] == '"' and \
-                println3node.expression[-1] == '"':
-                if self.debug:
-                    sys.stdout.write("Converting println to assembly - String detected.\n")
+            if println3node.is_raw_value:
 
                 instruction_load_print_value_assembly_code = "mov a2,#0\n"
 
                 instruction_initialise_print_data_assembly_code = print_data_label + \
-                    ": .asciz " + println3node.expression + "\n"
+                    ": .asciz " + println3node.expression[:-1] + '\\n"' + "\n"
+
+            # Otherwise, lookup symbol table
+            else:
+
+                if self.debug:
+                    sys.stdout.write("Converting println to assembly - Identifier detected.\n")
+
+                # Print data label should be the only reference for address descriptor
+                # of a string
+                print_data_label = self.address_descriptor[println3node.expression]['references'][0]
+
+                instruction_load_print_value_assembly_code = "ldr a1,=" + print_data_label + "\n"
+
+        elif println3node.type == BasicType.BOOL:
+
+            if self.debug:
+                sys.stdout.write("Converting println to assembly - Boolean detected.\n")
+
+            # Check if it is a raw boolean
+
+            if println3node.is_raw_value:
+
+                instruction_load_print_value_assembly_code = "mov a2,#0\n"
+
+                instruction_initialise_print_data_assembly_code = print_data_label + \
+                    ": .asciz " + '"' + println3node.expression + '\\n"' + "\n"
 
             # Otherwise, lookup symbol table
             else:
@@ -1345,33 +1383,73 @@ class Compiler:
 
                 instruction_load_print_value_assembly_code = "mov a2,#100\n"
 
-                instruction_initialise_print_data_assembly_code = print_data_label + \
-                    ": .asciz " + '\"Just a variable\"' + "\n"
+                instruction_initialise_print_true_assembly_code = print_data_label + \
+                    ': .asciz "true\n"' + "\n"
 
-        instruction_initialise_print_data = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction=instruction_initialise_print_data_assembly_code,
-        )
+                print_false_label = "d" + str(self.data_label_count)
+                self.data_label_count += 1
+                instruction_initialise_print_false_assembly_code = print_data_label + \
+                    ': .asciz "false\n"' + "\n"
 
-        self.instruction_data_tail.insert_child(instruction_initialise_print_data)
-        self.instruction_data_tail = instruction_initialise_print_data
+        instruction_load_print_data=None
+        if println3node.type == BasicType.BOOL and \
+            not println3node.is_raw_value:
 
-        instruction_load_print_data = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="ldr a1,=" + print_data_label + "\n",
-            parent=current_instruction
-        )
+            instruction_initialise_print_true = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction=instruction_initialise_print_true_assembly_code,
+            )
 
-        if current_instruction:
+            instruction_initialise_print_false = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction=instruction_initialise_print_false_assembly_code,
+            )
+
+            instruction_initialise_print_true.set_child(instruction_initialise_print_false)
+            instruction_initialise_print_false.set_parent(instruction_initialise_print_true)
+
+            self.instruction_data_tail.insert_child(instruction_initialise_print_true)
+            self.instruction_data_tail = instruction_initialise_print_false
+
+            # Get value of boolean identifier
+
+            # If true, get true label. If false, get false label
+
+            instruction_load_print_data = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr a1,=" + print_data_label + "\n",
+                parent=current_instruction
+            )
+
+
+        elif not (println3node.type == BasicType.STRING and not println3node.is_raw_value):
+
+            instruction_initialise_print_data = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction=instruction_initialise_print_data_assembly_code,
+            )
+
+            self.instruction_data_tail.insert_child(instruction_initialise_print_data)
+            self.instruction_data_tail = instruction_initialise_print_data
+
+            instruction_load_print_data = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr a1,=" + print_data_label + "\n",
+                parent=current_instruction
+            )
+
+        if current_instruction and instruction_load_print_data:
             current_instruction.set_child(instruction_load_print_data)
 
         instruction_load_print_value = Instruction(
             self._get_incremented_instruction_count(),
-            instruction=instruction_load_print_value_assembly_code,
-            parent=instruction_load_print_data
+            instruction=instruction_load_print_value_assembly_code
         )
 
-        instruction_load_print_data.set_child(instruction_load_print_value)
+        if instruction_load_print_data:
+            # No need for additional loading for string identifier
+            instruction_load_print_value.set_parent(instruction_load_print_data)
+            instruction_load_print_data.set_child(instruction_load_print_value)
 
         instruction_printf = Instruction(
             self._get_incremented_instruction_count(),
@@ -1397,8 +1475,13 @@ class Compiler:
             instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
         )
 
-        instruction_save_arg_registers.set_child(instruction_load_print_data)
-        instruction_load_print_data.set_parent(instruction_save_arg_registers)
+        if instruction_load_print_data:
+            instruction_save_arg_registers.set_child(instruction_load_print_data)
+            instruction_load_print_data.set_parent(instruction_save_arg_registers)
+
+        else:
+            instruction_save_arg_registers.set_child(instruction_load_print_value)
+            instruction_load_print_value.set_parent(instruction_save_arg_registers)
 
         instruction_pop_arg_registers.set_parent(instruction_printf)
         instruction_printf.set_child(instruction_pop_arg_registers)
@@ -1478,7 +1561,33 @@ class Compiler:
 
             elif assignment3node.type == BasicType.STRING:
 
-                pass
+                string_data_label = "d" + str(self.data_label_count)
+                self.data_label_count += 1
+
+                if self.debug:
+                    sys.stdout.write("Converting assignment to assembly - Raw string: " + \
+                        str(assignment3node.value) + "\n")
+
+                instruction_initialise_string_data_assembly_code = string_data_label + \
+                    ": .asciz " + assignment3node.assigned_value[:-1] + '\\n"' + "\n"
+
+                instruction_add_string_to_data = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction=instruction_initialise_string_data_assembly_code
+                )
+
+                self.instruction_data_tail.insert_child(instruction_add_string_to_data)
+                self.instruction_data_tail = instruction_add_string_to_data
+
+                self._update_label(
+                    identifier=assignment3node.identifier,
+                    label=string_data_label
+                )
+
+                new_instruction = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + x_register + ",=" + string_data_label + "\n"
+                )
 
             else:
 
@@ -1871,6 +1980,320 @@ class Compiler:
                             )
 
                             new_instruction = instruction_move_y_from_argument_register
+
+                '''
+                elif assignment3node.type = BasicType.BOOL:
+
+                    operator_instruction = BINARY_OP[assignment3node.assigned_value.operator]
+                    pass
+                '''
+            if assignment3node.type == BasicType.INT:
+
+                if assignment3node.assigned_value.operator in ['+', '-', '*']:
+
+                    operator_instruction = ARITHMETIC_OP[assignment3node.assigned_value.operator]
+
+                elif assignment3node.assigned_value.operator in ['||', '&&']:
+
+                    operator_instruction = BINARY_OP[assignment3node.assigned_value.operator]
+
+                if self.debug:
+                    sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                        "x = y + z - Plus operator" + "\n")
+
+                if y_is_raw:
+                    # If y is a raw value
+                    if self.debug:
+                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                            "x = y + z - Loading z" + "\n")
+
+                    instruction_binop = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction=operator_instruction + x_register + \
+                            "," + z_value + ",#" + str(y_value) + "\n"
+                    )
+
+                    if not z_is_arg:
+
+                        # If z is not an argument, load z
+
+                        var_z_offset = self.address_descriptor[assignment3node.assigned_value.right_operand]['offset']
+
+                        new_instruction = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="ldr " + z_value + ",[fp,#-]" + \
+                                str(var_z_offset) + "\n"
+                        )
+
+                        self._update_descriptors(
+                            register=z_value,
+                            identifier=assignment3node.assigned_value.right_operand
+                        )
+
+                        instruction_binop.set_parent(new_instruction)
+                        new_instruction.set_child(instruction_binop)
+
+                    elif z_is_arg:
+
+                        # If z is an argument, load z from the argument register
+                        # to the assigned register
+
+                        instruction_move_from_argument_register = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="mov " + z_value + "," + z_is_arg + "\n",
+                            child=instruction_binop
+                        )
+
+                        self._update_descriptors(
+                            register=z_value,
+                            identifier=assignment3node.assigned_value.right_operand
+                        )
+
+                        instruction_binop.set_parent(instruction_move_from_argument_register)
+
+                        new_instruction = instruction_move_from_argument_register
+
+                elif z_is_raw:
+
+                    # If z is a raw value
+                    if self.debug:
+                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                            "x = y + z - Loading y" + "\n")
+
+                    instruction_binop = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction=operator_instruction + x_register + \
+                            "," + y_value + ",#" + str(z_value) + "\n"
+                    )
+
+                    if not y_is_arg:
+
+                        # If y is not an argument, load y
+
+                        var_y_offset = self.address_descriptor[assignment3node.assigned_value.left_operand]['offset']
+
+                        new_instruction = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="ldr " + y_value + ",[fp,#-" + \
+                                str(var_y_offset) + "]\n"
+                        )
+
+                        self._update_descriptors(
+                            register=y_value,
+                            identifier=assignment3node.assigned_value.left_operand
+                        )
+
+                        instruction_binop.set_parent(new_instruction)
+                        new_instruction.set_child(instruction_binop)
+
+                    elif y_is_arg:
+
+                        # If z is a raw value, load y
+
+                        instruction_move_from_argument_register = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="mov " + y_value + "," + y_is_arg + "\n",
+                            child=instruction_binop
+                        )
+
+                        self._update_descriptors(
+                            register=y_value,
+                            identifier=assignment3node.assigned_value.left_operand
+                        )
+
+                        instruction_binop.set_parent(instruction_move_from_argument_register)
+
+                        new_instruction = instruction_move_from_argument_register
+
+                else:
+
+                    # Load y and z
+                    if self.debug:
+                        sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                            "x = y + z - Loading y and z" + "\n")
+
+                    if not y_is_arg and not z_is_arg:
+
+                        if self.debug:
+                            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                "x = y + z - Loading y and z - Both not args" + "\n")
+
+                        if self.debug:
+                            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                "x = y + z - Loading y and z - Both not args - register y: " + \
+                                y_value + "\n")
+
+                        if self.debug:
+                            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                "x = y + z - Loading y and z - Both not args - register z: " + \
+                                z_value + "\n")
+
+                        var_y_offset = self.address_descriptor[assignment3node.assigned_value.left_operand]['offset']
+
+                        new_instruction = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="ldr " + y_value + ",[fp,#-" + \
+                                str(var_y_offset) + "]\n"
+                        )
+
+                        self._update_descriptors(
+                            register=y_value,
+                            identifier=assignment3node.assigned_value.left_operand
+                        )
+
+                        var_z_offset = self.address_descriptor[assignment3node.assigned_value.right_operand]['offset']
+
+                        instruction_load_z = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="ldr " + z_value + ",[fp,#-" + \
+                                str(var_z_offset) + "]\n",
+                            parent=new_instruction
+                        )
+
+                        self._update_descriptors(
+                            register=z_value,
+                            identifier=assignment3node.assigned_value.right_operand
+                        )
+
+                        new_instruction.set_child(instruction_load_z)
+
+                        instruction_binop = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction=operator_instruction + x_register + \
+                                "," + y_value + "," + z_value + "\n",
+                            parent=instruction_load_z
+                        )
+
+                        instruction_load_z.set_child(instruction_binop)
+
+                    elif y_is_arg and not z_is_arg:
+
+                        if self.debug:
+                            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                "x = y + z - Loading y and z - Only y is arg" + "\n")
+
+                        instruction_move_from_argument_register = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="mov " + y_value + "," + y_is_arg + "\n",
+                        )
+
+                        self._update_descriptors(
+                            register=y_value,
+                            identifier=assignment3node.assigned_value.left_operand
+                        )
+
+                        var_z_offset = self.address_descriptor[assignment3node.assigned_value.right_operand]['offset']
+
+                        instruction_load_z = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="ldr " + z_value + ",[fp,#-" + \
+                                str(var_z_offset) + "]\n",
+                            parent=instruction_move_from_argument_register
+                        )
+
+                        self._update_descriptors(
+                            register=z_value,
+                            identifier=assignment3node.assigned_value.right_operand
+                        )
+
+                        instruction_move_from_argument_register.set_child(instruction_load_z)
+
+                        instruction_binop = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction=operator_instruction + x_register + \
+                                "," + y_value + "," + z_value + "\n",
+                            parent=instruction_load_z
+                        )
+
+                        instruction_load_z.set_child(instruction_binop)
+                        new_instruction = instruction_move_from_argument_register
+
+                    elif not y_is_arg and z_is_arg:
+
+                        if self.debug:
+                            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                "x = y + z - Loading y and z - Only z is arg" + "\n")
+
+                        instruction_move_from_argument_register = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="mov " + z_value + "," + z_is_arg + "\n",
+                        )
+
+                        self._update_descriptors(
+                            register=z_value,
+                            identifier=assignment3node.assigned_value.right_operand
+                        )
+
+                        var_y_offset = self.address_descriptor[assignment3node.assigned_value.left_operand]['offset']
+
+                        instruction_load_y = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="ldr " + y_value + ",[fp,#-" + \
+                                str(var_y_offset) + "]\n",
+                            parent=instruction_move_from_argument_register
+                        )
+
+                        self._update_descriptors(
+                            register=y_value,
+                            identifier=assignment3node.assigned_value.left_operand
+                        )
+
+                        instruction_move_from_argument_register.set_child(instruction_load_y)
+
+
+                        instruction_binop = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction=operator_instruction + x_register + \
+                                "," + y_value + "," + z_value + "\n",
+                            parent=new_instruction
+                        )
+
+                        instruction_load_y.set_child(instruction_binop)
+                        new_instruction = instruction_move_from_argument_register
+
+                    elif y_is_arg and z_is_arg:
+
+                        if self.debug:
+                            sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                                "x = y + z - Loading y and z - Both args" + "\n")
+
+                        instruction_move_y_from_argument_register = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="mov " + y_value + "," + y_is_arg + "\n",
+                        )
+
+                        self._update_descriptors(
+                            register=y_value,
+                            identifier=assignment3node.assigned_value.left_operand
+                        )
+
+                        instruction_move_z_from_argument_register = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="mov " + z_value + "," + z_is_arg + "\n",
+                            parent=instruction_move_y_from_argument_register
+                        )
+
+                        instruction_move_y_from_argument_register.set_child(
+                            instruction_move_z_from_argument_register
+                        )
+
+                        self._update_descriptors(
+                            register=z_value,
+                            identifier=assignment3node.assigned_value.right_operand
+                        )
+
+                        instruction_binop = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction=operator_instruction + x_register + \
+                                "," + y_value + "," + z_value + "\n",
+                            parent=instruction_move_z_from_argument_register
+                        )
+
+                        instruction_move_z_from_argument_register.set_child(
+                            instruction_binop
+                        )
+
+                        new_instruction = instruction_move_y_from_argument_register
 
                 '''
                 elif assignment3node.type = BasicType.BOOL:
