@@ -1376,7 +1376,29 @@ class Compiler:
 
         instruction_load_print_value.set_child(instruction_printf)
 
-        return instruction_load_print_data
+        # Pop argument registers onto the stack to save argument values
+        # in case there are nested function calls
+
+        instruction_save_arg_registers = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="stmfd sp!,{a1,a2,a3,a4}\n"
+        )
+
+        # Restore argument registers from stack to restore argument values
+        # after nested function call
+
+        instruction_pop_arg_registers = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
+        )
+
+        instruction_save_arg_registers.set_child(instruction_load_print_data)
+        instruction_load_print_data.set_parent(instruction_save_arg_registers)
+
+        instruction_pop_arg_registers.set_parent(instruction_printf)
+        instruction_printf.set_child(instruction_pop_arg_registers)
+
+        return instruction_save_arg_registers
 
     def _convert_assignment_to_assembly(
         self,

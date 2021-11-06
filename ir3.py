@@ -448,19 +448,25 @@ class MethodCall3Node(IR3Node):
 
     method_id: str
     arguments: Any
+    return_type: Any
 
     def __init__(
         self,
         method_id: str,
+        return_type: Any,
         *args,
         **kwargs
     ) -> None:
         super().__init__(*args, **kwargs)
         self.method_id = method_id
         self.arguments = None
+        self.return_type = return_type
 
     def set_arguments(self, arguments: Any) -> None:
         self.arguments = arguments
+
+    def set_return_type(self, return_type: Any) -> None:
+        self.return_type = return_type
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
