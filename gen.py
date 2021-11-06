@@ -222,6 +222,31 @@ class IR3Generator:
 
         return self._program_expression(self.parser.ast.head)
 
+    def _compute_binop_node_with_constants(
+        self,
+        ast_node: BinOpNode
+    ) -> Any:
+
+        computed_value: Union[str, int, float]
+
+        if ast_node.value == '||':
+
+            if ast_node.left_operand.value == 'true' or \
+                ast_node.right_operand.value == 'true':
+
+                return "true"
+
+            return "false"
+
+        elif ast_node.value == "&&":
+
+            if ast_node.left_operand.value == 'false' or \
+                ast_node.right_operand.value == 'false':
+
+                return "false"
+
+            return "true"
+
     def _compute_arithmetic_node_with_constants(
         self,
         ast_node: ArithmeticOpNode
@@ -1555,6 +1580,34 @@ class IR3Generator:
                         "Two constants short circuit.\n")
 
                 computed_value = self._compute_arithmetic_node_with_constants(ast_node)
+
+                # Assign value to temporary variable
+
+                temp_var_assignment_node = Assignment3Node(type=ast_node.type)
+                temp_var_assignment_node.set_identifier(temp_var)
+                temp_var_assignment_node.set_assigned_value(
+                    computed_value,
+                    assigned_value_is_raw_value=True
+                )
+
+                temp_var_node.add_child(temp_var_assignment_node)
+                new_exp_node = temp_var_node
+                return new_exp_node
+
+            if isinstance(ast_node, BinOpNode) and \
+                type(ast_node.left_operand) == ASTNode and \
+                not ast_node.left_operand.is_identifier and \
+                type(ast_node.right_operand) == ASTNode and \
+                not ast_node.right_operand.is_identifier:
+
+                # Short circuit if it is a binary operation and both operands
+                # are constants
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - "
+                        "Two boolean constants short circuit.\n")
+
+                computed_value = self._compute_binop_node_with_constants(ast_node)
 
                 # Assign value to temporary variable
 
