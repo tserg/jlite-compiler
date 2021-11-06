@@ -1360,11 +1360,23 @@ class Compiler:
                 if self.debug:
                     sys.stdout.write("Converting println to assembly - Identifier detected.\n")
 
-                # Print data label should be the only reference for address descriptor
-                # of a string
+
                 print_data_label = self.address_descriptor[println3node.expression]['references'][0]
 
-                instruction_load_print_value_assembly_code = "ldr a1,=" + print_data_label + "\n"
+                # Print data label should be the only reference for address descriptor
+                # of a string unless it is returned from a method call.
+
+                # Check for the first letter.
+                # If it starts with 'd', load from data
+                # If it starts with 'v', move from register
+
+                if print_data_label[0] == 'd':
+
+                    instruction_load_print_value_assembly_code = "ldr a1,=" + print_data_label + "\n"
+
+                elif print_data_label[0] == 'v':
+
+                    instruction_load_print_value_assembly_code = "mov a1," + print_data_label + "\n"
 
         elif println3node.type == BasicType.BOOL:
 
@@ -2223,7 +2235,32 @@ class Compiler:
                             )
 
                         if next_arg.type == BasicType.STRING:
-                            pass
+
+                            string_data_label = "d" + str(self.data_label_count)
+                            self.data_label_count += 1
+
+                            if self.debug:
+                                sys.stdout.write("Converting stmt to assembly - MethodCall3 - String.\n")
+
+                            instruction_initialise_string_data_assembly_code = string_data_label + \
+                                ": .asciz " + next_arg.value[:-1] + '\\n"' + "\n"
+
+                            instruction_add_string_to_data = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction=instruction_initialise_string_data_assembly_code
+                            )
+
+                            self.instruction_data_tail.insert_child(instruction_add_string_to_data)
+                            self.instruction_data_tail = instruction_add_string_to_data
+
+                            # No need to update labels because it is a string constant
+                            # that will not be reused
+
+                            instruction_load_next_argument = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction="ldr " + next_arg_reg + ",=" + string_data_label + "\n",
+                                parent=latest_instruction_load_argument
+                            )
 
                         if next_arg.type == BasicType.BOOL:
                             pass
@@ -2542,8 +2579,34 @@ class Compiler:
 
         return_identifier = ir3_node.return_value
 
+        return_identifier_reg = self._check_if_in_arguments(
+            ir3_node.return_value,
+            md_args
+        )
+
+        if return_identifier_reg:
+            if self.debug:
+                sys.stdout.write("Converting return statement to assembly - Already an argument.\n")
+
+            instruction_move_to_argument_reg = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mov a1," + return_identifier_reg + "\n"
+            )
+
+            return instruction_move_to_argument_reg
+
         try:
             return_identifier_reg = self._check_if_in_register(return_identifier)[0]
+
+            if self.debug:
+                sys.stdout.write("Converting return statement to assembly - Already in register.\n")
+
+            instruction_move_to_argument_reg = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mov a1," + return_identifier_reg + "\n"
+            )
+
+            return instruction_move_to_argument_reg
 
         except:
 
@@ -2556,6 +2619,7 @@ class Compiler:
         # Check if identifier is in address descriptor
         try:
             return_identifier_offset = self.address_descriptor[return_identifier]['offset']
+
         except:
             return_identifier_offset = None
 
