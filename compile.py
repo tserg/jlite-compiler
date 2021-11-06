@@ -2263,7 +2263,15 @@ class Compiler:
                             )
 
                         if next_arg.type == BasicType.BOOL:
-                            pass
+
+                            bool_value = BOOL_CONVERSION[next_arg.value]
+
+                            instruction_load_next_argument = Instruction(
+                                self._get_incremented_instruction_count(),
+                                instruction="mov " + next_arg_reg + ",#" + \
+                                    str(bool_value) + "\n",
+                                parent=latest_instruction_load_argument
+                            )
 
                     else:
 
@@ -2388,30 +2396,54 @@ class Compiler:
 
             if type(assignment3node.assigned_value) == ClassAttribute3Node:
 
-                # Get base address of object
-                object_address_offset = self.address_descriptor[
-                    assignment3node.assigned_value.object_name
-                ]['offset']
+                if assignment3node.assigned_value.object_name == "this":
 
-                # Load base address into a register
-                base_address_register = registers['y'][0]
+                    # Load base address into a register
+                    base_address_register = registers['y'][0]
 
-                instruction_load_base_address = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + base_address_register + ",[fp,#-" + \
-                        str(object_address_offset) + "]\n",
-                )
+                    instruction_load_base_address = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction="mov " + base_address_register + ",a1\n",
+                    )
 
-                self._update_descriptors(
-                    register=base_address_register,
-                    identifier=assignment3node.assigned_value.object_name
-                )
+                    self._update_descriptors(
+                        register=base_address_register,
+                        identifier="this"
+                    )
 
-                # Calculate offset of class attribute in object
+                    # Calculate offset of class attribute in object
 
-                class_attribute_offset = self._calculate_class_attribute_offset(
-                    ir3_node=assignment3node.assigned_value
-                )
+                    class_attribute_offset = self._calculate_class_attribute_offset(
+                        class_name=assignment3node.assigned_value.class_name,
+                        attribute_name=assignment3node.assigned_value.target_attribute
+                    )
+
+                else:
+
+                    # Get base address of object
+                    object_address_offset = self.address_descriptor[
+                        assignment3node.assigned_value.object_name
+                    ]['offset']
+
+                    # Load base address into a register
+                    base_address_register = registers['y'][0]
+
+                    instruction_load_base_address = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction="ldr " + base_address_register + ",[fp,#-" + \
+                            str(object_address_offset) + "]\n",
+                    )
+
+                    self._update_descriptors(
+                        register=base_address_register,
+                        identifier=assignment3node.assigned_value.object_name
+                    )
+
+                    # Calculate offset of class attribute in object
+
+                    class_attribute_offset = self._calculate_class_attribute_offset(
+                        ir3_node=assignment3node.assigned_value
+                    )
 
                 # Generate instruction
 
@@ -2498,42 +2530,87 @@ class Compiler:
 
                 if self.debug:
                     sys.stdout.write("Converting stmt to assembly - x is class attribute.\n")
+                    sys.stdout.write("Converting stmt to assembly - object name: " + \
+                        str(assignment3node.identifier.object_name) + "\n")
 
+                if assignment3node.identifier.object_name == "this":
 
-                # Get base address of object
-                object_address_offset = self.address_descriptor[
-                    assignment3node.identifier.object_name
-                ]['offset']
+                    if self.debug:
+                        sys.stdout.write("Converting stmt to assembly - x is this class attribute.\n")
 
-                # Load base address into a register
-                base_address_register = registers['z'][0]
+                    # Load base address into a register from the first argument
+                    base_address_register = registers['z'][0]
 
-                instruction_load_base_address = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + base_address_register + ",[fp,#-" + \
-                        str(object_address_offset) + "]\n",
-                    parent=new_instruction_last
-                )
+                    instruction_load_base_address = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction="mov " + base_address_register + ",a1\n",
+                        parent=new_instruction_last
+                    )
 
-                new_instruction_last.set_child(instruction_load_base_address)
+                    new_instruction_last.set_child(instruction_load_base_address)
 
-                # Calculate offset of class attribute in object
+                    # Calculate offset of class attribute in object
 
-                class_attribute_offset = self._calculate_class_attribute_offset(
-                    ir3_node=assignment3node.identifier
-                )
+                    if self.debug:
+                        sys.stdout.write('Converting stmt to assembly - "this" class type: ' + \
+                            str(assignment3node.identifier.class_name) + "\n")
 
-                # Generate instruction
+                    class_attribute_offset = self._calculate_class_attribute_offset(
+                        class_name=assignment3node.identifier.class_name,
+                        attribute_name=assignment3node.identifier.target_attribute
+                    )
 
-                instruction_store_to_class_attribute = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="str " + x_register + ",[" + base_address_register + \
-                        ",#" + str(class_attribute_offset) + "]\n",
-                    parent=instruction_load_base_address
-                )
+                    if self.debug:
+                        sys.stdout.write('Converting stmt to assembly - "this" class type attribute offset: ' + \
+                            str(class_attribute_offset) + "\n")
 
-                instruction_load_base_address.set_child(instruction_store_to_class_attribute)
-                store_instruction = instruction_load_base_address
+                    # Generate instruction
+
+                    instruction_store_to_class_attribute = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction="str " + x_register + ",[" + base_address_register + \
+                            ",#" + str(class_attribute_offset) + "]\n",
+                        parent=instruction_load_base_address
+                    )
+
+                    instruction_load_base_address.set_child(instruction_store_to_class_attribute)
+                    store_instruction = instruction_load_base_address
+
+                else:
+                    # Get base address of object
+                    object_address_offset = self.address_descriptor[
+                        assignment3node.identifier.object_name
+                    ]['offset']
+
+                    # Load base address into a register
+                    base_address_register = registers['z'][0]
+
+                    instruction_load_base_address = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction="ldr " + base_address_register + ",[fp,#-" + \
+                            str(object_address_offset) + "]\n",
+                        parent=new_instruction_last
+                    )
+
+                    new_instruction_last.set_child(instruction_load_base_address)
+
+                    # Calculate offset of class attribute in object
+
+                    class_attribute_offset = self._calculate_class_attribute_offset(
+                        ir3_node=assignment3node.identifier
+                    )
+
+                    # Generate instruction
+
+                    instruction_store_to_class_attribute = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction="str " + x_register + ",[" + base_address_register + \
+                            ",#" + str(class_attribute_offset) + "]\n",
+                        parent=instruction_load_base_address
+                    )
+
+                    instruction_load_base_address.set_child(instruction_store_to_class_attribute)
+                    store_instruction = instruction_load_base_address
 
             else:
 
