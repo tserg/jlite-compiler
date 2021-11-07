@@ -823,8 +823,6 @@ class IR3Generator:
                 last_of_expression.add_child(println_node)
                 new_stmt_node = expression_node
 
-
-
         elif isinstance(ast_node, AssignmentNode):
             if self.debug:
                 sys.stdout.write("Getting Stmt - Assignment detected.\n")
@@ -1213,8 +1211,9 @@ class IR3Generator:
 
     def _check_complex_operand_in_binop(
         self,
-        ir3_node: Union[ClassAttribute3Node, MethodCall3Node],
-        parent_ir3_node: Optional[Any]
+        ir3_node: Any,
+        parent_ir3_node: Optional[Any],
+        return_top_node: Optional[bool]=False,
     ) -> Any:
 
         if type(ir3_node) in [ClassAttribute3Node, MethodCall3Node]:
@@ -1233,7 +1232,6 @@ class IR3Generator:
             temp_var_assignment_node.set_assigned_value(ir3_node)
 
             temp_var_node.add_child(temp_var_assignment_node)
-            temp_var_assignment_node.add_child(ir3_node)
 
             if parent_ir3_node:
                 parent_ir3_node.add_child(temp_var_node)
@@ -1242,7 +1240,11 @@ class IR3Generator:
             ir3_node = temp_var_assignment_node
             '''
 
-            return temp_var_assignment_node
+            if return_top_node:
+                return temp_var_node
+
+            else:
+                return temp_var_assignment_node
 
         return ir3_node
 
@@ -1626,6 +1628,11 @@ class IR3Generator:
             if type(ast_node.left_operand) == ASTNode and \
                 type(ast_node.right_operand) == ASTNode:
 
+                if self.debug:
+                    sys.stdout.write("Getting Exp - "
+                        "BinOp/ArithmeticOp: creating nodes for simple operations on both operands\n")
+
+
                 new_binop_node = BinOp3Node(
                     type=ast_node.type,
                     left_operand=ast_node.left_operand.value,
@@ -1637,6 +1644,10 @@ class IR3Generator:
 
             elif type(ast_node.left_operand) == ASTNode:
 
+                if self.debug:
+                    sys.stdout.write("Getting Exp - "
+                        "BinOp/ArithmeticOp: creating nodes for complex operation on right only\n")
+
                 right_operand_node = self._get_exp3(
                     symbol_table,
                     ast_node.right_operand
@@ -1647,10 +1658,36 @@ class IR3Generator:
                     return_last_parent=True
                 )
 
-                right_operand_last_node = self._check_complex_operand_in_binop(
-                    right_operand_last_node,
-                    right_operand_last_parent_node
-                )
+                if self.debug:
+                    sys.stdout.write("Getting Exp- BinOp/ArithmeticOp - " + \
+                        "Right operand first node: " + str(type(right_operand_node)) + \
+                        " with value " + str(right_operand_node.value) + "\n")
+                    sys.stdout.write("Getting Exp- BinOp/ArithmeticOp - " + \
+                        "Right operand last node: " + str(type(right_operand_last_node)) + \
+                        " with value " + str(right_operand_last_node.value) + "\n")
+
+                if type(right_operand_last_node) == ClassAttribute3Node:
+                    new_right_operand_node = self._check_complex_operand_in_binop(
+                        right_operand_last_node,
+                        parent_ir3_node=right_operand_last_parent_node,
+                        return_top_node=True
+                    )
+
+                    if right_operand_last_node != new_right_operand_node:
+                        right_operand_last_node, right_operand_last_parent_node = self._get_last_child(
+                            new_right_operand_node,
+                            return_last_parent=True
+                        )
+                        right_operand_node = new_right_operand_node
+
+                    if self.debug:
+                        sys.stdout.write("Test print after checking complex operand: \n\n")
+                        right_operand_node.pretty_print()
+                        sys.stdout.write("\n")
+                        sys.stdout.write("Getting Exp- BinOp/ArithmeticOp - " + \
+                            "new left operand last node is: " + \
+                            str(type(right_operand_last_node)) + " with identifier " + \
+                            str(right_operand_last_node.identifier) + "\n")
 
                 new_binop_node = BinOp3Node(
                     type=ast_node.type,
@@ -1663,10 +1700,20 @@ class IR3Generator:
 
             elif type(ast_node.right_operand) == ASTNode:
 
+                if self.debug:
+                    sys.stdout.write("Getting Exp - "
+                        "BinOp/ArithmeticOp: creating nodes for complex operation on left only\n")
+
+
                 left_operand_node = self._get_exp3(
                     symbol_table,
                     ast_node.left_operand
                 )
+
+                if self.debug:
+                    sys.stdout.write("Test print before checking complex operand: \n\n")
+                    left_operand_node.pretty_print()
+                    sys.stdout.write("\n")
 
                 left_operand_last_node, left_operand_last_parent_node = self._get_last_child(
                     left_operand_node,
@@ -1675,13 +1722,35 @@ class IR3Generator:
 
                 if self.debug:
                     sys.stdout.write("Getting Exp- BinOp/ArithmeticOp - " + \
+                        "Left operand first node: " + str(type(left_operand_node)) + \
+                        " with value " + str(left_operand_node.value) + "\n")
+                    sys.stdout.write("Getting Exp- BinOp/ArithmeticOp - " + \
                         "Left operand last node: " + str(type(left_operand_last_node)) + \
                         " with value " + str(left_operand_last_node.value) + "\n")
 
-                left_operand_last_node = self._check_complex_operand_in_binop(
-                    left_operand_last_node,
-                    left_operand_last_parent_node
-                )
+                if type(left_operand_last_node) == ClassAttribute3Node:
+                    new_left_operand_node = self._check_complex_operand_in_binop(
+                        left_operand_last_node,
+                        parent_ir3_node=left_operand_last_parent_node,
+                        return_top_node=True
+                    )
+
+                    if left_operand_node != new_left_operand_node:
+                        left_operand_last_node, left_operand_last_parent_node = self._get_last_child(
+                            new_left_operand_node,
+                            return_last_parent=True
+                        )
+                        left_operand_node = new_left_operand_node
+
+                    if self.debug:
+                        sys.stdout.write("Test print after checking complex operand: \n\n")
+                        left_operand_node.pretty_print()
+                        sys.stdout.write("\n")
+                        sys.stdout.write("Getting Exp- BinOp/ArithmeticOp - " + \
+                            "new left operand last node is: " + \
+                            str(type(left_operand_last_node)) + " with identifier " + \
+                            str(left_operand_last_node.identifier) + "\n")
+
 
                 new_binop_node = BinOp3Node(
                     type=ast_node.type,
@@ -1696,6 +1765,10 @@ class IR3Generator:
 
             # Get left and right operands
 
+                if self.debug:
+                    sys.stdout.write("Getting Exp - "
+                        "BinOp/ArithmeticOp: creating nodes for complex operations on both operands\n")
+
                 left_operand_node = self._get_exp3(
                     symbol_table,
                     ast_node.left_operand
@@ -1705,39 +1778,81 @@ class IR3Generator:
                     sys.stdout.write("Getting Exp - BinOp/ArithmeticOp left operand: " + \
                         str(left_operand_node) + "\n")
 
-                right_operand_node = self._get_exp3(
-                    symbol_table,
-                    ast_node.right_operand
-                )
-
-                if self.debug:
-                    sys.stdout.write("Getting Exp - BinOp/ArithmeticOp right operand: " + \
-                        str(right_operand_node) + "\n")
-
                 # Get last node of left operand
                 left_operand_last_node, left_operand_last_parent_node = self._get_last_child(
                     left_operand_node,
                     return_last_parent=True
                 )
-                left_operand_last_node = self._check_complex_operand_in_binop(
-                    left_operand_last_node,
-                    left_operand_last_parent_node
-                )
+
+                if type(left_operand_last_node) == ClassAttribute3Node:
+                    new_left_operand_node = self._check_complex_operand_in_binop(
+                        left_operand_last_node,
+                        parent_ir3_node=left_operand_last_parent_node,
+                        return_top_node=True
+                    )
+
+                    if left_operand_node != new_left_operand_node:
+                        left_operand_last_node, left_operand_last_parent_node = self._get_last_child(
+                            new_left_operand_node,
+                            return_last_parent=True
+                        )
+                        left_operand_node = new_left_operand_node
+
+                    if self.debug:
+                        sys.stdout.write("Test print after checking complex operand: \n\n")
+                        left_operand_node.pretty_print()
+                        sys.stdout.write("\n")
+                        sys.stdout.write("Getting Exp- BinOp/ArithmeticOp - " + \
+                            "new left operand last node is: " + \
+                            str(type(left_operand_last_node)) + " with identifier " + \
+                            str(left_operand_last_node.identifier) + "\n")
 
                 if self.debug:
                     sys.stdout.write("Getting Exp - "
                         "BinOp/ArithmeticOp node [Last child of left operand]: " + \
                         str(left_operand_last_node) + "\n")
 
+                right_operand_node = self._get_exp3(
+                    symbol_table,
+                    ast_node.right_operand
+                )
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - Complex BinOp/ArithmeticOp right operand: " + \
+                        str(type(right_operand_node)) + "\n")
+
                 # Get last node of right operand
                 right_operand_last_node, right_operand_last_parent_node = self._get_last_child(
                     right_operand_node,
                     return_last_parent=True
                 )
-                right_operand_last_node = self._check_complex_operand_in_binop(
-                    right_operand_last_node,
-                    left_operand_last_parent_node
-                )
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - BinOp/ArithmeticOp right operand last node: " + \
+                        str(type(right_operand_last_node)) + "\n")
+
+                if type(right_operand_last_node) == ClassAttribute3Node:
+                    new_right_operand_node = self._check_complex_operand_in_binop(
+                        right_operand_last_node,
+                        parent_ir3_node=right_operand_last_parent_node,
+                        return_top_node=True
+                    )
+
+                    if right_operand_last_node != new_right_operand_node:
+                        right_operand_last_node, right_operand_last_parent_node = self._get_last_child(
+                            new_right_operand_node,
+                            return_last_parent=True
+                        )
+                        right_operand_node = new_right_operand_node
+
+                    if self.debug:
+                        sys.stdout.write("Test print after checking complex operand: \n\n")
+                        right_operand_node.pretty_print()
+                        sys.stdout.write("\n")
+                        sys.stdout.write("Getting Exp- BinOp/ArithmeticOp - " + \
+                            "new left operand last node is: " + \
+                            str(type(right_operand_last_node)) + " with identifier " + \
+                            str(right_operand_last_node.identifier) + "\n")
 
                 if self.debug:
                     sys.stdout.write("Getting Exp - "
@@ -1767,15 +1882,27 @@ class IR3Generator:
 
             elif type(ast_node.left_operand) == ASTNode:
 
+                if self.debug:
+                    sys.stdout.write("Getting Exp - "
+                        "BinOp/ArithmeticOp: linking nodes for complex operation on right only\n")
+
                 new_exp_node = right_operand_node
                 right_operand_last_node.add_child(temp_var_node)
 
             elif type(ast_node.right_operand) == ASTNode:
 
+                if self.debug:
+                    sys.stdout.write("Getting Exp - "
+                        "BinOp/ArithmeticOp: linking nodes for complex operation on left only\n")
+
                 new_exp_node = left_operand_node
                 left_operand_last_node.add_child(temp_var_node)
 
             else:
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - "
+                        "BinOp/ArithmeticOp: linking nodes for complex operations\n")
 
                 new_exp_node = left_operand_node
                 left_operand_last_node.add_child(right_operand_node)
