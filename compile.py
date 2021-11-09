@@ -364,12 +364,17 @@ class Compiler:
 
     def _check_if_in_register(
         self,
-        identifier: str
+        identifier: str,
+        excluded_registers: List[str]=[]
     ) -> Optional[List[Any]]:
 
         try:
             x_address_descriptor = self.address_descriptor[identifier]['references']
-            is_in_register = [i for i in REGISTERS if i in x_address_descriptor]
+            is_in_register = [i for i in REGISTERS if i in x_address_descriptor and \
+                i not in excluded_registers]
+
+            if len(is_in_register) == 0:
+                return None
 
         except:
 
@@ -470,15 +475,21 @@ class Compiler:
             if k not in excluded_registers:
 
                 for r in v:
-                    current_register_value_last_use = max([max(liveness_data[r]) for r in v])
 
-                    if current_line_no > current_register_value_last_use:
+                    try:
+                        # Try/except to handle key errors for class attributes
+                        current_register_value_last_use = max([max(liveness_data[r]) for r in v])
 
-                        if self.debug:
-                            sys.stdout.write("Value in register not used subsequently. Register found: " + \
-                                str(k) + "\n")
+                        if current_line_no > current_register_value_last_use:
 
-                        return k
+                            if self.debug:
+                                sys.stdout.write("Value in register not used subsequently. Register found: " + \
+                                    str(k) + "\n")
+
+                            return k
+
+                    except:
+                        pass
 
         return None
 
@@ -503,13 +514,18 @@ class Compiler:
                     # For each reference pointed to by current register,
                     # check if it has
 
-                    if (v in self.address_descriptor[r]['references'] and \
-                        other_ref not in self.address_descriptor[k]['references']):
+                    try:
+                        # Try/except to handle key errors for class attributes
+                        if (v in self.address_descriptor[r]['references'] and \
+                            other_ref not in self.address_descriptor[k]['references']):
 
-                        if self.debug:
-                            sys.stdout.write("Getting register - Equivalent register found.\n")
+                            if self.debug:
+                                sys.stdout.write("Getting register - Equivalent register found.\n")
 
-                        return k4
+                            return k4
+
+                    except:
+                        pass
 
                     # If inner for loop is not exited, assign register
 
@@ -621,13 +637,15 @@ class Compiler:
 
                 y_value = None
 
-                if not left_operand_is_raw_value:
+                if not left_operand_is_raw_value or \
+                    ir3_node.assigned_value.operator == '*':
                     y_value = ir3_node.assigned_value.left_operand
 
                 right_operand_is_raw_value = ir3_node.assigned_value.right_operand_is_raw_value
 
                 z_value = None
-                if not right_operand_is_raw_value:
+                if not right_operand_is_raw_value or \
+                    ir3_node.assigned_value.operator == '*':
                     z_value = ir3_node.assigned_value.right_operand
 
                 required_registers = {
@@ -639,6 +657,11 @@ class Compiler:
                 return required_registers
 
             else:
+
+                if self.debug:
+                    sys.stdout.write("Getting register for assigned value type: " + \
+                        str(type(ir3_node.assigned_value)) + "\n")
+                    sys.stdout.write("Assigned value: " + str(ir3_node.assigned_value) + "\n")
 
                 # x = y
 
@@ -704,7 +727,7 @@ class Compiler:
                 continue
             '''
 
-            is_in_register = self._check_if_in_register(v)
+            is_in_register = self._check_if_in_register(v, excluded_registers)
 
             if is_in_register:
 
@@ -729,6 +752,7 @@ class Compiler:
             empty_register = self._check_for_empty_register(
                 excluded_registers
             )
+
             if empty_register:
                 register_data[k] = (empty_register, False)
                 excluded_registers.append(empty_register)
@@ -1822,11 +1846,29 @@ class Compiler:
                         sys.stdout.write("Converting stmt to assembly - Assignment - " + \
                             "x = y + z - Loading z" + "\n")
 
-                    instruction_binop = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction=operator_instruction + x_register + \
-                            "," + z_value + ",#" + str(y_value) + "\n"
-                    )
+                    instruction_load_mul_raw_y = None
+                    if assignment3node.assigned_value.operator == '*':
+                        instruction_load_mul_raw_y = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="mov " + registers['y'][0] + ",#" + str(y_value) + "\n"
+                        )
+
+                        instruction_binop = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="mul " + x_register + \
+                                "," + z_value + "," + registers['y'][0] + "\n"
+                        )
+
+                        instruction_load_mul_raw_y.set_child(instruction_binop)
+                        instruction_binop.set_parent(instruction_load_mul_raw_y)
+
+                    else:
+
+                        instruction_binop = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction=operator_instruction + x_register + \
+                                "," + z_value + ",#" + str(y_value) + "\n"
+                        )
 
                     if not z_is_arg:
 
@@ -1845,8 +1887,14 @@ class Compiler:
                             identifier=assignment3node.assigned_value.right_operand
                         )
 
-                        instruction_binop.set_parent(new_instruction)
-                        new_instruction.set_child(instruction_binop)
+                        if instruction_load_mul_raw_y:
+                            new_instruction.set_child(instruction_load_mul_raw_y)
+                            instruction_load_mul_raw_y.set_parent(new_instruction)
+
+
+                        else:
+                            instruction_binop.set_parent(new_instruction)
+                            new_instruction.set_child(instruction_binop)
 
                     elif z_is_arg:
 
@@ -1855,8 +1903,7 @@ class Compiler:
 
                         instruction_move_from_argument_register = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction="mov " + z_value + "," + z_is_arg + "\n",
-                            child=instruction_binop
+                            instruction="mov " + z_value + "," + z_is_arg + "\n"
                         )
 
                         self._update_descriptors(
@@ -1864,7 +1911,14 @@ class Compiler:
                             identifier=assignment3node.assigned_value.right_operand
                         )
 
-                        instruction_binop.set_parent(instruction_move_from_argument_register)
+
+                        if instruction_load_mul_raw_y:
+                            instruction_move_from_argument_register.set_child(instruction_load_mul_raw_y)
+                            instruction_load_mul_raw_y.set_parent(instruction_move_from_argument_register)
+
+                        else:
+                            instruction_move_from_argument_register.set_child(instruction_binop)
+                            instruction_binop.set_parent(instruction_move_from_argument_register)
 
                         new_instruction = instruction_move_from_argument_register
 
@@ -1873,13 +1927,31 @@ class Compiler:
                     # If z is a raw value
                     if self.debug:
                         sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                            "x = y + z - Loading y" + "\n")
+                            "x = y + z - Loading z" + "\n")
 
-                    instruction_binop = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction=operator_instruction + x_register + \
-                            "," + y_value + ",#" + str(z_value) + "\n"
-                    )
+                    instruction_load_mul_raw_z = None
+                    if assignment3node.assigned_value.operator == '*':
+                        instruction_load_mul_raw_z = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="mov " + registers['z'][0] + ",#" + str(z_value) + "\n"
+                        )
+
+                        instruction_binop = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction="mul " + x_register + \
+                                "," + y_value + "," + registers['z'][0] + "\n"
+                        )
+
+                        instruction_load_mul_raw_z.set_child(instruction_binop)
+                        instruction_binop.set_parent(instruction_load_mul_raw_z)
+
+                    else:
+
+                        instruction_binop = Instruction(
+                            self._get_incremented_instruction_count(),
+                            instruction=operator_instruction + x_register + \
+                                "," + y_value + ",#" + str(z_value) + "\n"
+                        )
 
                     if not y_is_arg:
 
@@ -1898,8 +1970,14 @@ class Compiler:
                             identifier=assignment3node.assigned_value.left_operand
                         )
 
-                        instruction_binop.set_parent(new_instruction)
-                        new_instruction.set_child(instruction_binop)
+                        if instruction_load_mul_raw_z:
+                            new_instruction.set_child(instruction_load_mul_raw_z)
+                            instruction_load_mul_raw_z.set_parent(new_instruction)
+
+
+                        else:
+                            instruction_binop.set_parent(new_instruction)
+                            new_instruction.set_child(instruction_binop)
 
                     elif y_is_arg:
 
@@ -1907,8 +1985,7 @@ class Compiler:
 
                         instruction_move_from_argument_register = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction="mov " + y_value + "," + y_is_arg + "\n",
-                            child=instruction_binop
+                            instruction="mov " + y_value + "," + y_is_arg + "\n"
                         )
 
                         self._update_descriptors(
@@ -1916,7 +1993,13 @@ class Compiler:
                             identifier=assignment3node.assigned_value.left_operand
                         )
 
-                        instruction_binop.set_parent(instruction_move_from_argument_register)
+                        if instruction_load_mul_raw_z:
+                            instruction_move_from_argument_register.set_child(instruction_load_mul_raw_z)
+                            instruction_load_mul_raw_z.set_parent(instruction_move_from_argument_register)
+
+                        else:
+                            instruction_move_from_argument_register.set_child(instruction_binop)
+                            instruction_binop.set_parent(instruction_move_from_argument_register)
 
                         new_instruction = instruction_move_from_argument_register
 
