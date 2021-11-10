@@ -1294,7 +1294,9 @@ class Compiler:
 
             elif type(current_stmt) == VarDecl3Node:
                 # Ignore VarDecl3 node since no instructions are required
-                pass
+                if self.debug:
+                    sys.stdout.write("Converting stmt to assembly - "
+                        "Skipping VarDecl3Node.\n")
 
             elif type(current_stmt) == Return3Node:
 
@@ -1305,7 +1307,11 @@ class Compiler:
                 )
 
             elif type(current_stmt) == Label3Node:
-                pass
+
+                new_instruction = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="\n." + str(current_stmt.label_id) + ":\n"
+                )
 
             elif type(current_stmt) == IfGoTo3Node:
                 pass
