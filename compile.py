@@ -1584,12 +1584,12 @@ class Compiler:
 
                 print_true_label = print_data_label
                 instruction_initialise_print_true_assembly_code = print_true_label + \
-                    ': .asciz "true"' + "\n"
+                    ': .asciz "true\\n"\n'
 
-                print_false_label = "d" + str(self.data_label_count)
-                self.data_label_count += 1
+                print_false_label = "d" + str(self.data_label_count) + "_false"
+
                 instruction_initialise_print_false_assembly_code = print_false_label + \
-                    ': .asciz "false"' + "\n"
+                    ': .asciz "false\\n"\n'
 
                 # Load boolean identifier
 
@@ -1851,9 +1851,14 @@ class Compiler:
 
                 elif assignment3node.type == BasicType.BOOL:
 
+                    if type(assignment3node.assigned_value) == IR3Node:
+                        if self.debug:
+                            sys.stdout.write("Converting assignment to assembly - Raw boolean: " + \
+                                str(assignment3node.assigned_value.value) + "\n")
+                        mv_operator = BOOL_CONVERSION[assignment3node.assigned_value.value]
+                    else:
+                        mv_operator = BOOL_CONVERSION[assignment3node.assigned_value]
 
-
-                    mv_operator = BOOL_CONVERSION[assignment3node.assigned_value]
                     new_instruction = Instruction(
                         self._get_incremented_instruction_count(),
                         instruction=mv_operator + " " + x_register + ",#0\n"
