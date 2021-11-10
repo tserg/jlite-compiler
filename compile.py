@@ -74,8 +74,8 @@ BINARY_OP = {
 }
 
 BOOL_CONVERSION = {
-    'true': 1,
-    'false': 0,
+    'true': 'mvn',
+    'false': 'mov',
 }
 
 class Compiler:
@@ -1842,23 +1842,22 @@ class Compiler:
 
                 if assignment3node.type == BasicType.INT:
 
-                    assigned_value = str(assignment3node.assigned_value)
+                    # x = CONSTANT
+                    new_instruction = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction="mov " + x_register + ",#" + \
+                            str(assigned_value) + "\n"
+                    )
 
                 elif assignment3node.type == BasicType.BOOL:
 
-                    assigned_value = BOOL_CONVERSION[assignment3node.assigned_value]
 
-                # x = CONSTANT
-                new_instruction = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="mov " + x_register + ",#" + \
-                        str(assigned_value) + "\n"
-                )
 
-                self._update_descriptors(
-                    register=x_register,
-                    identifier=assigned_value
-                )
+                    mv_operator = BOOL_CONVERSION[assignment3node.assigned_value]
+                    new_instruction = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction=mv_operator + " " + x_register + ",#0\n"
+                    )
 
             elif assignment3node.type == BasicType.STRING:
 
@@ -1971,13 +1970,13 @@ class Compiler:
                         "]\n"
                 )
 
-                instruction_negate_y_value = Instruction(
+                instruction_not_y_value = Instruction(
                     self._get_incremented_instruction_count(),
                     instruction="neg " + x_register + "," + y_reg + "\n",
                     parent=instruction_load_y_value
                 )
 
-                instruction_load_y_value.set_child(instruction_negate_y_value)
+                instruction_load_y_value.set_child(instruction_not_y_value)
 
                 self._update_descriptors(
                     register=y_reg,
@@ -1989,7 +1988,30 @@ class Compiler:
             elif (assignment3node.type == BasicType.BOOL and \
                     assignment3node.assigned_value.operator) == '!':
 
-                pass
+                var_y_offset = self.address_descriptor[
+                    assignment3node.assigned_value.operand
+                ]['offset']
+
+                instruction_load_y_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
+                        "]\n"
+                )
+
+                instruction_negate_y_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="mvn " + x_register + "," + y_reg + "\n",
+                    parent=instruction_load_y_value
+                )
+
+                instruction_load_y_value.set_child(instruction_negate_y_value)
+
+                self._update_descriptors(
+                    register=y_reg,
+                    identifier=assignment3node.assigned_value.operand
+                )
+
+                new_instruction = instruction_load_y_value
 
         elif type(assignment3node.assigned_value) == BinOp3Node:
 
@@ -2058,7 +2080,7 @@ class Compiler:
                     if assignment3node.assigned_value.operator == '*':
                         instruction_load_mul_raw_y = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction="mov " + registers['y'][0] + ",#" + str(y_value) + "\n"
+                            instruction=y_value + " " + registers['y'][0] + ",#0\n"
                         )
 
                         instruction_binop = Instruction(
@@ -2111,7 +2133,7 @@ class Compiler:
 
                         instruction_move_from_argument_register = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction="mov " + z_value + "," + z_is_arg + "\n"
+                            instruction="mov " + " " + z_value + "," + z_is_arg + "\n"
                         )
 
                         self._update_descriptors(
@@ -2141,7 +2163,7 @@ class Compiler:
                     if assignment3node.assigned_value.operator == '*':
                         instruction_load_mul_raw_z = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction="mov " + registers['z'][0] + ",#" + str(z_value) + "\n"
+                            instruction=z_value + registers['z'][0] + ",#0\n"
                         )
 
                         instruction_binop = Instruction(
@@ -2555,12 +2577,12 @@ class Compiler:
 
                         if next_arg.type == BasicType.BOOL:
 
-                            bool_value = BOOL_CONVERSION[next_arg.value]
+                            mv_instruction = BOOL_CONVERSION[next_arg.value]
 
                             instruction_load_next_argument = Instruction(
                                 self._get_incremented_instruction_count(),
-                                instruction="mov " + next_arg_reg + ",#" + \
-                                    str(bool_value) + "\n",
+                                instruction=mv_instruction + " " + next_arg_reg + \
+                                    ",#0\n",
                                 parent=latest_instruction_load_argument
                             )
 
