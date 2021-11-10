@@ -35,6 +35,7 @@ from ir3 import (
     ClassAttribute3Node,
     ClassInstance3Node,
     MethodCall3Node,
+    ReadLn3Node,
 )
 
 from jlite_type import (
@@ -685,6 +686,12 @@ class Compiler:
                 'x': ir3_node.object_name
             }
 
+        elif type(ir3_node) == ReadLn3Node:
+
+            required_registers = {
+                'x': ir3_node.id3
+            }
+
         return required_registers
 
     def _get_registers(
@@ -787,7 +794,7 @@ class Compiler:
 
                     try:
                         other_ref = required_registers['z']
-                        other_ref_reg = register_data['z']
+                        other_ref_reg = register_data['z'][0]
                     except:
                         pass
 
@@ -796,7 +803,7 @@ class Compiler:
 
                     try:
                         other_ref = required_registers['y']
-                        other_ref_reg = register_data['y']
+                        other_ref_reg = register_data['y'][0]
                     except:
                         pass
 
@@ -1257,7 +1264,16 @@ class Compiler:
                 completed = True
                 break
 
-            if type(current_stmt) == PrintLn3Node:
+            if type(current_stmt) == ReadLn3Node:
+
+                new_instruction = self._convert_readln_to_assembly(
+                    current_stmt,
+                    current_instruction,
+                    md_args,
+                    liveness_data
+                )
+
+            elif type(current_stmt) == PrintLn3Node:
 
                 new_instruction = self._convert_println_to_assembly(
                     current_stmt,
@@ -1315,6 +1331,137 @@ class Compiler:
             current_stmt = current_stmt.child
 
         return first_instruction
+
+    def _convert_readln_to_assembly(
+        self,
+        readln3node: ReadLn3Node,
+        current_instruction: Optional["Instruction"],
+        md_args: List[str],
+        liveness_data: Dict[str, List[int]]
+    ) -> "Instruction":
+
+        read_data_string_label = "d" + str(self.data_label_count) + \
+            "_" + str(readln3node.id3) + "_format"
+
+        read_data_label = "d" + str(self.data_label_count) + \
+            "_" + str(readln3node.id3)
+        self.data_label_count += 1
+
+        if self.debug:
+            sys.stdout.write("Converting readln to assembly - Expression.\n")
+
+        # Initialise storage variable for integer in data
+
+        instruction_initialise_readln_data_storage_format = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction=read_data_string_label + ": .asciz \"%d\"\n"
+        )
+
+        instruction_initialise_readln_data_storage_identifier = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction=read_data_label + ": .word 0\n",
+            parent=instruction_initialise_readln_data_storage_format
+        )
+
+        instruction_initialise_readln_data_storage_format.set_child(
+            instruction_initialise_readln_data_storage_identifier
+        )
+
+        self.instruction_data_tail.insert_child(instruction_initialise_readln_data_storage_format)
+        self.instruction_data_tail = instruction_initialise_readln_data_storage_identifier
+
+        # Actual instructions to read input
+
+        instruction_load_readln_format = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="ldr a1,=" + read_data_string_label + "\n"
+        )
+
+        instruction_load_readln_storage_identifier = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="ldr a2,=" + read_data_label + "\n",
+            parent=instruction_load_readln_format
+        )
+
+        instruction_load_readln_format.set_child(instruction_load_readln_storage_identifier)
+
+        instruction_scanf = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="bl scanf\n",
+            parent=instruction_load_readln_storage_identifier
+        )
+
+        instruction_load_readln_storage_identifier.set_child(instruction_scanf)
+
+        # Store data captured to identifier
+
+        store_register = self._get_registers(
+            readln3node,
+            md_args,
+            liveness_data
+        )['x'][0]
+
+
+        instruction_load_read_value_address = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="ldr " + store_register + ",=" + read_data_label + "\n",
+            parent=instruction_scanf
+        )
+
+        instruction_scanf.set_child(instruction_load_read_value_address)
+
+
+        instruction_load_read_value = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="ldr " + store_register + ",[" + store_register + "]\n",
+            parent=instruction_load_read_value_address
+        )
+
+        instruction_load_read_value_address.set_child(instruction_load_read_value)
+
+
+        identifier_offset = self._get_variable_offset(
+            readln3node.id3
+        )
+
+        instruction_store_read_value_to_identifier = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="str " + store_register + ",[fp,#-" + \
+                str(identifier_offset) + "]\n",
+            parent=instruction_load_read_value
+        )
+
+        self._update_descriptors(
+            register=store_register,
+            identifier=readln3node.id3
+        )
+
+        instruction_load_read_value.set_child(instruction_store_read_value_to_identifier)
+
+
+        # Pop argument registers onto the stack to save argument values
+        # in case there are nested function calls
+
+        instruction_save_arg_registers = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="stmfd sp!,{a1,a2,a3,a4}\n"
+        )
+
+        # Restore argument registers from stack to restore argument values
+        # after nested function call
+
+        instruction_pop_arg_registers = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
+        )
+
+        instruction_save_arg_registers.set_child(instruction_load_readln_format)
+        instruction_load_readln_format.set_parent(instruction_save_arg_registers)
+
+        instruction_pop_arg_registers.set_parent(instruction_store_read_value_to_identifier)
+        instruction_store_read_value_to_identifier.set_child(instruction_pop_arg_registers)
+
+        return instruction_save_arg_registers
 
     def _convert_println_to_assembly(
         self,
@@ -2774,7 +2921,7 @@ class Compiler:
                 ir3_node,
                 md_args,
                 liveness_data
-            )['x']
+            )['x'][0]
 
         # Check if identifier is in address descriptor
         try:
