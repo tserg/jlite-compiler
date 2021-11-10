@@ -1315,6 +1315,8 @@ class IR3Generator:
                     temp_var_node.add_child(temp_var_assignment_node)
                     new_exp_node = temp_var_node
 
+                return new_exp_node
+
             elif isinstance(ast_node, ComplementNode):
 
                 complement_exp_node = self._get_exp3(
@@ -1359,6 +1361,8 @@ class IR3Generator:
                 else:
                     temp_var_node.add_child(temp_var_assignment_node)
                     new_exp_node = temp_var_node
+
+                return new_exp_node
 
         elif isinstance(ast_node, RelOpNode):
 
@@ -1419,7 +1423,14 @@ class IR3Generator:
                 left_operand_last_node.add_child(temp_var_node)
                 new_exp_node = left_operand_node
 
+            else:
+                left_operand_last_node.add_child(right_operand_node)
+                right_operand_last_node.add_child(temp_var_node)
+                new_exp_node = left_operand_node
+
             temp_var_node.add_child(temp_var_assignment_node)
+
+            return new_exp_node
 
         elif isinstance(ast_node, InstanceNode):
 
@@ -2054,8 +2065,6 @@ class IR3Generator:
 
                         class_instance_node.add_child(args)
 
-                    # >>>>>>>>>>>>
-
                     temp_var_count = self._get_temp_var_count()
                     temp_var = "_t"+str(temp_var_count)
 
@@ -2087,15 +2096,11 @@ class IR3Generator:
 
                     temp_var_node.add_child(temp_var_assignment_node)
 
-
-
                     new_exp_node = temp_var_node
                     if prior_instructions:
                         prior_instructions_last = self._get_last_child(prior_instructions)
                         prior_instructions_last.add_child(temp_var_node)
                         new_exp_node = prior_instructions
-
-                    # >>>>>>>>>>..
 
                 else:
 
@@ -2146,7 +2151,7 @@ class IR3Generator:
 
                 if self.debug:
                     sys.stdout.write("Getting Exp - raw value found: " + \
-                        str(ast_node.value))
+                        str(ast_node.value) + "\n")
 
                 temp_var_node.add_child(temp_var_assignment_node)
                 if self.debug:
@@ -2154,6 +2159,7 @@ class IR3Generator:
                         str(temp_var_node.child) + "\n")
 
                 new_exp_node = temp_var_node
+                return new_exp_node
 
         return new_exp_node
 
