@@ -36,6 +36,10 @@ from ir3 import (
     ClassInstance3Node,
     MethodCall3Node,
     ReadLn3Node,
+    Label3Node,
+    IfGoTo3Node,
+    GoTo3Node,
+    UnaryOp3Node,
 )
 
 from jlite_type import (
@@ -1300,6 +1304,15 @@ class Compiler:
                     liveness_data
                 )
 
+            elif type(current_stmt) == Label3Node:
+                pass
+
+            elif type(current_stmt) == IfGoTo3Node:
+                pass
+
+            elif type(current_stmt) == GoTo3Node:
+                pass
+
             else:
 
                 new_instruction = Instruction(
@@ -1930,12 +1943,60 @@ class Compiler:
 
             new_instruction = instruction_create_space
 
+        elif type(assignment3node.assigned_value) == UnaryOp3Node:
+
+            # x = -y
+            # x = !y
+
+            if self.debug:
+                sys.stdout.write("Converting stmt to assembly - Assignment - " + \
+                    "x = unaryop y\n")
+
+            # Get register for y
+            # No need to check if y is raw value because IR3 code uses identifiers
+            # only for UnaryOp3Node
+
+            y_reg = registers['y'][0]
+
+            if (assignment3node.type == BasicType.INT and \
+                    assignment3node.assigned_value.operator == '-'):
+
+                var_y_offset = self.address_descriptor[
+                    assignment3node.assigned_value.operand
+                ]['offset']
+
+                instruction_load_y_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
+                        "]\n"
+                )
+
+                instruction_negate_y_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="neg " + x_register + "," + y_reg + "\n",
+                    parent=instruction_load_y_value
+                )
+
+                instruction_load_y_value.set_child(instruction_negate_y_value)
+
+                self._update_descriptors(
+                    register=y_reg,
+                    identifier=assignment3node.assigned_value.operand
+                )
+
+                new_instruction = instruction_load_y_value
+
+            elif (assignment3node.type == BasicType.BOOL and \
+                    assignment3node.assigned_value.operator) == '!':
+
+                pass
+
         elif type(assignment3node.assigned_value) == BinOp3Node:
 
             # x = y + z
             if self.debug:
                 sys.stdout.write("Converting stmt to assembly - Assignment - " + \
-                    "x = y + z" + "\n")
+                    "x = y + z\n")
 
             # Check if y is raw value
 
