@@ -222,6 +222,61 @@ class IR3Generator:
 
         return self._program_expression(self.parser.ast.head)
 
+    def _compute_relop_node_with_constants(
+        self,
+        ast_node: RelOpNode
+    ) -> Any:
+
+        computed_value = "false"
+
+        bool_from_jlite = {
+            'true': True,
+            'false': False
+        }
+
+        bool_to_jlite = {
+            True: 'true',
+            False: 'false'
+        }
+
+        if ast_node.left_operand.type == BasicType.INT:
+            left_operand = int(ast_node.left_operand.value)
+            right_operand = int(ast_node.right_operand.value)
+
+        elif ast_node.left_operand.type == BasicType.BOOL:
+            left_operand = bool_from_jlite[ast_node.left_operand.value]
+            right_operand = bool_from_jlite[ast_node.right_operand.value]
+
+        elif ast_node.left_operand.type == BasicType.STRING:
+            left_operand = str(ast_node.left_operand.value)
+            right_operand = str(ast_node.right_operand.value)
+
+        if ast_node.value == '>':
+
+            computed_value = left_operand > right_operand
+
+        elif ast_node.value == '>=':
+
+            computed_value = left_operand >= right_operand
+
+        elif ast_node.value == '<':
+
+            computed_value = left_operand < right_operand
+
+        elif ast_node.value == '<=':
+
+            computed_value = left_operand <= right_operand
+
+        elif ast_node.value == '==':
+
+            computed_value = left_operand == right_operand
+
+        elif ast_node.value == '!=':
+
+            computed_value = left_operand != right_operand
+
+        return bool_to_jlite[computed_value]
+
     def _compute_binop_node_with_constants(
         self,
         ast_node: BinOpNode
@@ -1382,6 +1437,33 @@ class IR3Generator:
             temp_var_node = VarDecl3Node(value=temp_var, type=BasicType.BOOL)
 
             symbol_table.insert(temp_var, BasicType.BOOL)
+
+            if type(ast_node.left_operand) == ASTNode and \
+                not ast_node.left_operand.is_identifier and \
+                type(ast_node.right_operand) == ASTNode and \
+                not ast_node.right_operand.is_identifier:
+
+                # Short circuit if it is a binary operation and both operands
+                # are constants
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - "
+                        "Two int constants rel op short circuit.\n")
+
+                computed_value = self._compute_relop_node_with_constants(ast_node)
+
+                # Assign value to temporary variable
+
+                temp_var_assignment_node = Assignment3Node(type=ast_node.type)
+                temp_var_assignment_node.set_identifier(temp_var)
+                temp_var_assignment_node.set_assigned_value(
+                    computed_value,
+                    assigned_value_is_raw_value=True
+                )
+
+                temp_var_node.add_child(temp_var_assignment_node)
+                new_exp_node = temp_var_node
+                return new_exp_node
 
             # Assign value to temporary variable
 
