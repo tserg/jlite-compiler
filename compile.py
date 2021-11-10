@@ -74,8 +74,8 @@ BINARY_OP = {
 }
 
 BOOL_CONVERSION = {
-    'true': 'mvn',
-    'false': 'mov',
+    'true': 'mvn ',
+    'false': 'mov ',
 }
 
 class Compiler:
@@ -1842,6 +1842,7 @@ class Compiler:
 
                 if assignment3node.type == BasicType.INT:
 
+                    assigned_value = assignment3node.assigned_value
                     # x = CONSTANT
                     new_instruction = Instruction(
                         self._get_incremented_instruction_count(),
@@ -1853,10 +1854,13 @@ class Compiler:
 
                     if type(assignment3node.assigned_value) == IR3Node:
                         if self.debug:
-                            sys.stdout.write("Converting assignment to assembly - Raw boolean: " + \
+                            sys.stdout.write("Converting assignment to assembly - Raw boolean - nested: " + \
                                 str(assignment3node.assigned_value.value) + "\n")
                         mv_operator = BOOL_CONVERSION[assignment3node.assigned_value.value]
                     else:
+                        if self.debug:
+                            sys.stdout.write("Converting assignment to assembly - Raw boolean - not nested: " + \
+                                str(assignment3node.assigned_value) + "\n")
                         mv_operator = BOOL_CONVERSION[assignment3node.assigned_value]
 
                     new_instruction = Instruction(
@@ -2057,7 +2061,9 @@ class Compiler:
                     assignment3node.assigned_value.operator != '/') or \
                 assignment3node.type == BasicType.BOOL:
 
+                move_instruction = "mov "
                 if assignment3node.type == BasicType.INT:
+
 
                     operator_instruction = ARITHMETIC_OP[assignment3node.assigned_value.operator]
 
@@ -2066,10 +2072,12 @@ class Compiler:
                     operator_instruction = BINARY_OP[assignment3node.assigned_value.operator]
                     # Convert raw values if any
                     if y_is_raw:
-                        y_value = BOOL_CONVERSION[y_value]
+                        move_instruction = "mvn "
+                        y_value = 0
 
                     if z_is_raw:
-                        z_value = BOOL_CONVERSION[z_value]
+                        move_instruction = "mvn "
+                        z_value = 0
 
                 if self.debug:
                     sys.stdout.write("Converting stmt to assembly - Assignment - " + \
@@ -2085,12 +2093,12 @@ class Compiler:
                     if assignment3node.assigned_value.operator == '*':
                         instruction_load_mul_raw_y = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction=y_value + " " + registers['y'][0] + ",#0\n"
+                            instruction=move_instruction + registers['y'][0] + ",#" + str(y_value) + "\n"
                         )
 
                         instruction_binop = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction="mul " + x_register + \
+                            instruction=operator_instruction + x_register + \
                                 "," + z_value + "," + registers['y'][0] + "\n"
                         )
 
@@ -2138,7 +2146,7 @@ class Compiler:
 
                         instruction_move_from_argument_register = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction="mov " + " " + z_value + "," + z_is_arg + "\n"
+                            instruction=move_instruction + z_value + "," + z_is_arg + "\n"
                         )
 
                         self._update_descriptors(
@@ -2168,12 +2176,12 @@ class Compiler:
                     if assignment3node.assigned_value.operator == '*':
                         instruction_load_mul_raw_z = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction=z_value + registers['z'][0] + ",#0\n"
+                            instruction="mov " + registers['z'][0] + ",#" + str(z_value) + "\n"
                         )
 
                         instruction_binop = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction="mul " + x_register + \
+                            instruction=operator_instruction + x_register + \
                                 "," + y_value + "," + registers['z'][0] + "\n"
                         )
 
