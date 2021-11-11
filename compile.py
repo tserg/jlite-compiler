@@ -78,6 +78,15 @@ BOOL_CONVERSION = {
     'false': 'mov ',
 }
 
+REL_OP = {
+    '>': 'bgt ',
+    '>=': 'bge ',
+    '<': 'blt ',
+    '<=': 'ble ',
+    '==': 'beq ',
+    '!=': 'bne '
+}
+
 class Compiler:
     """
     Compiler instance to generate ARM assembly code from input file
@@ -105,6 +114,7 @@ class Compiler:
 
     instruction_count: int
     data_label_count: int
+    branch_count: int
 
     def __init__(
         self,
@@ -113,7 +123,7 @@ class Compiler:
         self.ir3_generator = IR3Generator()
         self.debug = debug
 
-        self.instruction_count = self.data_label_count = 0
+        self.instruction_count = self.data_label_count = self.branch_count = 0
 
         self.instruction_head = self.instruction_data_tail = \
             self.instruction_tail = None
@@ -130,6 +140,25 @@ class Compiler:
     def _get_incremented_instruction_count(self) -> int:
         self.instruction_count += 1
         return self.instruction_count
+
+    def _link_instructions(
+        self,
+        instructions: List["Instructions"]
+    ) -> None:
+
+        for i in range(0, len(instructions)-1):
+
+
+
+            current_instruction = instructions[i]
+            next_instruction = instructions[i+1]
+
+            if self.debug:
+                sys.stdout.write("Linking instructions: " + str(current_instruction.line_no) + \
+                " - " + str(next_instruction.line_no) + "\n")
+
+            current_instruction.set_child(next_instruction)
+            next_instruction.set_parent(current_instruction)
 
     def _declare_new_variable(
         self,
@@ -652,6 +681,28 @@ class Compiler:
                 if not right_operand_is_raw_value or \
                     ir3_node.assigned_value.operator == '*':
                     z_value = ir3_node.assigned_value.right_operand
+
+                required_registers = {
+                    'x': ir3_node.identifier,
+                    'y': y_value,
+                    'z': z_value
+                }
+
+                return required_registers
+
+            elif type(ir3_node.assigned_value) == RelOp3Node:
+
+                if self.debug:
+                    sys.stdout.write("Getting register for relop node.\n")
+                    sys.stdout.write("Identifier: " + \
+                        str(ir3_node.identifier) + "\n")
+                    sys.stdout.write("Left operand: " + \
+                        str(ir3_node.assigned_value.left_operand) + "\n")
+                    sys.stdout.write("Right operand: " + \
+                        str(ir3_node.assigned_value.right_operand) + "\n")
+
+                y_value = ir3_node.assigned_value.left_operand
+                z_value = ir3_node.assigned_value.right_operand
 
                 required_registers = {
                     'x': ir3_node.identifier,
@@ -1846,9 +1897,14 @@ class Compiler:
 
             if assignment3node.type in [BasicType.INT, BasicType.BOOL]:
 
+                if type(assignment3node.assigned_value) == IR3Node:
+                    assigned_value = assignment3node.assigned_value.value
+
+                else:
+                    assigned_value = assignment3node.assigned_value
+
                 if assignment3node.type == BasicType.INT:
 
-                    assigned_value = assignment3node.assigned_value
                     # x = CONSTANT
                     new_instruction = Instruction(
                         self._get_incremented_instruction_count(),
@@ -1858,16 +1914,7 @@ class Compiler:
 
                 elif assignment3node.type == BasicType.BOOL:
 
-                    if type(assignment3node.assigned_value) == IR3Node:
-                        if self.debug:
-                            sys.stdout.write("Converting assignment to assembly - Raw boolean - nested: " + \
-                                str(assignment3node.assigned_value.value) + "\n")
-                        mv_operator = BOOL_CONVERSION[assignment3node.assigned_value.value]
-                    else:
-                        if self.debug:
-                            sys.stdout.write("Converting assignment to assembly - Raw boolean - not nested: " + \
-                                str(assignment3node.assigned_value) + "\n")
-                        mv_operator = BOOL_CONVERSION[assignment3node.assigned_value]
+                    mv_operator = BOOL_CONVERSION[assigned_value]
 
                     new_instruction = Instruction(
                         self._get_incremented_instruction_count(),
@@ -1884,7 +1931,7 @@ class Compiler:
                         str(assignment3node.value) + "\n")
 
                 instruction_initialise_string_data_assembly_code = string_data_label + \
-                    ": .asciz " + assignment3node.assigned_value[:-1] + '\\n"' + "\n"
+                    ": .asciz " + assigned_value[:-1] + '\\n"' + "\n"
 
                 instruction_add_string_to_data = Instruction(
                     self._get_incremented_instruction_count(),
@@ -2507,6 +2554,101 @@ class Compiler:
                 instruction="Test test RelOp\n"
             )
 
+            # Load first operand
+
+            var_y_offset = self.address_descriptor[
+                assignment3node.assigned_value.left_operand
+            ]['offset']
+
+            instruction_load_y_value = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr " + registers['y'][0] + ",[fp,#-" + \
+                    str(var_y_offset) + "]\n",
+            )
+
+            # Load second operand
+
+            var_z_offset = self.address_descriptor[
+                assignment3node.assigned_value.right_operand
+            ]['offset']
+
+            instruction_load_z_value = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr " + registers['z'][0] + ",[fp,#-" + \
+                    str(var_z_offset) + "]\n"
+            )
+
+            # Compare
+
+            instruction_compare = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="cmp " + registers['y'][0] + "," + registers['z'][0] + \
+                    "\n"
+            )
+
+            # If true, go to branch to set to True
+
+            rel_instruction = REL_OP[assignment3node.assigned_value.operator]
+            branch_index = self.branch_count
+            self.branch_count += 1
+
+            true_branch_label = "." + str(assignment3node.identifier) + \
+                "_true_" + str(branch_index)
+            exit_branch_label = "." + str(assignment3node.identifier) + \
+                "_exit_" + str(branch_index)
+
+            instruction_conditional_branch = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction=rel_instruction + true_branch_label + "\n"
+            )
+
+            # Otherwise, set to False and branch to exit
+
+            instruction_set_value_to_false = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mov " + registers['x'][0] + ",#0\n"
+            )
+
+            instruction_branch_exit = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="b " + exit_branch_label + "\n"
+            )
+
+            # True branch
+
+            instruction_true_branch_label = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction=true_branch_label + ":\n"
+            )
+
+            instruction_set_value_to_true = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mvn " + registers['x'][0] + ",#0\n"
+            )
+
+            # Exit branch label
+
+            instruction_exit_label = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction=exit_branch_label + ":\n"
+            )
+
+            # Link instructions
+
+            self._link_instructions([
+                instruction_load_y_value,
+                instruction_load_z_value,
+                instruction_compare,
+                instruction_conditional_branch,
+                instruction_set_value_to_false,
+                instruction_branch_exit,
+                instruction_true_branch_label,
+                instruction_set_value_to_true,
+                instruction_exit_label
+            ])
+
+            new_instruction = instruction_load_y_value
+
         elif type(assignment3node.assigned_value) == MethodCall3Node:
 
             method_call_node = assignment3node.assigned_value
@@ -2533,7 +2675,6 @@ class Compiler:
                     self._get_incremented_instruction_count(),
                     instruction="ldr a1,[fp,#-" + str(base_address_offset) +"]\n"
                 )
-
 
             next_arg = method_call_node.arguments.child
             arg_count = 1
