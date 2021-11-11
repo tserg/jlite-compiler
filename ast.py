@@ -339,6 +339,7 @@ class ASTNode:
 
         try:
             is_integer = int(self.value)
+            is_integer = True
         except:
             is_integer = False
 
