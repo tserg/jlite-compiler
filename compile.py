@@ -747,6 +747,23 @@ class Compiler:
                 'x': ir3_node.id3
             }
 
+        elif type(ir3_node) == IfGoTo3Node:
+
+            if type(ir3_node.rel_exp) == str:
+
+                # Identifier (no raw values for IR3)
+                required_registers = {
+                    'y': ir3_node.rel_exp,
+                    'z': 'placeholder'
+                }
+
+            elif type(ir3_node.rel_exp) == RelOp3Node:
+
+                required_registers = {
+                    'y': ir3_node.rel_exp.left_operand,
+                    'z': ir3_node.rel_exp.right_operand
+                }
+
         return required_registers
 
     def _get_registers(
@@ -1371,10 +1388,19 @@ class Compiler:
                 )
 
             elif type(current_stmt) == IfGoTo3Node:
-                pass
+
+                new_instruction = self._convert_if_goto_statement_to_assembly(
+                    current_stmt,
+                    md_args,
+                    liveness_data
+                )
 
             elif type(current_stmt) == GoTo3Node:
-                pass
+
+                new_instruction = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="b ." + str(current_stmt.goto) + "\n"
+                )
 
             else:
 
@@ -2996,10 +3022,10 @@ class Compiler:
 
                 # Assign
 
-                self._link_instructions(
+                self._link_instructions([
                     new_instruction,
                     instruction_assign
-                )
+                ])
 
             else:
                 new_instruction = instruction_assign
@@ -3081,11 +3107,11 @@ class Compiler:
                             ",#" + str(class_attribute_offset) + "]\n"
                     )
 
-                    self._link_instructions(
+                    self._link_instructions([
                         new_instruction_last,
                         instruction_load_base_address,
                         instruction_store_to_class_attribute
-                    )
+                    ])
 
                     store_instruction = instruction_load_base_address
 
@@ -3118,11 +3144,11 @@ class Compiler:
                             ",#" + str(class_attribute_offset) + "]\n"
                     )
 
-                    self._link_instructions(
+                    self._link_instructions([
                         new_instruction_last,
                         instruction_load_base_address,
                         instruction_store_to_class_attribute
-                    )
+                    ])
 
                     store_instruction = instruction_load_base_address
 
@@ -3163,7 +3189,7 @@ class Compiler:
         ir3_node: Return3Node,
         md_args: List[str],
         liveness_data: Dict[str, List[int]]
-    ):
+    ) -> "Instruction":
 
         if self.debug:
             sys.stdout.write("Converting stmt to assembly - Return.\n")
@@ -3273,6 +3299,159 @@ class Compiler:
             )
 
         return new_instruction
+
+    def _convert_if_goto_statement_to_assembly(
+        self,
+        ir3_node: IfGoTo3Node,
+        md_args: List[str],
+        liveness_data: Dict[str, List[int]]
+    ) -> "Instruction":
+
+        # Get registers
+
+        registers = self._get_registers(
+            ir3_node,
+            md_args,
+            liveness_data
+        )
+
+        y_reg = registers['y'][0]
+        z_reg = registers['z'][0]
+
+        if type(ir3_node.rel_exp) == str:
+
+            if self.debug:
+                sys.stdout.write("Converting if-goto to assembly - Identifier as condition.\n")
+
+            # Create rel exp label
+
+            rel_exp_label = str(ir3_node.rel_exp)
+            rel_instruction = "beq "
+
+            # Load identifier
+
+            var_y_offset = self.address_descriptor[ir3_node.rel_exp]['offset']
+
+            instruction_load_y_value = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
+                    "]\n"
+            )
+
+            instruction_load_true_value = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mvn " + z_reg + ",#0\n"
+            )
+
+            # Compare
+
+            instruction_compare = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="cmp " + y_reg + "," + z_reg + "\n"
+            )
+
+            self._link_instructions([
+                instruction_load_y_value,
+                instruction_load_true_value,
+                instruction_compare
+            ])
+
+        elif type(ir3_node.rel_exp) == RelOp3Node:
+
+            if self.debug:
+                sys.stdout.write("Converting if-goto to assembly - RelOp as condition.\n")
+
+            # Create rel exp label
+
+            rel_exp_label = str(ir3_node.rel_exp.left_operand) + "_" + \
+                str(ir3_node.rel_exp.right_operand)
+
+            # Load identifier
+
+            var_y_offset = self.address_descriptor[
+                ir3_node.rel_exp.left_operand
+            ]['offset']
+
+            instruction_load_y_value = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
+                    "]\n"
+            )
+
+            var_z_offset = self.address_descriptor[
+                ir3_node.rel_exp.right_operand
+            ]['offset']
+
+            instruction_load_z_value = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="ldr " + z_reg + ",[fp,#-" + str(var_z_offset) + \
+                    "]\n"
+            )
+
+            # Compare
+
+            instruction_compare = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="cmp " + y_reg + "," + z_reg + \
+                    "\n"
+            )
+
+            # If true, go to branch to set to True
+
+            rel_instruction = REL_OP[ir3_node.rel_exp.operator]
+            branch_index = self.branch_count
+            self.branch_count += 1
+
+            true_branch_label = "." + str(ir3_node.rel_exp.left_operand) + "_" + \
+                str(ir3_node.rel_exp.right_operand) + "_true_" + str(branch_index)
+            exit_branch_label = "." + str(ir3_node.rel_exp.left_operand) + "_" + \
+                str(ir3_node.rel_exp.right_operand) + "_exit_" + str(branch_index)
+
+            self._link_instructions([
+                instruction_load_y_value,
+                instruction_load_z_value,
+                instruction_compare
+            ])
+
+        # Branch
+
+        true_label = "." + rel_exp_label + "True_" + \
+            str(self.branch_count)
+        self.branch_count += 1
+
+        instruction_branch_to_true = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction=rel_instruction + true_label + "\n"
+        )
+
+        instruction_true_branch_label = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction=true_label + ":\n"
+        )
+
+        self._link_instructions([
+            instruction_compare,
+            instruction_branch_to_true,
+            instruction_true_branch_label
+        ])
+
+        self._update_descriptors(
+            register=y_reg,
+            identifier=ir3_node.rel_exp.left_operand
+        )
+
+        if type(ir3_node.rel_exp) == RelOp3Node:
+            self._update_descriptors(
+                register=z_reg,
+                identifier=ir3_node.rel_exp.right_operand
+            )
+        else:
+            self._update_descriptors(
+                register=z_reg,
+                identifier='placeholder'
+            )
+
+        return instruction_load_y_value
 
     def _compile(
         self,
