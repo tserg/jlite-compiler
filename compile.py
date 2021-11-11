@@ -1011,11 +1011,13 @@ class Compiler:
 
         instruction_L1 = Instruction(
             self._get_incremented_instruction_count(),
-            instruction="L1:\n.text\n.global main\n\n",
-            parent=instruction_data
+            instruction="L1:\n.text\n.global main\n\n"
         )
 
-        instruction_data.set_child(instruction_L1)
+        self._link_instructions([
+            instruction_data,
+            instruction_L1
+        ])
 
         return instruction_data
 
@@ -1056,15 +1058,23 @@ class Compiler:
                 )
 
                 current_tail = self.instruction_tail
-                current_tail.set_child(instruction)
-                instruction.set_parent(current_tail)
+
+                self._link_instructions([
+                    current_tail,
+                    instruction
+                ])
+
                 self.instruction_tail = instruction.get_last_child()
 
                 current_node = current_node.child
 
         current_tail = self.instruction_tail
-        current_tail.set_child(main_instruction)
-        main_instruction.set_parent(current_tail)
+
+        self._link_instructions([
+            current_tail,
+            main_instruction
+        ])
+
         self.instruction_tail = main_instruction.get_last_child()
 
     def _convert_cmtd3_to_assembly(
@@ -1091,19 +1101,13 @@ class Compiler:
 
         instruction_push_callee_saved = Instruction(
             self._get_incremented_instruction_count(),
-            instruction="stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}\n",
-            parent=instruction_start_label,
+            instruction="stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}\n"
         )
-
-        instruction_start_label.set_child(instruction_push_callee_saved)
 
         instruction_set_frame_pointer = Instruction(
             self._get_incremented_instruction_count(),
             instruction="add fp,sp,#24\n",
-            parent=instruction_push_callee_saved
         )
-
-        instruction_push_callee_saved.set_child(instruction_set_frame_pointer)
 
         # Set aside space for variable declarations
 
@@ -1114,11 +1118,8 @@ class Compiler:
 
         instruction_set_space_for_var_decl = Instruction(
             self._get_incremented_instruction_count(),
-            instruction="sub sp,fp,#" + str(var_decl_offset) + "\n",
-            parent=instruction_set_frame_pointer
+            instruction="sub sp,fp,#" + str(var_decl_offset) + "\n"
         )
-
-        instruction_set_frame_pointer.set_child(instruction_set_space_for_var_decl)
 
         # Convert statements to assembly code
 
@@ -1143,26 +1144,31 @@ class Compiler:
         )
         stmt_end_instruction = stmt_start_instruction.get_last_child()
 
-        instruction_set_space_for_var_decl.set_child(stmt_start_instruction)
-        stmt_start_instruction.set_parent(instruction_set_space_for_var_decl)
-
         # Restore callee-saved registers
 
         instruction_reset_frame_pointer = Instruction(
             self._get_incremented_instruction_count(),
-            instruction="sub sp,fp,#24\n",
-            parent=stmt_end_instruction
+            instruction="sub sp,fp,#24\n"
         )
-
-        stmt_end_instruction.set_child(instruction_reset_frame_pointer)
 
         instruction_pop_callee_saved = Instruction(
             self._get_incremented_instruction_count(),
             instruction="ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}\n",
-            parent=instruction_reset_frame_pointer
         )
 
-        instruction_reset_frame_pointer.set_child(instruction_pop_callee_saved)
+        self._link_instructions([
+            instruction_start_label,
+            instruction_push_callee_saved,
+            instruction_set_frame_pointer,
+            instruction_set_space_for_var_decl,
+            stmt_start_instruction
+        ])
+
+        self._link_instructions([
+            stmt_end_instruction,
+            instruction_reset_frame_pointer,
+            instruction_pop_callee_saved
+        ])
 
         return instruction_start_label
 
@@ -1429,13 +1435,13 @@ class Compiler:
 
         instruction_initialise_readln_data_storage_identifier = Instruction(
             self._get_incremented_instruction_count(),
-            instruction=read_data_label + ": .word 0\n",
-            parent=instruction_initialise_readln_data_storage_format
+            instruction=read_data_label + ": .word 0\n"
         )
 
-        instruction_initialise_readln_data_storage_format.set_child(
-            instruction_initialise_readln_data_storage_identifier
-        )
+        self._link_instructions([
+            instruction_initialise_readln_data_storage_format,
+            instruction_initialise_readln_data_storage_identifier,
+        ])
 
         self.instruction_data_tail.insert_child(instruction_initialise_readln_data_storage_format)
         self.instruction_data_tail = instruction_initialise_readln_data_storage_identifier
@@ -1449,19 +1455,13 @@ class Compiler:
 
         instruction_load_readln_storage_identifier = Instruction(
             self._get_incremented_instruction_count(),
-            instruction="ldr a2,=" + read_data_label + "\n",
-            parent=instruction_load_readln_format
+            instruction="ldr a2,=" + read_data_label + "\n"
         )
-
-        instruction_load_readln_format.set_child(instruction_load_readln_storage_identifier)
 
         instruction_scanf = Instruction(
             self._get_incremented_instruction_count(),
-            instruction="bl scanf\n",
-            parent=instruction_load_readln_storage_identifier
+            instruction="bl scanf\n"
         )
-
-        instruction_load_readln_storage_identifier.set_child(instruction_scanf)
 
         # Store data captured to identifier
 
@@ -1474,21 +1474,13 @@ class Compiler:
 
         instruction_load_read_value_address = Instruction(
             self._get_incremented_instruction_count(),
-            instruction="ldr " + store_register + ",=" + read_data_label + "\n",
-            parent=instruction_scanf
+            instruction="ldr " + store_register + ",=" + read_data_label + "\n"
         )
-
-        instruction_scanf.set_child(instruction_load_read_value_address)
-
 
         instruction_load_read_value = Instruction(
             self._get_incremented_instruction_count(),
-            instruction="ldr " + store_register + ",[" + store_register + "]\n",
-            parent=instruction_load_read_value_address
+            instruction="ldr " + store_register + ",[" + store_register + "]\n"
         )
-
-        instruction_load_read_value_address.set_child(instruction_load_read_value)
-
 
         identifier_offset = self._get_variable_offset(
             readln3node.id3
@@ -1497,17 +1489,13 @@ class Compiler:
         instruction_store_read_value_to_identifier = Instruction(
             self._get_incremented_instruction_count(),
             instruction="str " + store_register + ",[fp,#-" + \
-                str(identifier_offset) + "]\n",
-            parent=instruction_load_read_value
+                str(identifier_offset) + "]\n"
         )
 
         self._update_descriptors(
             register=store_register,
             identifier=readln3node.id3
         )
-
-        instruction_load_read_value.set_child(instruction_store_read_value_to_identifier)
-
 
         # Pop argument registers onto the stack to save argument values
         # in case there are nested function calls
@@ -1525,11 +1513,16 @@ class Compiler:
             instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
         )
 
-        instruction_save_arg_registers.set_child(instruction_load_readln_format)
-        instruction_load_readln_format.set_parent(instruction_save_arg_registers)
-
-        instruction_pop_arg_registers.set_parent(instruction_store_read_value_to_identifier)
-        instruction_store_read_value_to_identifier.set_child(instruction_pop_arg_registers)
+        self._link_instructions([
+            instruction_save_arg_registers,
+            instruction_load_readln_format,
+            instruction_load_readln_storage_identifier,
+            instruction_scanf,
+            instruction_load_read_value_address,
+            instruction_load_read_value,
+            instruction_store_read_value_to_identifier,
+            instruction_pop_arg_registers
+        ])
 
         return instruction_save_arg_registers
 
@@ -1683,8 +1676,11 @@ class Compiler:
                 instruction=instruction_initialise_print_false_assembly_code,
             )
 
-            instruction_initialise_print_true.set_child(instruction_initialise_print_false)
-            instruction_initialise_print_false.set_parent(instruction_initialise_print_true)
+
+            self._link_instructions([
+                instruction_initialise_print_true,
+                instruction_initialise_print_false
+            ])
 
             self.instruction_data_tail.insert_child(instruction_initialise_print_true)
             self.instruction_data_tail = instruction_initialise_print_false
@@ -1695,85 +1691,73 @@ class Compiler:
 
             instruction_load_boolean = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction=instruction_load_print_value_assembly_code,
-                parent=current_instruction
+                instruction=instruction_load_print_value_assembly_code
             )
-
-            current_instruction.set_child(instruction_load_print_data)
 
             # Compare with 0
 
             instruction_compare_boolean_with_false = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="cmp a1,#0\n",
-                parent=instruction_load_boolean
+                instruction="cmp a1,#0\n"
             )
-
-            instruction_load_boolean.set_child(instruction_compare_boolean_with_false)
 
             # If true, value is 0/False branch
 
             instruction_go_to_false_branch = Instruction(
                 self._get_incremented_instruction_count(),
                 instruction="beq ." + println3node.value + "_" + \
-                    print_false_label + 'False\n',
-                parent=instruction_compare_boolean_with_false
+                    print_false_label + 'False\n'
             )
-
-            instruction_compare_boolean_with_false.set_child(instruction_go_to_false_branch)
 
             # Load argument for true
 
             instruction_load_true = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="ldr a1,=" + print_true_label + "\n",
-                parent=instruction_go_to_false_branch
+                instruction="ldr a1,=" + print_true_label + "\n"
             )
-
-            instruction_go_to_false_branch.set_child(instruction_load_true)
 
             # Branch to exit
 
             instruction_branch_exit = Instruction(
                 self._get_incremented_instruction_count(),
                 instruction="b ." + println3node.value + "_" + print_true_label + \
-                    "_exit\n",
-                parent=instruction_load_true
+                    "_exit\n"
             )
-
-            instruction_load_true.set_child(instruction_branch_exit)
 
             # False branch
 
             instruction_false_branch = Instruction(
                 self._get_incremented_instruction_count(),
                 instruction="." + println3node.value + "_" + \
-                    print_false_label + 'False:\n',
-                parent=instruction_branch_exit
+                    print_false_label + 'False:\n'
             )
-
-            instruction_branch_exit.set_child(instruction_false_branch)
 
             # Load argument for false
 
             instruction_load_false = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="ldr a1,=" + print_false_label + "\n",
-                parent=instruction_false_branch
+                instruction="ldr a1,=" + print_false_label + "\n"
             )
-
-            instruction_false_branch.set_child(instruction_load_false)
 
             # Exit branch
 
             instruction_exit_label = Instruction(
                 self._get_incremented_instruction_count(),
                 instruction="._" + print_true_label + \
-                    "_exit:\n",
-                parent=instruction_load_false
+                    "_exit:\n"
             )
 
-            instruction_load_false.set_child(instruction_exit_label)
+            self._link_instructions([
+                current_instruction,
+                instruction_load_boolean,
+                instruction_compare_boolean_with_false,
+                instruction_go_to_false_branch,
+                instruction_load_true,
+                instruction_branch_exit,
+                instruction_false_branch,
+                instruction_load_false,
+                instruction_exit_label
+            ])
 
             instruction_load_print_value = instruction_exit_label
 
@@ -1806,16 +1790,20 @@ class Compiler:
 
         if instruction_load_print_data:
             # No need for additional loading for string identifier
-            instruction_load_print_value.set_parent(instruction_load_print_data)
-            instruction_load_print_data.set_child(instruction_load_print_value)
+            self._link_instructions([
+                instruction_load_print_data,
+                instruction_load_print_value
+            ])
 
         instruction_printf = Instruction(
             self._get_incremented_instruction_count(),
-            instruction="bl printf\n",
-            parent=instruction_load_print_value
+            instruction="bl printf\n"
         )
 
-        instruction_load_print_value.set_child(instruction_printf)
+        self._link_instructions([
+            instruction_load_print_value,
+            instruction_printf
+        ])
 
         # Pop argument registers onto the stack to save argument values
         # in case there are nested function calls
@@ -1836,19 +1824,29 @@ class Compiler:
         if println3node.type == BasicType.BOOL and \
             not println3node.is_raw_value:
 
-            instruction_save_arg_registers.set_child(instruction_load_boolean)
-            instruction_load_boolean.set_parent(instruction_save_arg_registers)
+            self._link_instructions([
+                instruction_save_arg_registers,
+                instruction_load_boolean
+            ])
 
         elif instruction_load_print_data:
-            instruction_save_arg_registers.set_child(instruction_load_print_data)
-            instruction_load_print_data.set_parent(instruction_save_arg_registers)
+
+            self._link_instructions([
+                instruction_save_arg_registers,
+                instruction_load_print_data
+            ])
 
         else:
-            instruction_save_arg_registers.set_child(instruction_load_print_value)
-            instruction_load_print_value.set_parent(instruction_save_arg_registers)
 
-        instruction_pop_arg_registers.set_parent(instruction_printf)
-        instruction_printf.set_child(instruction_pop_arg_registers)
+            self._link_instructions([
+                instruction_save_arg_registers,
+                instruction_load_print_value
+            ])
+
+        self._link_instructions([
+            instruction_printf,
+            instruction_pop_arg_registers
+        ])
 
         return instruction_save_arg_registers
 
@@ -1980,11 +1978,8 @@ class Compiler:
             # Create space in memory
             instruction_malloc = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="bl malloc\n",
-                parent=instruction_create_space
+                instruction="bl malloc\n"
             )
-
-            instruction_create_space.set_child(instruction_malloc)
 
             # Get offset of object
 
@@ -1996,11 +1991,14 @@ class Compiler:
 
             instruction_store_base_address = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="str a1,[fp,#-" + str(object_offset) + "]\n",
-                parent=instruction_malloc
+                instruction="str a1,[fp,#-" + str(object_offset) + "]\n"
             )
 
-            instruction_malloc.set_child(instruction_store_base_address)
+            self._link_instructions([
+                instruction_create_space,
+                instruction_malloc,
+                instruction_store_base_address
+            ])
 
             new_instruction = instruction_create_space
 
@@ -2034,11 +2032,13 @@ class Compiler:
 
                 instruction_not_y_value = Instruction(
                     self._get_incremented_instruction_count(),
-                    instruction="neg " + x_register + "," + y_reg + "\n",
-                    parent=instruction_load_y_value
+                    instruction="neg " + x_register + "," + y_reg + "\n"
                 )
 
-                instruction_load_y_value.set_child(instruction_not_y_value)
+                self._link_instructions([
+                    instruction_load_y_value,
+                    instruction_not_y_value
+                ])
 
                 self._update_descriptors(
                     register=y_reg,
@@ -2062,11 +2062,13 @@ class Compiler:
 
                 instruction_negate_y_value = Instruction(
                     self._get_incremented_instruction_count(),
-                    instruction="mvn " + x_register + "," + y_reg + "\n",
-                    parent=instruction_load_y_value
+                    instruction="mvn " + x_register + "," + y_reg + "\n"
                 )
 
-                instruction_load_y_value.set_child(instruction_negate_y_value)
+                self._link_instructions([
+                    instruction_load_y_value,
+                    instruction_negate_y_value
+                ])
 
                 self._update_descriptors(
                     register=y_reg,
@@ -2155,8 +2157,10 @@ class Compiler:
                                 "," + z_value + "," + registers['y'][0] + "\n"
                         )
 
-                        instruction_load_mul_raw_y.set_child(instruction_binop)
-                        instruction_binop.set_parent(instruction_load_mul_raw_y)
+                        self._link_instructions([
+                            instruction_load_mul_raw_y,
+                            instruction_binop
+                        ])
 
                     else:
 
@@ -2184,13 +2188,19 @@ class Compiler:
                         )
 
                         if instruction_load_mul_raw_y:
-                            new_instruction.set_child(instruction_load_mul_raw_y)
-                            instruction_load_mul_raw_y.set_parent(new_instruction)
+
+                            self._link_instructions([
+                                new_instruction,
+                                instruction_load_mul_raw_y
+                            ])
 
 
                         else:
-                            instruction_binop.set_parent(new_instruction)
-                            new_instruction.set_child(instruction_binop)
+
+                            self._link_instructions([
+                                new_instruction,
+                                instruction_binop
+                            ])
 
                     elif z_is_arg:
 
@@ -2209,12 +2219,18 @@ class Compiler:
 
 
                         if instruction_load_mul_raw_y:
-                            instruction_move_from_argument_register.set_child(instruction_load_mul_raw_y)
-                            instruction_load_mul_raw_y.set_parent(instruction_move_from_argument_register)
+
+                            self._link_instructions([
+                                instruction_move_from_argument_register,
+                                instruction_load_mul_raw_y
+                            ])
 
                         else:
-                            instruction_move_from_argument_register.set_child(instruction_binop)
-                            instruction_binop.set_parent(instruction_move_from_argument_register)
+
+                            self._link_instructions([
+                                instruction_move_from_argument_register,
+                                instruction_binop
+                            ])
 
                         new_instruction = instruction_move_from_argument_register
 
@@ -2238,8 +2254,10 @@ class Compiler:
                                 "," + y_value + "," + registers['z'][0] + "\n"
                         )
 
-                        instruction_load_mul_raw_z.set_child(instruction_binop)
-                        instruction_binop.set_parent(instruction_load_mul_raw_z)
+                        self._link_instructions([
+                            instruction_load_mul_raw_z,
+                            instruction_binop
+                        ])
 
                     else:
 
@@ -2267,13 +2285,18 @@ class Compiler:
                         )
 
                         if instruction_load_mul_raw_z:
-                            new_instruction.set_child(instruction_load_mul_raw_z)
-                            instruction_load_mul_raw_z.set_parent(new_instruction)
 
+                            self._link_instructions([
+                                new_instruction,
+                                instruction_load_mul_raw_z
+                            ])
 
                         else:
-                            instruction_binop.set_parent(new_instruction)
-                            new_instruction.set_child(instruction_binop)
+
+                            self._link_instructions([
+                                new_instruction,
+                                instruction_binop
+                            ])
 
                     elif y_is_arg:
 
@@ -2290,12 +2313,18 @@ class Compiler:
                         )
 
                         if instruction_load_mul_raw_z:
-                            instruction_move_from_argument_register.set_child(instruction_load_mul_raw_z)
-                            instruction_load_mul_raw_z.set_parent(instruction_move_from_argument_register)
+
+                            self._link_instructions([
+                                instruction_move_from_argument_register,
+                                instruction_load_mul_raw_z
+                            ])
 
                         else:
-                            instruction_move_from_argument_register.set_child(instruction_binop)
-                            instruction_binop.set_parent(instruction_move_from_argument_register)
+
+                            self._link_instructions([
+                                instruction_move_from_argument_register,
+                                instruction_binop
+                            ])
 
                         new_instruction = instruction_move_from_argument_register
 
@@ -2340,8 +2369,7 @@ class Compiler:
                         instruction_load_z = Instruction(
                             self._get_incremented_instruction_count(),
                             instruction="ldr " + z_value + ",[fp,#-" + \
-                                str(var_z_offset) + "]\n",
-                            parent=new_instruction
+                                str(var_z_offset) + "]\n"
                         )
 
                         self._update_descriptors(
@@ -2349,16 +2377,18 @@ class Compiler:
                             identifier=assignment3node.assigned_value.right_operand
                         )
 
-                        new_instruction.set_child(instruction_load_z)
 
                         instruction_binop = Instruction(
                             self._get_incremented_instruction_count(),
                             instruction=operator_instruction + x_register + \
-                                "," + y_value + "," + z_value + "\n",
-                            parent=instruction_load_z
+                                "," + y_value + "," + z_value + "\n"
                         )
 
-                        instruction_load_z.set_child(instruction_binop)
+                        self._link_instructions([
+                            new_instruction,
+                            instruction_load_z,
+                            instruction_binop
+                        ])
 
                     elif y_is_arg and not z_is_arg:
 
@@ -2381,8 +2411,7 @@ class Compiler:
                         instruction_load_z = Instruction(
                             self._get_incremented_instruction_count(),
                             instruction="ldr " + z_value + ",[fp,#-" + \
-                                str(var_z_offset) + "]\n",
-                            parent=instruction_move_from_argument_register
+                                str(var_z_offset) + "]\n"
                         )
 
                         self._update_descriptors(
@@ -2390,16 +2419,18 @@ class Compiler:
                             identifier=assignment3node.assigned_value.right_operand
                         )
 
-                        instruction_move_from_argument_register.set_child(instruction_load_z)
-
                         instruction_binop = Instruction(
                             self._get_incremented_instruction_count(),
                             instruction=operator_instruction + x_register + \
-                                "," + y_value + "," + z_value + "\n",
-                            parent=instruction_load_z
+                                "," + y_value + "," + z_value + "\n"
                         )
 
-                        instruction_load_z.set_child(instruction_binop)
+                        self._link_instructions([
+                            instruction_move_from_argument_register,
+                            instruction_load_z,
+                            instruction_binop
+                        ])
+
                         new_instruction = instruction_move_from_argument_register
 
                     elif not y_is_arg and z_is_arg:
@@ -2423,8 +2454,7 @@ class Compiler:
                         instruction_load_y = Instruction(
                             self._get_incremented_instruction_count(),
                             instruction="ldr " + y_value + ",[fp,#-" + \
-                                str(var_y_offset) + "]\n",
-                            parent=instruction_move_from_argument_register
+                                str(var_y_offset) + "]\n"
                         )
 
                         self._update_descriptors(
@@ -2438,11 +2468,15 @@ class Compiler:
                         instruction_binop = Instruction(
                             self._get_incremented_instruction_count(),
                             instruction=operator_instruction + x_register + \
-                                "," + y_value + "," + z_value + "\n",
-                            parent=new_instruction
+                                "," + y_value + "," + z_value + "\n"
                         )
 
-                        instruction_load_y.set_child(instruction_binop)
+                        self._link_instructions([
+                            instruction_move_from_argument_register,
+                            instruction_load_y,
+                            instruction_binop
+                        ])
+
                         new_instruction = instruction_move_from_argument_register
 
                     elif y_is_arg and z_is_arg:
@@ -2463,12 +2497,7 @@ class Compiler:
 
                         instruction_move_z_from_argument_register = Instruction(
                             self._get_incremented_instruction_count(),
-                            instruction="mov " + z_value + "," + z_is_arg + "\n",
-                            parent=instruction_move_y_from_argument_register
-                        )
-
-                        instruction_move_y_from_argument_register.set_child(
-                            instruction_move_z_from_argument_register
+                            instruction="mov " + z_value + "," + z_is_arg + "\n"
                         )
 
                         self._update_descriptors(
@@ -2479,13 +2508,14 @@ class Compiler:
                         instruction_binop = Instruction(
                             self._get_incremented_instruction_count(),
                             instruction=operator_instruction + x_register + \
-                                "," + y_value + "," + z_value + "\n",
-                            parent=instruction_move_z_from_argument_register
+                                "," + y_value + "," + z_value + "\n"
                         )
 
-                        instruction_move_z_from_argument_register.set_child(
+                        self._link_instructions([
+                            instruction_move_y_from_argument_register,
+                            instruction_move_z_from_argument_register,
                             instruction_binop
-                        )
+                        ])
 
                         new_instruction = instruction_move_y_from_argument_register
 
@@ -2530,8 +2560,11 @@ class Compiler:
                                     str(var_offset) + "]\n"
                             )
 
-                            spill_instruction.set_child(new_instruction)
-                            new_instruction.set_parent(spill_instruction)
+                            self._link_instructions([
+                                spill_instruction,
+                                new_instruction
+                            ])
+
                             new_instruction = spill_instruction
 
                             stored_offset.append(var_offset)
@@ -2703,8 +2736,7 @@ class Compiler:
                             instruction_load_next_argument = Instruction(
                                 self._get_incremented_instruction_count(),
                                 instruction="mov " + next_arg_reg + ",#" + \
-                                    str(next_arg.value) + "\n",
-                                parent=latest_instruction_load_argument
+                                    str(next_arg.value) + "\n"
                             )
 
                         if next_arg.type == BasicType.STRING:
@@ -2731,8 +2763,7 @@ class Compiler:
 
                             instruction_load_next_argument = Instruction(
                                 self._get_incremented_instruction_count(),
-                                instruction="ldr " + next_arg_reg + ",=" + string_data_label + "\n",
-                                parent=latest_instruction_load_argument
+                                instruction="ldr " + next_arg_reg + ",=" + string_data_label + "\n"
                             )
 
                         if next_arg.type == BasicType.BOOL:
@@ -2742,8 +2773,7 @@ class Compiler:
                             instruction_load_next_argument = Instruction(
                                 self._get_incremented_instruction_count(),
                                 instruction=mv_instruction + " " + next_arg_reg + \
-                                    ",#0\n",
-                                parent=latest_instruction_load_argument
+                                    ",#0\n"
                             )
 
                     else:
@@ -2774,8 +2804,7 @@ class Compiler:
                                 instruction_load_next_argument = Instruction(
                                     self._get_incremented_instruction_count(),
                                     instruction="ldr " + next_arg_reg + ",[sp,#" + \
-                                        str(arg_reg_stack_offset) + "]\n",
-                                    parent=latest_instruction_load_argument
+                                        str(arg_reg_stack_offset) + "]\n"
                                 )
 
                             else:
@@ -2788,33 +2817,37 @@ class Compiler:
                                 instruction_load_next_argument = Instruction(
                                     self._get_incremented_instruction_count(),
                                     instruction="ldr " + next_arg_reg + ",[fp,#-" + \
-                                        str(var_offset) + "]\n",
-                                    parent=latest_instruction_load_argument
+                                        str(var_offset) + "]\n"
                                 )
                         # move to an argument register
 
                     arg_count += 1
                     next_arg = next_arg.child
-                    latest_instruction_load_argument.set_child(instruction_load_next_argument)
+
+                    self._link_instructions([
+                        latest_instruction_load_argument,
+                        instruction_load_next_argument
+                    ])
+
                     latest_instruction_load_argument = instruction_load_next_argument
 
             instruction_load_arguments_last_child = instruction_load_arguments.get_last_child()
 
             instruction_branch_to_function= Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="bl " + method_call_node.method_id[1:] + "\n",
-                parent=instruction_load_arguments_last_child
+                instruction="bl " + method_call_node.method_id[1:] + "\n"
             )
-
-            instruction_load_arguments_last_child.set_child(instruction_branch_to_function)
 
             instruction_move_return_value_to_x_register = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="mov " + x_register + ",a1\n",
-                parent=instruction_branch_to_function
+                instruction="mov " + x_register + ",a1\n"
             )
 
-            instruction_branch_to_function.set_child(instruction_move_return_value_to_x_register)
+            self._link_instructions([
+                instruction_load_arguments_last_child,
+                instruction_branch_to_function,
+                instruction_move_return_value_to_x_register
+            ])
 
             # Pop argument registers onto the stack to save argument values
             # in case there are nested function calls
@@ -2832,11 +2865,15 @@ class Compiler:
                 instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
             )
 
-            instruction_save_arg_registers.set_child(instruction_load_arguments)
-            instruction_load_arguments.set_parent(instruction_save_arg_registers)
+            self._link_instructions([
+                instruction_save_arg_registers,
+                instruction_load_arguments
+            ])
 
-            instruction_move_return_value_to_x_register.set_child(instruction_pop_arg_registers)
-            instruction_pop_arg_registers.set_parent(instruction_move_return_value_to_x_register)
+            self._link_instructions([
+                instruction_move_return_value_to_x_register,
+                instruction_pop_arg_registers
+            ])
 
             new_instruction = instruction_save_arg_registers
 
@@ -2923,8 +2960,7 @@ class Compiler:
                 instruction_load_class_attribute = Instruction(
                     self._get_incremented_instruction_count(),
                     instruction="ldr " + base_address_register + ",[" + base_address_register + \
-                        ",#" + str(class_attribute_offset) + "]\n",
-                    parent=instruction_load_base_address
+                        ",#" + str(class_attribute_offset) + "]\n"
                 )
 
                 self._update_descriptors(
@@ -2932,10 +2968,11 @@ class Compiler:
                     identifier=assignment3node.assigned_value.__str__()
                 )
 
-                instruction_load_base_address.set_child(instruction_load_class_attribute)
-
-                instruction_load_class_attribute.set_child(instruction_assign)
-                instruction_assign.set_parent(instruction_load_class_attribute)
+                self._link_instructions([
+                    instruction_load_base_address,
+                    instruction_load_class_attribute,
+                    instruction_assign
+                ])
 
                 new_instruction = instruction_load_base_address
 
@@ -2959,8 +2996,10 @@ class Compiler:
 
                 # Assign
 
-                instruction_assign.set_parent(new_instruction)
-                new_instruction.set_child(instruction_assign)
+                self._link_instructions(
+                    new_instruction,
+                    instruction_assign
+                )
 
             else:
                 new_instruction = instruction_assign
@@ -3016,11 +3055,8 @@ class Compiler:
 
                     instruction_load_base_address = Instruction(
                         self._get_incremented_instruction_count(),
-                        instruction="mov " + base_address_register + ",a1\n",
-                        parent=new_instruction_last
+                        instruction="mov " + base_address_register + ",a1\n"
                     )
-
-                    new_instruction_last.set_child(instruction_load_base_address)
 
                     # Calculate offset of class attribute in object
 
@@ -3042,11 +3078,15 @@ class Compiler:
                     instruction_store_to_class_attribute = Instruction(
                         self._get_incremented_instruction_count(),
                         instruction="str " + x_register + ",[" + base_address_register + \
-                            ",#" + str(class_attribute_offset) + "]\n",
-                        parent=instruction_load_base_address
+                            ",#" + str(class_attribute_offset) + "]\n"
                     )
 
-                    instruction_load_base_address.set_child(instruction_store_to_class_attribute)
+                    self._link_instructions(
+                        new_instruction_last,
+                        instruction_load_base_address,
+                        instruction_store_to_class_attribute
+                    )
+
                     store_instruction = instruction_load_base_address
 
                 else:
@@ -3061,11 +3101,8 @@ class Compiler:
                     instruction_load_base_address = Instruction(
                         self._get_incremented_instruction_count(),
                         instruction="ldr " + base_address_register + ",[fp,#-" + \
-                            str(object_address_offset) + "]\n",
-                        parent=new_instruction_last
+                            str(object_address_offset) + "]\n"
                     )
-
-                    new_instruction_last.set_child(instruction_load_base_address)
 
                     # Calculate offset of class attribute in object
 
@@ -3078,11 +3115,15 @@ class Compiler:
                     instruction_store_to_class_attribute = Instruction(
                         self._get_incremented_instruction_count(),
                         instruction="str " + x_register + ",[" + base_address_register + \
-                            ",#" + str(class_attribute_offset) + "]\n",
-                        parent=instruction_load_base_address
+                            ",#" + str(class_attribute_offset) + "]\n"
                     )
 
-                    instruction_load_base_address.set_child(instruction_store_to_class_attribute)
+                    self._link_instructions(
+                        new_instruction_last,
+                        instruction_load_base_address,
+                        instruction_store_to_class_attribute
+                    )
+
                     store_instruction = instruction_load_base_address
 
             else:
@@ -3107,11 +3148,13 @@ class Compiler:
                     store_instruction = Instruction(
                         self._get_incremented_instruction_count(),
                         instruction="str " + x_register + ",[fp,#-" + \
-                            str(var_fp_offset) + "]\n",
-                        parent=new_instruction_last
+                            str(var_fp_offset) + "]\n"
                     )
 
-                    new_instruction_last.set_child(store_instruction)
+                    self._link_instructions([
+                        new_instruction_last,
+                        store_instruction
+                    ])
 
         return new_instruction
 
@@ -3190,11 +3233,13 @@ class Compiler:
 
             instruction_move_to_argument_reg = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="mov a1," + return_identifier_reg + "\n",
-                parent=new_instruction
+                instruction="mov a1," + return_identifier_reg + "\n"
             )
 
-            new_instruction.set_child(instruction_move_to_argument_reg)
+            self._link_instructions([
+                new_instruction,
+                instruction_move_to_argument_reg
+            ])
 
         else:
 
