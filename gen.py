@@ -1588,7 +1588,7 @@ class IR3Generator:
                     )
 
                     if self.debug:
-                        sys.stdout.write("Getting Exp - Method call detected - first arg: " + \
+                        sys.stdout.write("Getting Exp - InstanceNode - Method call detected - first arg: " + \
                             str(args.value) + " of type " + str(args.type) + "\n")
 
                         if prior_instructions:
@@ -1599,13 +1599,32 @@ class IR3Generator:
 
                 md_call_node.set_arguments(class_instance_node)
 
-
-
                 new_exp_node = md_call_node
                 if prior_instructions:
                     prior_instructions_last = self._get_last_child(prior_instructions)
                     prior_instructions_last.add_child(md_call_node)
                     new_exp_node = prior_instructions
+
+                # Set method call to temporary variable
+
+                temp_var = "_t"+str(self._get_temp_var_count())
+                temp_var_node = VarDecl3Node(
+                    value=temp_var,
+                    type=st_lookup['type'].return_type
+                )
+
+                symbol_table.insert(temp_var, st_lookup['type'].return_type)
+                temp_var_assignment_node = Assignment3Node(
+                    type=st_lookup['type'].return_type
+                )
+                temp_var_assignment_node.set_identifier(temp_var)
+                temp_var_assignment_node.set_assigned_value(
+                    md_call_node,
+                    assigned_value_is_raw_value=False
+                )
+
+                temp_var_node.add_child(temp_var_assignment_node)
+                new_exp_node = temp_var_node
 
             else:
                 # <id3>.<id3>
@@ -2138,7 +2157,7 @@ class IR3Generator:
                         )
 
                         if self.debug:
-                            sys.stdout.write("Getting Exp - Method call detected - first arg: " + \
+                            sys.stdout.write("Getting Exp - idc3 - Method call detected - first arg: " + \
                                 str(args.value) + " of type " + str(args.type) + "\n")
 
                             if prior_instructions:
