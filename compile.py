@@ -1204,12 +1204,27 @@ class Compiler:
             sys.stdout.write("Converting stmt to assembly - Liveness data - " + \
                 str(liveness_data) + "\n")
 
+        # Pre-generate exit label for method
+        # Needed for early termination e.g. multiple return statements
+
+        exit_label = "." + method_name + "Exit"
+
+        # Convert statements to assembly
+
         stmt_start_instruction = self._convert_stmt_to_assembly(
             ir3_node.statements,
             md_args,
-            liveness_data
+            liveness_data,
+            exit_label
         )
         stmt_end_instruction = stmt_start_instruction.get_last_child()
+
+        # Placeholder label to exit method
+
+        instruction_exit_label = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="\n" + exit_label + ":\n"
+        )
 
         # Restore callee-saved registers
 
@@ -1233,6 +1248,7 @@ class Compiler:
 
         self._link_instructions([
             stmt_end_instruction,
+            instruction_exit_label,
             instruction_reset_frame_pointer,
             instruction_pop_callee_saved
         ])
@@ -1366,7 +1382,8 @@ class Compiler:
         self,
         ir3_node: Any,
         md_args: List[str],
-        liveness_data: Dict[str, List[int]]
+        liveness_data: Dict[str, List[int]],
+        exit_label: str
     ) -> "Instruction":
 
         if self.debug:
@@ -1379,8 +1396,6 @@ class Compiler:
 
         current_stmt = ir3_node
         completed = False
-
-        debug_count = 0
 
         while not completed:
 
@@ -1424,10 +1439,11 @@ class Compiler:
 
             elif type(current_stmt) == Return3Node:
 
-                new_instruction = self._convert_return_statement_to_assembly(
+                new_instruction = self._convert_return_to_assembly(
                     current_stmt,
                     md_args,
-                    liveness_data
+                    liveness_data,
+                    exit_label
                 )
 
             elif type(current_stmt) == Label3Node:
@@ -1456,7 +1472,7 @@ class Compiler:
 
                 new_instruction = Instruction(
                     self._get_incremented_instruction_count(),
-                    instruction="Test test " + str(debug_count) + "\n",
+                    instruction="Uncaught statement detected\n",
                     parent=current_instruction
                 )
 
@@ -1477,7 +1493,6 @@ class Compiler:
                     first_instruction = new_instruction
 
                 current_instruction = new_instruction.get_last_child()
-                debug_count += 1
 
             new_instruction = None
             current_stmt = current_stmt.child
@@ -3280,15 +3295,23 @@ class Compiler:
 
         return new_instruction
 
-    def _convert_return_statement_to_assembly(
+    def _convert_return_to_assembly(
         self,
         ir3_node: Return3Node,
         md_args: List[str],
-        liveness_data: Dict[str, List[int]]
+        liveness_data: Dict[str, List[int]],
+        md_exit_label: str
     ) -> "Instruction":
 
         if self.debug:
             sys.stdout.write("Converting stmt to assembly - Return.\n")
+
+        # Create method exit branch instruction
+
+        instruction_branch_md_exit = Instruction(
+            self._get_incremented_instruction_count(),
+            instruction="b " + md_exit_label + "\n"
+        )
 
         # Check if return value identifier is already in a register
 
@@ -3308,6 +3331,11 @@ class Compiler:
                 instruction="mov a1," + return_identifier_reg + "\n"
             )
 
+            self._link_instructions([
+                instruction_move_to_argument_reg,
+                instruction_branch_md_exit
+            ])
+
             return instruction_move_to_argument_reg
 
         try:
@@ -3320,6 +3348,11 @@ class Compiler:
                 self._get_incremented_instruction_count(),
                 instruction="mov a1," + return_identifier_reg + "\n"
             )
+
+            self._link_instructions([
+                instruction_move_to_argument_reg,
+                instruction_branch_md_exit
+            ])
 
             return instruction_move_to_argument_reg
 
@@ -3360,7 +3393,8 @@ class Compiler:
 
             self._link_instructions([
                 new_instruction,
-                instruction_move_to_argument_reg
+                instruction_move_to_argument_reg,
+                instruction_branch_md_exit
             ])
 
         else:
@@ -3393,6 +3427,11 @@ class Compiler:
                 self._get_incremented_instruction_count(),
                 instruction="ldr a1,[a1,#" + str(class_attribute_offset) + "]\n"
             )
+
+            self._link_instructions([
+                new_instruction,
+                instruction_branch_md_exit
+            ])
 
         return new_instruction
 
