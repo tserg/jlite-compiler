@@ -3323,9 +3323,6 @@ class Compiler:
             if self.debug:
                 sys.stdout.write("Converting if-goto to assembly - Identifier as condition.\n")
 
-            # Create rel exp label
-
-            rel_exp_label = str(ir3_node.rel_exp)
             rel_instruction = "beq "
 
             # Load identifier
@@ -3360,11 +3357,6 @@ class Compiler:
 
             if self.debug:
                 sys.stdout.write("Converting if-goto to assembly - RelOp as condition.\n")
-
-            # Create rel exp label
-
-            rel_exp_label = str(ir3_node.rel_exp.left_operand) + "_" + \
-                str(ir3_node.rel_exp.right_operand)
 
             # Load identifier
 
@@ -3415,37 +3407,33 @@ class Compiler:
 
         # Branch
 
-        true_label = "." + rel_exp_label + "True_" + \
-            str(self.branch_count)
-        self.branch_count += 1
+        true_label = "." + str(ir3_node.goto)
 
         instruction_branch_to_true = Instruction(
             self._get_incremented_instruction_count(),
             instruction=rel_instruction + true_label + "\n"
         )
 
-        instruction_true_branch_label = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction=true_label + ":\n"
-        )
-
         self._link_instructions([
             instruction_compare,
-            instruction_branch_to_true,
-            instruction_true_branch_label
+            instruction_branch_to_true
         ])
 
-        self._update_descriptors(
-            register=y_reg,
-            identifier=ir3_node.rel_exp.left_operand
-        )
-
         if type(ir3_node.rel_exp) == RelOp3Node:
+            self._update_descriptors(
+                register=y_reg,
+                identifier=ir3_node.rel_exp.left_operand
+            )
             self._update_descriptors(
                 register=z_reg,
                 identifier=ir3_node.rel_exp.right_operand
             )
+
         else:
+            self._update_descriptors(
+                register=y_reg,
+                identifier=ir3_node.rel_exp
+            )
             self._update_descriptors(
                 register=z_reg,
                 identifier='placeholder'
