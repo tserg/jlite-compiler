@@ -105,6 +105,8 @@ class Compiler:
         Run the parser through the given file
 
     """
+    optimize: bool
+
     ir3_generator: "IR3Generator"
     address_descriptor: Dict[str, List[str]]
     register_descriptor: Dict[str, List[str]]
@@ -119,8 +121,12 @@ class Compiler:
 
     def __init__(
         self,
-        debug: bool=False
+        debug: bool=False,
+        optimize: bool=False
     ) -> None:
+
+        self.optimize = optimize
+
         self.ir3_generator = IR3Generator()
         self.debug = debug
 
@@ -141,6 +147,32 @@ class Compiler:
     def _get_incremented_instruction_count(self) -> int:
         self.instruction_count += 1
         return self.instruction_count
+
+    def _update_instruction_line_no(self) -> None:
+
+        current_instruction = self.instruction_head
+
+        old_instruction_count = self.instruction_count
+
+        self.instruction_count = 0
+
+        completed = False
+
+        while not completed:
+
+            if not current_instruction:
+                completed = True
+                break
+
+            self.instruction_count += 1
+            current_instruction.set_instruction_line_no(self.instruction_count)
+
+            current_instruction = current_instruction.child
+
+        if self.debug:
+            sys.stdout.write("Updating instruction line numbers.\n")
+            sys.stdout.write("Initial count: " + str(old_instruction_count) + "\n")
+            sys.stdout.write("Updated count: " + str(self.instruction_count) + "\n")
 
     def _link_instructions(
         self,
@@ -3610,15 +3642,15 @@ class Compiler:
         """
         self.ir3_generator.generate_ir3(f)
         self._convert_ir3_to_assembly(self.ir3_generator.ir3_tree)
-
-        self._write_to_assembly_file(filename)
+        self._update_instruction_line_no()
+        self._write_to_assembly_file()
 
     def _pretty_print(self) -> None:
         self.instruction_head.pretty_print()
 
-    def _write_to_assembly_file(self, filename: str) -> None:
+    def _write_to_assembly_file(self) -> None:
 
-        f = open(filename + ".s", "w")
+        f = open("program.s", "w")
 
         completed = False
         current_instruction = self.instruction_head
@@ -3652,10 +3684,19 @@ def __main__():
             "Please check the file name or extension.\n")
 
     else:
+
+        optimize = False
+
+        try:
+            if sys.argv[2] == '-o':
+                optimize = True
+        except:
+            pass
+
         filename = os.path.splitext(filepath)[0]
         sys.stdout.write(filename)
         f = open(filepath, 'r')
-        c = Compiler(debug=True)
+        c = Compiler(debug=True, optimize=optimize)
         c.compile(f, filename)
 
 if __name__ == "__main__":
