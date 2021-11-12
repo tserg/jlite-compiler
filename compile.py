@@ -1937,13 +1937,13 @@ class Compiler:
 
         if is_simple_assignment:
 
+            if type(assignment3node.assigned_value) == IR3Node:
+                assigned_value = assignment3node.assigned_value.value
+
+            else:
+                assigned_value = assignment3node.assigned_value
+
             if assignment3node.type in [BasicType.INT, BasicType.BOOL]:
-
-                if type(assignment3node.assigned_value) == IR3Node:
-                    assigned_value = assignment3node.assigned_value.value
-
-                else:
-                    assigned_value = assignment3node.assigned_value
 
                 if assignment3node.type == BasicType.INT:
 
@@ -1970,7 +1970,7 @@ class Compiler:
 
                 if self.debug:
                     sys.stdout.write("Converting assignment to assembly - Raw string: " + \
-                        str(assignment3node.value) + "\n")
+                        str(assigned_value) + "\n")
 
                 instruction_initialise_string_data_assembly_code = string_data_label + \
                     ": .asciz " + assigned_value[:-1] + '"' + "\n"
@@ -2094,15 +2094,33 @@ class Compiler:
             elif (assignment3node.type == BasicType.BOOL and \
                     assignment3node.assigned_value.operator) == '!':
 
-                var_y_offset = self.address_descriptor[
-                    assignment3node.assigned_value.operand
-                ]['offset']
-
-                instruction_load_y_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
-                        "]\n"
+                var_y_is_arg = self._check_if_in_arguments(
+                    assignment3node.assigned_value.operand,
+                    md_args
                 )
+
+                if self.debug:
+
+                    sys.stdout.write("Unary op - check if y is in arg: " + \
+                        str(var_y_is_arg) + "\n")
+
+                if var_y_is_arg:
+
+                    instruction_load_y_value = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction="mov " + y_reg + "," + var_y_is_arg + "\n"
+                    )
+
+                else:
+                    var_y_offset = self.address_descriptor[
+                        assignment3node.assigned_value.operand
+                    ]['offset']
+
+                    instruction_load_y_value = Instruction(
+                        self._get_incremented_instruction_count(),
+                        instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
+                            "]\n"
+                    )
 
                 instruction_negate_y_value = Instruction(
                     self._get_incremented_instruction_count(),
