@@ -23,6 +23,10 @@ class Instruction:
         self.child = child
         self.parent = parent
 
+    def set_instruction_line_no(self, line_no: int) -> None:
+
+        self.line_no = line_no
+
     def set_instruction(
         self,
         assembly_code: str
