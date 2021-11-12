@@ -16,6 +16,7 @@ from typing import (
     Optional,
     TextIO,
     Tuple,
+    Union,
 )
 
 from instruction import (
@@ -223,12 +224,12 @@ class Compiler:
 
     def _calculate_class_attribute_offset(
         self,
-        ir3_node: Optional[ClassAttribute3Node]=None,
+        ir3_node: Optional[Union[ClassAttribute3Node, IR3Node]]=None,
         class_name: Optional[str]=None,
         attribute_name: Optional[str]=None
     ) -> Optional[int]:
 
-        if ir3_node:
+        if type(ir3_node) == ClassAttribute3Node:
 
             attribute_name = ir3_node.target_attribute
             class_name = ir3_node.class_name
@@ -249,6 +250,11 @@ class Compiler:
                     # Get identifiers of class attributes
 
                     object_attributes = current_class_data.get_var_decl_identifiers()
+
+                    if self.debug:
+
+                        sys.stdout.write("Getting class attribute offset - all vars: " + \
+                            str(object_attributes) + "\n")
 
                     offset = 0
 
@@ -763,6 +769,18 @@ class Compiler:
                     'y': ir3_node.rel_exp.left_operand,
                     'z': ir3_node.rel_exp.right_operand
                 }
+
+            elif type(ir3_node.rel_exp) == IR3Node:
+
+                required_registers = {
+                    'y': ir3_node.rel_exp.value,
+                    'z': 'placeholder'
+                }
+
+        else:
+            if self.debug:
+                sys.stdout.write("Getting required registers - uncaught situation: " + \
+                    str(ir3_node.rel_exp) + "\n")
 
         return required_registers
 
@@ -1598,7 +1616,7 @@ class Compiler:
                         str(identifier_offset) + "]\n"
 
             instruction_initialise_print_data_assembly_code = print_data_label + \
-                ": .asciz \"%i\\n\"\n"
+                ": .asciz \"%i\"\n"
 
         elif println3node.type == BasicType.STRING:
 
@@ -1612,7 +1630,7 @@ class Compiler:
                 instruction_load_print_value_assembly_code = "mov a2,#0\n"
 
                 instruction_initialise_print_data_assembly_code = print_data_label + \
-                    ": .asciz " + println3node.expression[:-1] + '\\n"' + "\n"
+                    ": .asciz " + println3node.expression[:-1] + '"' + "\n"
 
             # Otherwise, lookup symbol table
             else:
@@ -1650,7 +1668,7 @@ class Compiler:
                 instruction_load_print_value_assembly_code = "mov a2,#0\n"
 
                 instruction_initialise_print_data_assembly_code = print_data_label + \
-                    ": .asciz " + '"' + println3node.expression + '\\n"' + "\n"
+                    ": .asciz " + '"' + println3node.expression + '"' + "\n"
 
             # Otherwise, lookup symbol table
             else:
@@ -1660,12 +1678,12 @@ class Compiler:
 
                 print_true_label = print_data_label
                 instruction_initialise_print_true_assembly_code = print_true_label + \
-                    ': .asciz "true\\n"\n'
+                    ': .asciz "true"\n'
 
                 print_false_label = "d" + str(self.data_label_count) + "_false"
 
                 instruction_initialise_print_false_assembly_code = print_false_label + \
-                    ': .asciz "false\\n"\n'
+                    ': .asciz "false"\n'
 
                 # Load boolean identifier
 
@@ -1955,7 +1973,7 @@ class Compiler:
                         str(assignment3node.value) + "\n")
 
                 instruction_initialise_string_data_assembly_code = string_data_label + \
-                    ": .asciz " + assigned_value[:-1] + '\\n"' + "\n"
+                    ": .asciz " + assigned_value[:-1] + '"' + "\n"
 
                 instruction_add_string_to_data = Instruction(
                     self._get_incremented_instruction_count(),
@@ -2615,34 +2633,62 @@ class Compiler:
 
             # Load first operand
 
-            var_y_offset = self.address_descriptor[
-                assignment3node.assigned_value.left_operand
-            ]['offset']
-
-            instruction_load_y_value = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="ldr " + registers['y'][0] + ",[fp,#-" + \
-                    str(var_y_offset) + "]\n",
+            var_y_is_arg = self._check_if_in_arguments(
+                assignment3node.assigned_value.left_operand,
+                md_args
             )
+
+            if var_y_is_arg:
+                instruction_load_y_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="mov " + registers['y'][0] + "," + \
+                        var_y_is_arg + "\n"
+                )
+
+            else:
+
+                var_y_offset = self.address_descriptor[
+                    assignment3node.assigned_value.left_operand
+                ]['offset']
+
+                instruction_load_y_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + registers['y'][0] + ",[fp,#-" + \
+                        str(var_y_offset) + "]\n",
+                )
 
             # Load second operand
 
-            var_z_offset = self.address_descriptor[
-                assignment3node.assigned_value.right_operand
-            ]['offset']
-
-            instruction_load_z_value = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="ldr " + registers['z'][0] + ",[fp,#-" + \
-                    str(var_z_offset) + "]\n"
+            var_z_is_arg = self._check_if_in_arguments(
+                assignment3node.assigned_value.right_operand,
+                md_args
             )
+
+            if var_z_is_arg:
+                instruction_load_z_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="mov " + registers['z'][0] + "," + \
+                        var_z_is_arg + "\n"
+                )
+
+            else:
+
+                var_z_offset = self.address_descriptor[
+                    assignment3node.assigned_value.right_operand
+                ]['offset']
+
+                instruction_load_z_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + registers['z'][0] + ",[fp,#-" + \
+                        str(var_z_offset) + "]\n"
+                )
 
             # Compare
 
             instruction_compare = Instruction(
                 self._get_incremented_instruction_count(),
-                instruction="cmp " + registers['y'][0] + "," + registers['z'][0] + \
-                    "\n"
+                instruction="cmp " + registers['y'][0] + "," + \
+                    registers['z'][0] + "\n"
             )
 
             # If true, go to branch to set to True
@@ -2774,7 +2820,7 @@ class Compiler:
                                 sys.stdout.write("Converting stmt to assembly - MethodCall3 - String.\n")
 
                             instruction_initialise_string_data_assembly_code = string_data_label + \
-                                ": .asciz " + next_arg.value[:-1] + '\\n"' + "\n"
+                                ": .asciz " + next_arg.value[:-1] + '"' + "\n"
 
                             instruction_add_string_to_data = Instruction(
                                 self._get_incremented_instruction_count(),
@@ -3353,6 +3399,71 @@ class Compiler:
                 instruction_compare
             ])
 
+        elif type(ir3_node.rel_exp) == IR3Node:
+
+            if self.debug:
+                sys.stdout.write("Converting if-goto to assembly - Nested identifier as condition.\n")
+                sys.stdout.write("Md args: " + str(md_args) + "\n")
+                sys.stdout.write("Attribute identifier: " +str(ir3_node.rel_exp.value) + "\n")
+
+            rel_instruction = "beq "
+
+            # Load identifier
+
+            var_y_offset = self._calculate_class_attribute_offset(
+                attribute_name=ir3_node.rel_exp.value,
+                class_name=md_args[0][1]
+            )
+
+            if self.debug:
+                sys.stdout.write("Converting if-goto to assembly - Attribute offset: " +\
+                    str(var_y_offset) + "\n")
+
+            if type(var_y_offset) == int:
+
+                if self.debug:
+                    sys.stdout.write("Offset found in attribute")
+
+                instruction_load_y_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + y_reg + ",[a1,#" + str(var_y_offset) + \
+                        "]\n"
+                )
+
+            else:
+
+                var_y_offset = self.address_descriptor[
+                    ir3_node.rel_exp.value
+                ]['offset']
+
+                instruction_load_y_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
+                        "]\n"
+                )
+
+            if self.debug:
+                sys.stdout.write("Converting if-goto to assembly - Offset: " + \
+                    str(var_y_offset) + "\n")
+
+            instruction_load_true_value = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="mvn " + z_reg + ",#0\n"
+            )
+
+            # Compare
+
+            instruction_compare = Instruction(
+                self._get_incremented_instruction_count(),
+                instruction="cmp " + y_reg + "," + z_reg + "\n"
+            )
+
+            self._link_instructions([
+                instruction_load_y_value,
+                instruction_load_true_value,
+                instruction_compare
+            ])
+
         elif type(ir3_node.rel_exp) == RelOp3Node:
 
             if self.debug:
@@ -3360,25 +3471,52 @@ class Compiler:
 
             # Load identifier
 
-            var_y_offset = self.address_descriptor[
-                ir3_node.rel_exp.left_operand
-            ]['offset']
-
-            instruction_load_y_value = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
-                    "]\n"
+            var_y_is_arg = self._check_if_in_arguments(
+                ir3_node.rel_exp.left_operand,
+                md_args
             )
 
-            var_z_offset = self.address_descriptor[
-                ir3_node.rel_exp.right_operand
-            ]['offset']
+            if var_y_is_arg:
+                instruction_load_y_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="mov " + y_reg + "," + var_y_is_arg + "\n"
+                )
 
-            instruction_load_z_value = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="ldr " + z_reg + ",[fp,#-" + str(var_z_offset) + \
-                    "]\n"
+            else:
+
+                var_y_offset = self.address_descriptor[
+                    ir3_node.rel_exp.left_operand
+                ]['offset']
+
+                instruction_load_y_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
+                        "]\n"
+                )
+
+            var_z_is_arg = self._check_if_in_arguments(
+                ir3_node.rel_exp.right_operand,
+                md_args
             )
+
+            if var_z_is_arg:
+                instruction_load_z_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="mov " + z_reg + "," + var_z_is_arg + "\n"
+                )
+
+            else:
+
+                var_z_offset = self.address_descriptor[
+                    ir3_node.rel_exp.right_operand
+                ]['offset']
+
+
+                instruction_load_z_value = Instruction(
+                    self._get_incremented_instruction_count(),
+                    instruction="ldr " + z_reg + ",[fp,#-" + str(var_z_offset) + \
+                        "]\n"
+                )
 
             # Compare
 
