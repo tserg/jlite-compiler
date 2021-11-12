@@ -1603,16 +1603,12 @@ class IR3Generator:
                         if prior_instructions:
                             sys.stdout.write("Getting Exp - Method call detected - Prior instructions retrieved.\n")
 
+                        else:
+                            sys.stdout.write("Getting Exp - Method call detected - No prior instructions.\n")
 
                     class_instance_node.add_child(args)
 
                 md_call_node.set_arguments(class_instance_node)
-
-                new_exp_node = md_call_node
-                if prior_instructions:
-                    prior_instructions_last = self._get_last_child(prior_instructions)
-                    prior_instructions_last.add_child(md_call_node)
-                    new_exp_node = prior_instructions
 
                 # Set method call to temporary variable
 
@@ -1634,6 +1630,15 @@ class IR3Generator:
 
                 temp_var_node.add_child(temp_var_assignment_node)
                 new_exp_node = temp_var_node
+
+                if prior_instructions:
+
+                    # Link prior instructions with temporary variable declaration
+                    # for method call
+
+                    prior_instructions_last = self._get_last_child(prior_instructions)
+                    prior_instructions_last.add_child(temp_var_node)
+                    new_exp_node = prior_instructions
 
             else:
                 # <id3>.<id3>
