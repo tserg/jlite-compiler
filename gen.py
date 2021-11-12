@@ -352,11 +352,14 @@ class IR3Generator:
 
         condition_node: Any
 
+        if self.debug:
+            sys.stdout.write("Deriving ifgoto condition.\n")
+
         if type(ast_node.condition) == RelOpNode and \
             not ast_node.condition.child and \
             not ast_node.condition.sibling and \
-            type(ast_node.condition.left_operand) == ASTNode and \
-            type(ast_node.condition.right_operand) == ASTNode:
+            ast_node.condition.left_operand.is_raw_value and \
+            ast_node.condition.right_operand.is_raw_value:
 
             # Shortcut to derive RelOp expression directly if dealing with
             # identifiers/constants only
@@ -1238,6 +1241,7 @@ class IR3Generator:
 
         return stmt_node
 
+    '''
     def _get_rel_exp3(
         self,
         ast_node: Any
@@ -1263,6 +1267,7 @@ class IR3Generator:
 
         else:
             return IR3Node(value=ast_node.value, type=ast_node.type)
+        '''
 
     def _check_complex_operand_in_binop(
         self,
@@ -1432,6 +1437,10 @@ class IR3Generator:
                 symbol_table,
                 ast_node.right_operand
             )
+
+            if self.debug:
+                sys.stdout.write("Getting Exp - RelOpNode - Right operand expression: " + \
+                    str(type(right_operand_node)) + "\n")
 
             temp_var = "_t"+str(self._get_temp_var_count())
             temp_var_node = VarDecl3Node(value=temp_var, type=BasicType.BOOL)
@@ -2092,19 +2101,21 @@ class IR3Generator:
                         "Checking if identifier is found in symbol table: " + \
                         str(identifier) + "\n")
 
+                # Check for method name in symbol table
+                st_lookup: Any = symbol_table.lookup(ast_node.value)
+
+                if st_lookup:
+                    if self.debug:
+                        sys.stdout.write("Getting Exp - Symbol table result - " + \
+                            str(st_lookup) + "\n")
+
                 if type(identifier['type']) == FunctionType:
                     if self.debug:
                         sys.stdout.write("Getting Exp - FunctionType detected.\n")
                         sys.stdout.write("Getting Exp - Method call detected.\n")
                         sys.stdout.write("Getting Exp - Type: " + str(ast_node.type) + "\n")
 
-                    # Check for method name in symbol table
-                    st_lookup: Any = symbol_table.lookup(ast_node.value)
-
                     if st_lookup:
-                        if self.debug:
-                            sys.stdout.write("Getting Exp - Symbol table result - " + \
-                                str(st_lookup) + "\n")
 
                         if type(st_lookup) == list:
 
@@ -2204,6 +2215,11 @@ class IR3Generator:
                         new_exp_node = prior_instructions
 
                 else:
+
+                    if self.debug:
+                        sys.stdout.write("Getting Exp - Returning raw node: " + \
+                            str(ast_node.value) + "\n")
+                        sys.stdout.write("Is identifier: " + str(ast_node.is_identifier) + "\n")
 
                     return IR3Node(value=ast_node.value, type=ast_node.type)
 
