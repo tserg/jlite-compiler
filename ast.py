@@ -1598,7 +1598,7 @@ class InstanceNode(ASTNode):
             current_arg = current_args[i][0]
 
             env_copy = copy.deepcopy(env)
-            current_arg_type = self._get_arg_type(current_args[i], env_copy, debug=True)
+            current_arg_type = self._get_arg_type(current_args[i], env_copy, debug)
 
             if debug:
                 sys.stdout.write(

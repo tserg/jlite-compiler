@@ -1942,7 +1942,7 @@ class Parser:
 
         :param bool debug: display logging for troubleshooting
         """
-        self.ast.type_check(debug)
+        self.ast.type_check(self.debug)
         #sys.stdout.write("Type checking completed\n")
 
     def get_initial_env(self) -> None:
@@ -1975,8 +1975,7 @@ def __main__():
         parser.pretty_print()
 
         parser.type_check(debug=False)
-        #parser.get_initial_env()
-        #sys.stdout.write(str(parser.parse_tree.total_nodes()))
+
 
 if __name__ == "__main__":
 

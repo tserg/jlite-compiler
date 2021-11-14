@@ -115,8 +115,9 @@ class IR3Generator:
     symbol_table: "SymbolTableStack"
 
     def __init__(self, debug: bool=False) -> None:
-        self.parser = Parser()
+
         self.debug = debug
+        self.parser = Parser(self.debug)
         self.label_count = 0
         self.temp_var_count = 0
 
@@ -127,7 +128,7 @@ class IR3Generator:
         :param TextIO f: the input file
         """
         self.parser.parse(f)
-        self.parser.type_check()
+        self.parser.type_check(self.debug)
 
     def _get_temp_var_count(self) -> int:
         """
@@ -2456,7 +2457,7 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        gen = IR3Generator(debug=True)
+        gen = IR3Generator(debug=False)
         gen.generate_ir3(f)
         gen.pretty_print()
 
