@@ -135,7 +135,7 @@ class Compiler:
         self.debug = debug
 
         self.ir3_generator = IR3Generator(debug)
-        self.control_flow_generator = ControlFlowGenerator(debug)
+        self.control_flow_generator = ControlFlowGenerator(debug, optimize)
 
         self.instruction_count = self.data_label_count = self.branch_count = 0
 
@@ -359,41 +359,62 @@ class Compiler:
                         left_operand = assigned_value.left_operand
                         right_operand = assigned_value.right_operand
 
-                        left_operand_is_non_arg_id = self._check_if_in_arguments(
-                            left_operand,
-                            md_args
-                        ) or assigned_value.left_operand_is_raw_value
+                        if not assigned_value.left_operand_is_raw_value:
 
-                        if left_operand_is_non_arg_id:
+                            left_operand_is_non_arg_id = not self._check_if_in_arguments(
+                                left_operand,
+                                md_args
+                            )
 
-                            if left_operand in liveness_data:
-                                liveness_data[left_operand].append(current_stmt.md_line_no)
+                            if left_operand_is_non_arg_id:
 
-                            else:
-                                liveness_data[left_operand] = [current_stmt.md_line_no]
+                                if left_operand in liveness_data:
+                                    liveness_data[left_operand].append(current_stmt.md_line_no)
 
-                        right_operand_is_non_arg_id = self._check_if_in_arguments(
-                            right_operand,
-                            md_args
-                        ) or assigned_value.right_operand_is_raw_value
+                                else:
+                                    liveness_data[left_operand] = [current_stmt.md_line_no]
 
-                        if right_operand_is_non_arg_id:
+                        if not assigned_value.right_operand_is_raw_value:
 
-                            if right_operand in liveness_data:
-                                liveness_data[right_operand].append(current_stmt.md_line_no)
+                            right_operand_is_non_arg_id = not self._check_if_in_arguments(
+                                right_operand,
+                                md_args
+                            )
 
-                            else:
-                                liveness_data[right_operand] = [current_stmt.md_line_no]
+                            if right_operand_is_non_arg_id:
+
+                                if right_operand in liveness_data:
+                                    liveness_data[right_operand].append(current_stmt.md_line_no)
+
+                                else:
+                                    liveness_data[right_operand] = [current_stmt.md_line_no]
 
                     else:
                         # Base IR3Node
                         assigned_value_is_raw_value = assigned_value.is_raw_value
                         assigned_value = assigned_value.value
 
-                        assigned_value_is_non_arg_id = self._check_if_in_arguments(
+                        if not assigned_value_is_raw_value:
+                            assigned_value_is_non_arg_id = not self._check_if_in_arguments(
+                                assigned_value,
+                                md_args
+                            )
+
+                            if assigned_value_is_non_arg_id:
+
+                                if assigned_value in liveness_data:
+                                    liveness_data[assigned_value].append(current_stmt.md_line_no)
+
+                                else:
+                                    liveness_data[assigned_value] = [current_stmt.md_line_no]
+
+                else:
+
+                    if not assigned_value_is_raw_value:
+                        assigned_value_is_non_arg_id = not self._check_if_in_arguments(
                             assigned_value,
                             md_args
-                        ) or assigned_value_is_raw_value
+                        )
 
                         if assigned_value_is_non_arg_id:
 
@@ -403,37 +424,36 @@ class Compiler:
                             else:
                                 liveness_data[assigned_value] = [current_stmt.md_line_no]
 
-                else:
-
-                    assigned_value_is_non_arg_id = self._check_if_in_arguments(
-                        assigned_value,
-                        md_args
-                    ) or assigned_value_is_raw_value
-
-                    if assigned_value_is_non_arg_id:
-
-                        if assigned_value in liveness_data:
-                            liveness_data[assigned_value].append(current_stmt.md_line_no)
-
-                        else:
-                            liveness_data[assigned_value] = [current_stmt.md_line_no]
-
             elif type(current_stmt) == PrintLn3Node:
 
                 expression = current_stmt.expression
 
-                expression_is_non_arg_id = self._check_if_in_arguments(
-                    expression,
-                    md_args
-                ) or current_stmt.is_raw_value
+                if self.debug:
+                    sys.stdout.write("Getting liveness data for println: " + \
+                        str(expression) + "\n")
 
-                if expression_is_non_arg_id:
+                if not current_stmt.is_raw_value:
 
-                    if expression in liveness_data:
-                        liveness_data[expression].append(current_stmt.md_line_no)
+                    if self.debug:
+                        sys.stdout.write("Getting liveness data - println is not raw value.\n")
 
-                    else:
-                        liveness_data[expression] = [current_stmt.md_line_no]
+                    expression_is_non_arg_id = not self._check_if_in_arguments(
+                        expression,
+                        md_args
+                    )
+
+                    if self.debug:
+                        sys.stdout.write("Getting liveness data - println is not arg: " + \
+                            str(expression_is_non_arg_id) + "\n")
+
+
+                    if expression_is_non_arg_id:
+
+                        if expression in liveness_data:
+                            liveness_data[expression].append(current_stmt.md_line_no)
+
+                        else:
+                            liveness_data[expression] = [current_stmt.md_line_no]
 
             current_stmt = current_stmt.child
 
@@ -618,6 +638,10 @@ class Compiler:
 
         if self.debug:
             sys.stdout.write("Checking for spilled register.\n")
+            sys.stdout.write("Get spilled register - liveness data: " + \
+                str(liveness_data) + "\n")
+            sys.stdout.write("Get spilled register - register descriptor: " +
+                str(self.register_descriptor) + "\n")
 
         min_spill_cost = float("inf")
         min_spill_cost_reg = None
@@ -633,7 +657,16 @@ class Compiler:
                     # For each identifier referenced in the current register,
                     # calculate the number of times it appears in a later instruction
 
-                    current_identifier_liveness = liveness_data[r]
+                    if self.debug:
+                        sys.stdout.write("Get spilled register - checking for reference " + \
+                            str(r) + " in register " + k + " with references " + str(v) + "\n")
+
+                    try:
+                        current_identifier_liveness = liveness_data[r]
+
+                    except:
+                        current_identifier_liveness = []
+
                     subsequent_reference_count = len(
                         [i for i in current_identifier_liveness if i > current_line_no]
                     )
@@ -2279,7 +2312,11 @@ class Compiler:
                             "x = y + z - Loading z" + "\n")
 
                     instruction_load_mul_raw_y = None
+                    z_reg_identifier = assignment3node.assigned_value.right_operand
                     if assignment3node.assigned_value.operator == '*':
+
+                        z_reg_identifier = 'placeholder'
+
                         instruction_load_mul_raw_y = Instruction(
                             self._get_incremented_instruction_count(),
                             instruction=move_instruction + registers['y'][0] + ",#" + str(y_value) + "\n"
@@ -2318,7 +2355,7 @@ class Compiler:
 
                         self._update_descriptors(
                             register=z_value,
-                            identifier=assignment3node.assigned_value.right_operand
+                            identifier=z_reg_identifier
                         )
 
                         if instruction_load_mul_raw_y:
@@ -2348,7 +2385,7 @@ class Compiler:
 
                         self._update_descriptors(
                             register=z_value,
-                            identifier=assignment3node.assigned_value.right_operand
+                            identifier=z_is_arg
                         )
 
 
@@ -2376,7 +2413,11 @@ class Compiler:
                             "x = y + z - Loading z" + "\n")
 
                     instruction_load_mul_raw_z = None
+                    y_reg_identifier = assignment3node.assigned_value.left_operand
                     if assignment3node.assigned_value.operator == '*':
+
+                        y_reg_identifier = 'placeholder'
+
                         instruction_load_mul_raw_z = Instruction(
                             self._get_incremented_instruction_count(),
                             instruction="mov " + registers['z'][0] + ",#" + str(z_value) + "\n"
@@ -2415,7 +2456,7 @@ class Compiler:
 
                         self._update_descriptors(
                             register=y_value,
-                            identifier=assignment3node.assigned_value.left_operand
+                            identifier=y_reg_identifier
                         )
 
                         if instruction_load_mul_raw_z:
@@ -2443,7 +2484,7 @@ class Compiler:
 
                         self._update_descriptors(
                             register=y_value,
-                            identifier=assignment3node.assigned_value.left_operand
+                            identifier=y_is_arg
                         )
 
                         if instruction_load_mul_raw_z:
@@ -2684,9 +2725,19 @@ class Compiler:
                     stored_offsets = []
 
                     for s in spilled_identifiers:
-                        var_offset = self.address_descriptor[s]['offset']
 
-                        if var_offset not in stored_offsets:
+                        try:
+                            var_offset = self.address_descriptor[s]['offset']
+
+                        except:
+                            var_offset = None
+
+                        if not var_offset:
+
+                            # Placeholder value that can be spilled
+
+                            pass
+                        if var_offset and var_offset not in stored_offsets:
 
                             spill_instruction = Instruction(
                                 self._get_incremented_instruction_count(),
@@ -2701,7 +2752,7 @@ class Compiler:
 
                             new_instruction = spill_instruction
 
-                            stored_offset.append(var_offset)
+                            stored_offsets.append(var_offset)
 
                     if self.debug:
                         sys.stdout.write("Spilt register - str instruction added.\n")
@@ -3707,14 +3758,13 @@ class Compiler:
         """
         self.ir3_generator.generate_ir3(f)
 
-        if self.optimize:
-            if self.debug:
-                sys.stdout.write("Optimisation - Generating control flow.\n")
+        if self.debug:
+            sys.stdout.write("Optimisation - Generating control flow.\n")
 
-            self._generate_control_flow(self.ir3_generator.ir3_tree)
+        self._generate_control_flow(self.ir3_generator.ir3_tree)
 
-            if self.debug:
-                sys.stdout.write("Optimisation - Control flow generated.\n")
+        if self.debug:
+            sys.stdout.write("Optimisation - Control flow generated.\n")
 
 
         self._convert_ir3_to_assembly(self.ir3_generator.ir3_tree)
