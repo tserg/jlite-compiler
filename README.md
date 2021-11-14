@@ -469,10 +469,10 @@ All optimisations in this section are turned off by default. To enable these opt
 
 Code optimisation is executed in various passes:
 - During generation of control flow for IR3 nodes, integer constants are propagated and replaced. This is executed by the `_annotate_int_constants_and_propagate()` funtion in the `ControlFlowGenerator` class
-- Peephole optimisation of assembly code is executed by various helper functions in the `PeepholeOptimizer` class.
+- Peephole optimisation of assembly code is executed by various helper functions in the `_peephole_optimize_assembly_pass` function of the `PeepholeOptimizer` class.
   - Redundant load instructions are removed by the `_eliminate_redundant_ldr_str()` function. This includes load instructions immediately after a store and load instructions separated by one instruction.
 
-    Example of a redundant load instruction immediately after a store:
+    Examples of redundant load instruction immediately after a store:
     ```
     str v1,[fp,#-12]
     ldr v1,[fp,#-12] // this instruction will be removed
@@ -483,6 +483,18 @@ Code optimisation is executed in various passes:
     ldr v2,[fp,#-16]
     ldr v1,[fp,#-12] // this instruction will be removed
     ```
+
+    Redundant load store instructions of argument registers are also removed.
+    Example:
+    ```
+    bl printf
+    ldmfd sp!,{a1,a2,a3,a4} // this instruction will be removed
+    stmfd sp!,{a1,a2,a3,a4} // this instruction will be removed
+    ldr a1,=d8
+    mov a2,#0
+    bl printf
+    ```
+
   - Redundant move instructions are removed by the `_eliminate_redundant_mov()` function.
 
     Example of a redundant move instruction:
