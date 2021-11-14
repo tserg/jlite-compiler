@@ -1095,8 +1095,10 @@ class IR3Generator:
                         "Condition last child is different from condition.\n")
 
                 rel_exp_value = condition_last_node.identifier
-                condition_last_node.add_child(while_loop_start_label_node)
-                new_stmt_node = condition_node
+                #condition_last_node.add_child(while_loop_start_label_node)
+                while_loop_start_label_node.add_child(condition_node)
+                #new_stmt_node = condition_node
+                new_stmt_node = while_loop_start_label_node
 
             else:
                 new_stmt_node = while_loop_start_label_node
@@ -1119,7 +1121,8 @@ class IR3Generator:
                 goto=while_loop_exit_label_node.label_id
             )
 
-            while_loop_start_label_node.add_child(if_true_goto_node)
+            #while_loop_start_label_node.add_child(if_true_goto_node)
+            condition_last_node.add_child(if_true_goto_node)
             if_true_goto_node.add_child(false_goto_node)
             false_goto_node.add_child(while_loop_expression_start_label_node)
 
