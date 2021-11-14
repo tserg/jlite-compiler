@@ -51,6 +51,10 @@ from jlite_type import (
     BasicType,
 )
 
+from peephole_optimization import (
+    PeepholeOptimizer
+)
+
 REGISTERS = ['v1', 'v2', 'v3', 'v4', 'v5']
 
 ARG_REGISTERS = {
@@ -113,6 +117,7 @@ class Compiler:
 
     ir3_generator: "IR3Generator"
     control_flow_generator: "ControlFlowGenerator"
+    peephole_optimizer: "PeepholeOptimizer"
 
     address_descriptor: Dict[str, List[str]]
     register_descriptor: Dict[str, List[str]]
@@ -136,6 +141,7 @@ class Compiler:
 
         self.ir3_generator = IR3Generator(debug)
         self.control_flow_generator = ControlFlowGenerator(debug, optimize)
+        self.peephole_optimizer = PeepholeOptimizer(debug)
 
         self.instruction_count = self.data_label_count = self.branch_count = 0
 
@@ -187,8 +193,6 @@ class Compiler:
     ) -> None:
 
         for i in range(0, len(instructions)-1):
-
-
 
             current_instruction = instructions[i]
             next_instruction = instructions[i+1]
@@ -1185,7 +1189,6 @@ class Compiler:
     def _generate_control_flow(self, ir3_tree: Any) -> None:
 
         current_node = ir3_tree.head.method_data
-        sys.stdout.write(str(current_node) + "\n")
         completed = False
 
         while not completed:
@@ -2065,7 +2068,7 @@ class Compiler:
 
                     new_instruction = Instruction(
                         self._get_incremented_instruction_count(),
-                        instruction=mv_operator + " " + x_register + ",#0\n"
+                        instruction=mv_operator + x_register + ",#0\n"
                     )
 
             elif assignment3node.type == BasicType.STRING:
@@ -2713,6 +2716,7 @@ class Compiler:
             if self.debug:
                 sys.stdout.write("Registers obtained: " + str(registers) + ".\n")
 
+            '''
             for k, v in registers.items():
 
                 if v[1]:
@@ -2737,11 +2741,12 @@ class Compiler:
                             # Placeholder value that can be spilled
 
                             pass
+
                         if var_offset and var_offset not in stored_offsets:
 
                             spill_instruction = Instruction(
                                 self._get_incremented_instruction_count(),
-                                instruction="str " + v[0] + ",[fp,#-" + \
+                                instruction="strrrrrrrrr " + v[0] + ",[fp,#-" + \
                                     str(var_offset) + "]\n"
                             )
 
@@ -2761,16 +2766,12 @@ class Compiler:
                         register=v[0],
                         identifier=required_registers[k]
                     )
+        '''
 
         elif type(assignment3node.assigned_value) == RelOp3Node:
 
             if self.debug:
                 sys.stdout.write("Converting stmt to assembly - RelOp.\n")
-
-            new_instruction = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="Test test RelOp\n"
-            )
 
             # Load first operand
 
@@ -2985,7 +2986,7 @@ class Compiler:
 
                             instruction_load_next_argument = Instruction(
                                 self._get_incremented_instruction_count(),
-                                instruction=mv_instruction + " " + next_arg_reg + \
+                                instruction=mv_instruction + next_arg_reg + \
                                     ",#0\n"
                             )
 
@@ -3745,6 +3746,15 @@ class Compiler:
 
         return instruction_load_y_value
 
+    def _peephole_optimize_assembly(self) -> None:
+
+        self.peephole_optimizer.peephole_optimize_assembly_pass(
+            self.instruction_head
+        )
+
+        if self.debug:
+            self._update_instruction_line_no()
+
     def _compile(
         self,
         f: TextIO,
@@ -3769,6 +3779,10 @@ class Compiler:
 
         self._convert_ir3_to_assembly(self.ir3_generator.ir3_tree)
         self._update_instruction_line_no()
+
+        if self.optimize:
+            self._peephole_optimize_assembly()
+
         self._write_to_assembly_file()
 
     def _pretty_print(self) -> None:

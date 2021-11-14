@@ -287,7 +287,8 @@ class ControlFlowGenerator:
                     # Annotate constant
                     if current_stmt.assigned_value_is_raw_value:
 
-                        sys.stdout.write(str(current_block_values[current_stmt.identifier]) + "\n")
+                        if self.debug:
+                            sys.stdout.write(str(current_block_values[current_stmt.identifier]) + "\n")
 
                         current_block_values[current_stmt.identifier].add(
                             current_stmt.assigned_value
