@@ -41,8 +41,14 @@ class IR3Node:
     type: Any
     #is_identifier: bool
     md_line_no: Optional[int]
+    md_basic_block_line_no: Optional[int]
+    md_basic_block_no: Optional[int]
     child: Any
     is_raw_value: bool
+
+    #def_set: List[str]
+    #use_set: List[str]
+    #liveness_data: Optional[Any]
 
     def __init__(
         self,
@@ -57,7 +63,13 @@ class IR3Node:
         #self.is_identifier = is_identifier
         self.child = child
         self.md_line_no = None
+        self.md_basic_block_no = None
+        self.md_basic_block_line_no = None
         self.is_raw_value = is_raw_value
+
+        #self.def_set = []
+        #self.use_set = []
+        #self.liveness_data = None
 
     def add_child(self, node: Any) -> None:
         """
@@ -70,6 +82,25 @@ class IR3Node:
     def set_md_line_no(self, line_no: int) -> None:
         self.md_line_no = line_no
 
+    def set_md_basic_block_no(self, block_no: int) -> None:
+        self.md_basic_block_no = block_no
+
+    def set_md_basic_block_line_no(self, line_no: int) -> None:
+        self.md_basic_block_line_no = line_no
+
+    '''
+    def set_liveness_data(self, liveness_data: Any) -> None:
+        self.liveness_data = liveness_data
+
+    def add_to_def_set(self, identifier: str) -> None:
+
+        self.def_set.append(identifier)
+
+    def add_to_use_set(self, identifier: str) -> None:
+
+        self.use_set.append(identifier)
+    '''
+    
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write(str(self.value))

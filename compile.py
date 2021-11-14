@@ -5,6 +5,10 @@ from collections import (
     deque,
 )
 
+from control_flow import (
+    ControlFlowGenerator
+)
+
 from gen import (
     IR3Generator
 )
@@ -108,6 +112,8 @@ class Compiler:
     optimize: bool
 
     ir3_generator: "IR3Generator"
+    control_flow_generator: "ControlFlowGenerator"
+
     address_descriptor: Dict[str, List[str]]
     register_descriptor: Dict[str, List[str]]
 
@@ -126,9 +132,10 @@ class Compiler:
     ) -> None:
 
         self.optimize = optimize
-
-        self.ir3_generator = IR3Generator()
         self.debug = debug
+
+        self.ir3_generator = IR3Generator(debug)
+        self.control_flow_generator = ControlFlowGenerator(debug)
 
         self.instruction_count = self.data_label_count = self.branch_count = 0
 
@@ -308,12 +315,13 @@ class Compiler:
         md_args: List[str]
     ) -> Dict[str, List[int]]:
 
+        # Helper function to get live ranges for linear scan register allocation
+
         if self.debug:
             sys.stdout.write("Getting liveness data for method: " + \
                 str(ir3_node.method_id) + "\n")
 
         liveness_data = {}
-        instruction_count = 0
 
         completed = False
         current_stmt = ir3_node.statements
@@ -323,9 +331,6 @@ class Compiler:
             if not current_stmt:
                 completed = True
                 break
-
-            instruction_count += 1
-            current_stmt.set_md_line_no(instruction_count)
 
             # Check for statements
             if type(current_stmt) == Assignment3Node:
@@ -339,10 +344,10 @@ class Compiler:
 
                 if not identifier_is_arg:
                     if identifier in liveness_data:
-                        liveness_data[identifier].append(instruction_count)
+                        liveness_data[identifier].append(current_stmt.md_line_no)
 
                     else:
-                        liveness_data[identifier] = [instruction_count]
+                        liveness_data[identifier] = [current_stmt.md_line_no]
 
                 assigned_value = current_stmt.assigned_value
                 assigned_value_is_raw_value = current_stmt.assigned_value_is_raw_value
@@ -362,10 +367,10 @@ class Compiler:
                         if left_operand_is_non_arg_id:
 
                             if left_operand in liveness_data:
-                                liveness_data[left_operand].append(instruction_count)
+                                liveness_data[left_operand].append(current_stmt.md_line_no)
 
                             else:
-                                liveness_data[left_operand] = [instruction_count]
+                                liveness_data[left_operand] = [current_stmt.md_line_no]
 
                         right_operand_is_non_arg_id = self._check_if_in_arguments(
                             right_operand,
@@ -375,10 +380,10 @@ class Compiler:
                         if right_operand_is_non_arg_id:
 
                             if right_operand in liveness_data:
-                                liveness_data[right_operand].append(instruction_count)
+                                liveness_data[right_operand].append(current_stmt.md_line_no)
 
                             else:
-                                liveness_data[right_operand] = [instruction_count]
+                                liveness_data[right_operand] = [current_stmt.md_line_no]
 
                     else:
                         # Base IR3Node
@@ -393,10 +398,10 @@ class Compiler:
                         if assigned_value_is_non_arg_id:
 
                             if assigned_value in liveness_data:
-                                liveness_data[assigned_value].append(instruction_count)
+                                liveness_data[assigned_value].append(current_stmt.md_line_no)
 
                             else:
-                                liveness_data[assigned_value] = [instruction_count]
+                                liveness_data[assigned_value] = [current_stmt.md_line_no]
 
                 else:
 
@@ -408,10 +413,10 @@ class Compiler:
                     if assigned_value_is_non_arg_id:
 
                         if assigned_value in liveness_data:
-                            liveness_data[assigned_value].append(instruction_count)
+                            liveness_data[assigned_value].append(current_stmt.md_line_no)
 
                         else:
-                            liveness_data[assigned_value] = [instruction_count]
+                            liveness_data[assigned_value] = [current_stmt.md_line_no]
 
             elif type(current_stmt) == PrintLn3Node:
 
@@ -425,10 +430,10 @@ class Compiler:
                 if expression_is_non_arg_id:
 
                     if expression in liveness_data:
-                        liveness_data[expression].append(instruction_count)
+                        liveness_data[expression].append(current_stmt.md_line_no)
 
                     else:
-                        liveness_data[expression] = [instruction_count]
+                        liveness_data[expression] = [current_stmt.md_line_no]
 
             current_stmt = current_stmt.child
 
@@ -1143,6 +1148,26 @@ class Compiler:
         ])
 
         self.instruction_tail = main_instruction.get_last_child()
+
+    def _generate_control_flow(self, ir3_tree: Any) -> None:
+
+        current_node = ir3_tree.head.method_data
+        sys.stdout.write(str(current_node) + "\n")
+        completed = False
+
+        while not completed:
+            # Iterate through methods
+
+            if not current_node:
+                # If no other methods, terminate loop
+                completed=True
+                break
+
+            self.control_flow_generator.generate_basic_blocks(
+                current_node
+            )
+
+            current_node = current_node.child
 
     def _convert_cmtd3_to_assembly(
         self,
@@ -3162,8 +3187,9 @@ class Compiler:
             # it is not declaring a new object, then store the value of identifier
             # to stack
 
-            sys.stdout.write("Converting stmt to assembly - updating register x of type: " + \
-                str(type(assignment3node.identifier)) + "\n")
+            if self.debug:
+                sys.stdout.write("Converting stmt to assembly - updating register x of type: " + \
+                    str(type(assignment3node.identifier)) + "\n")
 
             new_instruction_last = new_instruction.get_last_child()
 
@@ -3680,6 +3706,17 @@ class Compiler:
         :param TextIO f: the input file
         """
         self.ir3_generator.generate_ir3(f)
+
+        if self.optimize:
+            if self.debug:
+                sys.stdout.write("Optimisation - Generating control flow.\n")
+
+            self._generate_control_flow(self.ir3_generator.ir3_tree)
+
+            if self.debug:
+                sys.stdout.write("Optimisation - Control flow generated.\n")
+
+
         self._convert_ir3_to_assembly(self.ir3_generator.ir3_tree)
         self._update_instruction_line_no()
         self._write_to_assembly_file()
@@ -3725,17 +3762,18 @@ def __main__():
     else:
 
         optimize = False
+        debug = False
 
-        try:
-            if sys.argv[2] == '-o':
-                optimize = True
-        except:
-            pass
+        if "--optimize" in sys.argv:
+            optimize = True
+
+        if "--debug" in sys.argv:
+            debug = True
 
         filename = os.path.splitext(filepath)[0]
-        sys.stdout.write(filename)
+        #sys.stdout.write(filename)
         f = open(filepath, 'r')
-        c = Compiler(debug=True, optimize=optimize)
+        c = Compiler(debug=debug, optimize=optimize)
         c.compile(f, filename)
 
 if __name__ == "__main__":

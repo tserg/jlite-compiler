@@ -342,7 +342,7 @@ class IR3Generator:
             computed_value = int(ast_node.left_operand.value) / \
                 int(ast_node.right_operand.value)
 
-        return computed_value
+        return str(computed_value)
 
     def _derive_ifgoto_condition(
         self,
