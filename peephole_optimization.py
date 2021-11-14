@@ -100,6 +100,23 @@ class PeepholeOptimizer:
             current_instruction = next_instruction
             previous_instruction_parent = previous_instruction
 
+        elif current_instruction.assembly_code == 'stmfd sp!,{a1,a2,a3,a4}\n' and \
+            previous_instruction.assembly_code == 'ldmfd sp!,{a1,a2,a3,a4}\n':
+
+            if self.debug:
+                sys.stdout.write("Peephole optimisation - Redundant ldr str of args detected.\n")
+
+            previous_instruction_parent.set_child(current_instruction.child)
+            current_instruction.child.set_parent(previous_instruction_parent)
+
+            current_instruction = current_instruction.child
+
+            return (
+                current_instruction,
+                previous_instruction_parent,
+                previous_instruction_parent.parent
+            )
+
         else:
             previous_instruction_parent = previous_instruction
 

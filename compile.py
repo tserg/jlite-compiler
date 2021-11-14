@@ -113,7 +113,9 @@ class Compiler:
         Run the parser through the given file
 
     """
+    debug: bool
     optimize: bool
+    verbose: bool
 
     ir3_generator: "IR3Generator"
     control_flow_generator: "ControlFlowGenerator"
@@ -133,15 +135,20 @@ class Compiler:
     def __init__(
         self,
         debug: bool=False,
-        optimize: bool=False
+        optimize: bool=False,
+        verbose: bool=False
     ) -> None:
 
         self.optimize = optimize
         self.debug = debug
+        self.verbose = verbose
 
-        self.ir3_generator = IR3Generator(debug)
-        self.control_flow_generator = ControlFlowGenerator(debug, optimize)
-        self.peephole_optimizer = PeepholeOptimizer(debug)
+        self.ir3_generator = IR3Generator(self.debug)
+        self.control_flow_generator = ControlFlowGenerator(
+            self.debug,
+            self.optimize
+        )
+        self.peephole_optimizer = PeepholeOptimizer(self.debug)
 
         self.instruction_count = self.data_label_count = self.branch_count = 0
 
@@ -182,7 +189,7 @@ class Compiler:
 
             current_instruction = current_instruction.child
 
-        if self.debug:
+        if self.debug or self.verbose:
             sys.stdout.write("Updating instruction line numbers.\n")
             sys.stdout.write("Initial count: " + str(old_instruction_count) + "\n")
             sys.stdout.write("Updated count: " + str(self.instruction_count) + "\n")
@@ -3752,8 +3759,13 @@ class Compiler:
             self.instruction_head
         )
 
-        if self.debug:
-            self._update_instruction_line_no()
+        if self.verbose:
+            sys.stdout.write("\n--------- Start of Peephole Optimization ------------\n")
+
+        self._update_instruction_line_no()
+
+        if self.verbose:
+            sys.stdout.write("--------- End of Peephole Optimization ------------\n\n")
 
     def _compile(
         self,
@@ -3827,6 +3839,7 @@ def __main__():
 
         optimize = False
         debug = False
+        verbose = False
 
         if "--optimize" in sys.argv:
             optimize = True
@@ -3834,10 +3847,17 @@ def __main__():
         if "--debug" in sys.argv:
             debug = True
 
+        if "--verbose" in sys.argv:
+            verbose = True
+
         filename = os.path.splitext(filepath)[0]
         #sys.stdout.write(filename)
         f = open(filepath, 'r')
-        c = Compiler(debug=debug, optimize=optimize)
+        c = Compiler(
+            debug=debug,
+            optimize=optimize,
+            verbose=verbose
+        )
         c.compile(f, filename)
 
 if __name__ == "__main__":
