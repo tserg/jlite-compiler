@@ -254,6 +254,69 @@ class ControlFlowGenerator:
 
         pass
 
+    def _optimise_algebraic_identities(
+        self,
+        cmtd3_node: "CMtd3Node"
+    ) -> None:
+
+        # x + 0 = 0 + x = x
+        # x * 1 = 1 * x = x
+        # x - 0 = x
+        # x/1 = x - not implemented since division is not handled
+
+        completed = False
+        current_stmt = cmtd3_node.statements
+
+        while not completed:
+
+            if not current_stmt:
+                completed = True
+                break
+
+            if type(current_stmt) == Assignment3Node:
+
+                assigned_value = current_stmt.assigned_value
+
+                if type(assigned_value) == BinOp3Node and \
+                    assigned_value.type == BasicType.INT:
+
+                    if assigned_value.operator in ["+", "*", "-"] and \
+                        assigned_value.type == BasicType.INT:
+
+                        if assigned_value.left_operand_is_raw_value:
+
+                            try:
+                                left_operand_value = assigned_value.left_operand.value
+
+                            except:
+                                left_operand_value = assigned_value.left_operand
+
+
+                            if (assigned_value.operator == "+" and \
+                                left_operand_value == "0") or \
+                                (assigned_value.operator == "*" and \
+                                left_operand_value == "1"):
+
+                                current_stmt.assigned_value = assigned_value.right_operand
+
+                        elif assigned_value.right_operand_is_raw_value:
+
+                            try:
+                                right_operand_value = assigned_value.right_operand.value
+
+                            except:
+                                right_operand_value = assigned_value.right_operand
+
+                            if ((assigned_value.operator == "+" or \
+                                assigned_value.operator == "-") and \
+                                right_operand_value == "0") or \
+                                (assigned_value.operator == "*" and \
+                                right_operand_value == "1"):
+
+                                current_stmt.assigned_value = assigned_value.left_operand
+
+            current_stmt = current_stmt.child
+
     def _annotate_int_constants_and_propagate(
         self,
         cmtd3_node: "CMtd3Node"
@@ -368,3 +431,4 @@ class ControlFlowGenerator:
         if self.optimize:
 
             self._annotate_int_constants_and_propagate(cmtd3_node)
+            self._optimise_algebraic_identities(cmtd3_node)

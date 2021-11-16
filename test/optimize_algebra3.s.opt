@@ -1,0 +1,27 @@
+.data
+
+d0: .asciz "%i"
+L1:
+.text
+.global main
+
+
+main:
+stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}
+add fp,sp,#24
+sub sp,fp,#36
+mov v1,#5
+str v1,[fp,#-28]
+mov v2,v1							// x = y * 1 is converted to x = y
+str v2,[fp,#-36]
+mov v3,v2
+str v3,[fp,#-32]
+stmfd sp!,{a1,a2,a3,a4}
+ldr a1,=d0
+mov a2,v3
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}
+
+.mainExit:
+sub sp,fp,#24
+ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}

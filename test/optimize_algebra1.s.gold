@@ -1,0 +1,34 @@
+.data
+
+d0: .asciz "%i"
+L1:
+.text
+.global main
+
+
+main:
+stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}
+add fp,sp,#24
+sub sp,fp,#48
+mov v1,#12
+str v1,[fp,#-28]
+mov v2,#8
+str v2,[fp,#-44]
+ldr v2,[fp,#-44]					// this instruction is removed
+mov v3,v2
+str v3,[fp,#-36]
+ldr v3,[fp,#-36]					// this instruction is removed
+add v4,v3,#0						// x = y + 0 is converted to x = y
+str v4,[fp,#-48]
+ldr v4,[fp,#-48]					// this instruction is removed
+mov v5,v4
+str v5,[fp,#-32]
+stmfd sp!,{a1,a2,a3,a4}
+ldr a1,=d0
+mov a2,v5
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}
+
+.mainExit:
+sub sp,fp,#24
+ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}
