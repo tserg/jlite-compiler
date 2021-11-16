@@ -45,14 +45,19 @@ Notes
 2. To parse and type check a file, run `python parse.py [FILE_NAME].j`
 3. To generate the IR3 code for a file, run `python gen.py [FILE_NAME].j`
 4. To generate the assembly code for a file, run `python compile.py [FILE_NAME].j`. This will generate a `program.s` file in the root folder.
-  - To enable debugging, insert `--debug` to the command.
+  - To enable debugging, add `--debug` to the command.
   ```
   python compile.py [FILE_NAME].j --debug
   ```
 
-  - To enable optimization, insert `--optimize` to the command.
+  - To enable optimization, add `--optimize` to the command.
   ```
   python compile.py [FILE_NAME].j --optimize
+  ```
+
+  - To enable optimization logging, add `--verbose` to the command.
+  ```
+  python compile.py [FILE_NAME].j --verbose
   ```
 5. To generate the bytecode, run `arm-linux-gnueabi-gcc-10 program.s --static`. This will generate a `a.out` file to the root folder.
 6. To run the program, run `qemu-arm a.out`.
@@ -273,43 +278,51 @@ The following type checking errors will be raised:
 
   Example:
   ```
-  jlite_type.TypeCheckError: Invalid type:  f. Method has the same name as an earlier declared method in class: [Functional]
+  jlite_type.TypeCheckError: Invalid type:  f. Method has the same name as an earlier declared
+   method in class: [Functional]
   ```
 - Two parameters in a method declarations have the same name. The parameter name, and the method and class which it is in, are identified in the error message.
 
   Example:
   ```
-  jlite_type.TypeCheckError: Invalid type:  a. Argument has the same name as an earlier declared argument in method [orders] in class [OrderMacs]
+  jlite_type.TypeCheckError: Invalid type:  a. Argument has the same name as an earlier declared argument in
+  method [orders] in class [OrderMacs]
   ```
 - Two fields in a class have the same name. The class with the error is identified in the error message.
 
   Example:
   ```
-  jlite_type.TypeCheckError: Invalid type:  a. Field has the same name as an earlier declared field in class: [Functional]
+  jlite_type.TypeCheckError: Invalid type:  a. Field has the same name as an earlier declared field in
+  class: [Functional]
   ```
 - Value assigned to a variable does not match the type declared. The variable name and the class declaration it is in are identified in the error message.
 
   Example:
   ```
-  jlite_type.TypeCheckError: Invalid type:  j. Assigned value type [Bool] does not match declared identifier type [Int] in class [OrderMacs]
+  jlite_type.TypeCheckError: Invalid type:  j. Assigned value type [Bool] does not match declared identifier type
+  [Int] in class [OrderMacs]
   ```
 - Return type does not match that specified for the method. The class in which the method resides is identified in the error message, as well as the expected return type.
 
   Example:
   ```
-  jlite_type.TypeCheckError: Invalid type:  true. Return type Bool is different from that declared for function in class [OrderMacs]: Int
+  jlite_type.TypeCheckError: Invalid type:  true. Return type Bool is different from that declared for
+  function in class [OrderMacs]: Int
   ```
 - Arguments for an overloaded method call does not match the possible permutations. The method name and the class in which the method resides is identified in the error message.
 
   Example:
   ```
-  jlite_type.TypeCheckError: Type check error:  fo.f. Unable to locate function in class [Functional] with parameter types: [<BasicType.INT: 'Int'>, <BasicType.BOOL: 'Bool'>]
+  jlite_type.TypeCheckError: Type check error:  fo.f. Unable to locate function in class [Functional] with
+  parameter types: [<BasicType.INT: 'Int'>, <BasicType.BOOL: 'Bool'>]
   ```
 - An overloaded method call with a different return type takes in the same argument types as an earlier declared method.
 
   Example:
   ```
-  jlite_type.TypeCheckError: Type check error:  deliverOrder. Declared method in [Driver] with parameters [<BasicType.INT: 'Int'>] and return type String takes in the same parameter types as earlier method with the same name.
+  jlite_type.TypeCheckError: Type check error:  deliverOrder. Declared method in [Driver] with parameters
+  [<BasicType.INT: 'Int'>] and return type String takes in the same parameter types as earlier method
+  with the same name.
   ```
 
 ## IR3 Generator
@@ -410,11 +423,31 @@ The `compile.py` file contains the following generic classes:
   - ARM assembly code is then generated from the IR3 code. If optimizations are enabled, the optimization passes will be additionally executed prior to assembly code generation (if they operate on IR3) or after (if they operate on assembly).
   - Lastly, the generated instructions are written to an output file.
 
-The `instruction.py` file contains the base `Instruction` class for generating assembly code. For each line of instruction, a new `Instruction` object is instantiated and the instruction is stored as a string in the class attribute `assembly_code`.
+The `instruction.py` file contains the base `Instruction` class for generating assembly code. For each line of instruction, a new `Instruction` object is instantiated, and they are bidirectionally linked.
 
 The `control_flow.py` file contains the ControlFlowGenerator class, which helps to annotate the `IR3Node` class with additional information such as line number and basic block number. It also contains optimizations that operate on the IR3 format.
 
 The `peephole_optimization.py` file contains the PeepholeOptimizer class, which performs peephole optimization on either IR3 or the generated ARM assembly code.
+
+### Assembly Instructions
+
+In the `Instruction` base class, assembly code is stored as a string in the `assembly_code` attribute. Specific instructions inheriting from this base class rely on various attributes to generate the assembly code instead, as set out below.
+- `Instruction`: Base class.
+- `LabelInstruction`: Generates a label using the `label` attribute
+- `BranchInstruction`: Base class for branch instructions, and defines `label` as an attribute.
+  - `UnconditionalBranchInstruction`: Unconditional branch to the `label`.
+  - `ConditionalBranchInstruction`: Conditional branch to the `label` based on the `operator` attribute.
+  - `BranchLinkInstruction`: Branch and link instruction to the `label`.
+- `LoadInstruction`: Loads a `label`, or the value at a base address, defined as `base_offset`, with an optional `offset`, into `rd`.
+- `StoreInstruction`: Stores a `label`, or the value at a base address, defined as `base_offset`, with an optional `offset`, into `rd`.
+- `MoveInstruction`: Base class for move instructions.
+  - `MoveImmediateInstruction`: Moves the integer value in `immediate` into `rd`.
+  - `MoveNegateInstruction`: Moves the value in `rn` into `rd`, and negates its value.
+  - `MoveNegateImmediateInstruction`: Moves the integer value in `immediate` into `rd`, and negates its value.
+  - `MoveRegisterInstruction`: Moves the value in `rn` into `rd`.
+- `CompareInstruction`: Compares the value in `rd` with the value in `rn`.
+- `DualOpInstruction`: Set `rd` to the result of the `operator` on `rn` and `rm` or `immediate`.
+- `NegationInstruction`: Set `rd` to the negation of the value in `rn`.
 
 ### Code Generation
 
