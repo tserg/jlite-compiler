@@ -1,0 +1,155 @@
+.data
+
+d0: .asciz "Very difficult!"
+d1: .asciz "Most difficult!"
+d2: .asciz "%i"
+d3: .asciz "\n"
+d5: .asciz "\n"
+d6_true: .asciz "true"
+d6_false: .asciz "false"
+d7: .asciz "%i"
+d8: .asciz "\n"
+L1:
+.text
+.global main
+
+
+SimpleMain_0:
+stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}
+add fp,sp,#24
+sub sp,fp,#36
+stmfd sp!,{a1,a2,a3,a4}
+mov a1,a1							// this instruction is removed
+ldr a2,[sp,#12]
+ldr a3,[sp,#4]
+bl SimpleMain_1
+mov v1,a1
+ldmfd sp!,{a1,a2,a3,a4}
+str v1,[fp,#-32]
+ldr v1,[fp,#-32]					// this instruction is removed
+mov v2,v1
+str v2,[fp,#-28]
+stmfd sp!,{a1,a2,a3,a4}
+ldr a1,=d7
+mov a2,v2
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}				// this instruction is removed
+stmfd sp!,{a1,a2,a3,a4}				// this instruction is removed
+ldr a1,=d8
+mov a2,#0
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}
+mov v4,a3
+mov v5,a2
+add v3,v4,v5
+str v3,[fp,#-36]
+mov a1,v3
+b .SimpleMain_0Exit					// this instruction is removed
+
+.SimpleMain_0Exit:
+sub sp,fp,#24
+ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}
+
+SimpleMain_1:
+stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}
+add fp,sp,#24
+sub sp,fp,#28
+mov v2,a2
+mov v3,a3
+sub v1,v2,v3
+str v1,[fp,#-28]
+mov a1,v1
+b .SimpleMain_1Exit					// this instruction is removed
+
+.SimpleMain_1Exit:
+sub sp,fp,#24
+ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}
+
+SimpleMain_2:
+stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}
+add fp,sp,#24
+sub sp,fp,#24
+ldr a1,[a1]
+b .SimpleMain_2Exit					// this instruction is removed
+
+.SimpleMain_2Exit:
+sub sp,fp,#24
+ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}
+
+main:
+stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}
+add fp,sp,#24
+sub sp,fp,#60
+ldr v1,=d0
+str v1,[fp,#-48]
+mvn v2,#0
+str v2,[fp,#-40]
+mov v3,#2
+str v3,[fp,#-28]
+ldr v3,[fp,#-28]					// this instruction is removed
+add v4,v3,#1
+str v4,[fp,#-52]
+ldr v4,[fp,#-52]					// this instruction is removed
+mov v5,v4
+str v5,[fp,#-32]
+mov v1,#6
+str v1,[fp,#-56]
+ldr v1,[fp,#-56]					// this instruction is removed
+mov v4,v1
+str v4,[fp,#-36]
+mov a1,#12
+bl malloc
+str a1,[fp,#-44]
+mov v1,#5
+ldr v4,[fp,#-44]
+str v1,[v4]
+stmfd sp!,{a1,a2,a3,a4}
+ldr a1,[fp,#-44]
+mov a2,#17
+mov a3,#5
+mov a4,#2
+bl SimpleMain_0
+mov v1,a1
+ldmfd sp!,{a1,a2,a3,a4}
+str v1,[fp,#-60]
+ldr v1,[fp,#-60]					// this instruction is removed
+mov v3,v1
+str v3,[fp,#-28]
+ldr v1,=d1
+str v1,[fp,#-48]
+stmfd sp!,{a1,a2,a3,a4}
+ldr a1,=d2
+mov a2,v3
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}				// this instruction is removed
+stmfd sp!,{a1,a2,a3,a4}				// this instruction is removed
+ldr a1,=d3
+mov a2,#0
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}				// this instruction is removed
+stmfd sp!,{a1,a2,a3,a4}				// this instruction is removed
+ldr a1,=d1
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}				// this instruction is removed
+stmfd sp!,{a1,a2,a3,a4}				// this instruction is removed
+ldr a1,=d5
+mov a2,#0
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}				// this instruction is removed
+stmfd sp!,{a1,a2,a3,a4}				// this instruction is removed
+mov a1,v2
+cmp a1,#0
+beq ._d6_falseFalse
+ldr a1,=d6_true
+b ._d6_true_exit
+
+._d6_falseFalse:
+ldr a1,=d6_false
+
+._d6_true_exit:
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}
+
+.mainExit:
+sub sp,fp,#24
+ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}

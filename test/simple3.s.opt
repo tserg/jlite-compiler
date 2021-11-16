@@ -1,0 +1,85 @@
+.data
+
+d0: .asciz "Hello there!"
+d2: .asciz "\n"
+d3: .asciz "%i"
+d4: .asciz "\n"
+d5_i_format: .asciz "%d"
+d5_i: .word 0
+d6: .asciz "%i"
+d7: .asciz "Aliens!"
+L1:
+.text
+.global main
+
+
+SimpleMain_0:
+stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}
+add fp,sp,#24
+sub sp,fp,#28
+ldr v1,=d7
+str v1,[fp,#-28]
+mov a1,v1
+
+.SimpleMain_0Exit:
+sub sp,fp,#24
+ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}
+
+SimpleMain_1:
+stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}
+add fp,sp,#24
+sub sp,fp,#24
+mov v1,#0
+str v1,[a1]
+mov a1,a2
+
+.SimpleMain_1Exit:
+sub sp,fp,#24
+ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}
+
+main:
+stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}
+add fp,sp,#24
+sub sp,fp,#44
+mov a1,#4
+bl malloc
+str a1,[fp,#-32]
+stmfd sp!,{a1,a2,a3,a4}
+ldr a1,[fp,#-32]
+ldr a2,=d0
+bl SimpleMain_0
+mov v2,a1
+ldmfd sp!,{a1,a2,a3,a4}
+str v2,[fp,#-44]
+mov v3,v2
+str v3,[fp,#-28]
+stmfd sp!,{a1,a2,a3,a4}
+mov a1,v3
+bl printf
+ldr a1,=d2
+mov a2,#0
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}
+mov v4,#5
+str v4,[fp,#-40]
+stmfd sp!,{a1,a2,a3,a4}
+ldr a1,=d3
+mov a2,#5
+bl printf
+ldr a1,=d4
+mov a2,#0
+bl printf
+ldr a1,=d5_i_format
+ldr a2,=d5_i
+bl scanf
+ldr v4,=d5_i
+ldr v4,[v4]
+str v4,[fp,#-40]
+ldr a1,=d6
+mov a2,v4
+bl printf
+ldmfd sp!,{a1,a2,a3,a4}
+
+.mainExit:
+sub sp,fp,#24
+ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}
