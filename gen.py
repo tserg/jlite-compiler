@@ -228,7 +228,9 @@ class IR3Generator:
         ast_node: RelOpNode
     ) -> Any:
 
-        computed_value = "false"
+        left_operand: Any
+        right_operand: Any
+        computed_value: bool = False
 
         bool_from_jlite = {
             'true': True,
@@ -2111,7 +2113,7 @@ class IR3Generator:
                         str(identifier) + "\n")
 
                 # Check for method name in symbol table
-                st_lookup: Any = symbol_table.lookup(ast_node.value)
+                st_lookup = symbol_table.lookup(ast_node.value)
 
                 if st_lookup:
                     if self.debug:

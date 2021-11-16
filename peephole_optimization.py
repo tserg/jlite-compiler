@@ -30,52 +30,6 @@ class PeepholeOptimizer:
 
         self.debug = debug
 
-    '''
-    def _peephole_optimize_ir3_pass(
-        self,
-        cmtd3_node: "CMtd3Node"
-    ) -> None:
-
-        completed = False
-        current_stmt = cmtd3_node.statements
-        previous_stmt = cmtd3_node.statements
-
-        if self.debug:
-            sys.stdout.write("Peephole optimisation - IR3.\n")
-
-        while not completed:
-
-            if not current_stmt:
-                completed = True
-                break
-
-            if self.debug:
-                sys.stdout.write("Peephole optimisation - IR3: " + \
-                    str(type(current_stmt)) + "\n")
-
-            if type(previous_stmt) == GoTo3Node and \
-                type(current_stmt) != Label3Node:
-
-                # If the previous statement is an unconditional branch
-                # and the current statement is not a label, then it is
-                # unreachable
-
-                if self.debug:
-                    sys.stdout.write("Peephole optimisation - Unreachable post branch.\n")
-
-                if current_stmt.child:
-
-                    previous_stmt.add_child(current_stmt.child)
-
-                else:
-                    previous_stmt.child=None
-
-            else:
-                previous_stmt = current_stmt
-
-            current_stmt = current_stmt.child
-    '''
-
     def _eliminate_redundant_ldr_str(
         self,
         current_instruction: "Instruction",

@@ -4,6 +4,10 @@ from typing import (
     Any,
     Dict,
     List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
 )
 
 from ir3 import (
@@ -32,7 +36,9 @@ class ControlFlowGenerator:
 
     basic_block_count: int
     label_to_block: Dict[int, int]
-    bb_edges: Dict[int, List[int]]
+    bb_edges: Dict[Optional[int], List[Union[int, str, Tuple[Any, Any]]]]
+
+    var_decl: Set[str]
 
     def __init__(
         self,
@@ -328,7 +334,7 @@ class ControlFlowGenerator:
         current_stmt = cmtd3_node.statements
         previous_stmt = cmtd3_node.statements
 
-        current_block_values = {x: set() for x in self.var_decl}
+        current_block_values: Dict[str, Set[str]] = {x: set() for x in self.var_decl}
 
         while not completed:
 

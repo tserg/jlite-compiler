@@ -111,11 +111,11 @@ class Instruction:
 
 class LabelInstruction(Instruction):
 
-    label: Optional[str]
+    label: str
 
     def __init__(
         self,
-        label: Optional[str]=None,
+        label: str,
         *args,
         **kwargs
     ) -> None:
@@ -198,6 +198,7 @@ class BranchLinkInstruction(BranchInstruction):
 
 class LoadInstruction(Instruction):
 
+    rd: str
     label: Optional[str]
 
     def __init__(
@@ -229,6 +230,7 @@ class LoadInstruction(Instruction):
 
 class StoreInstruction(Instruction):
 
+    rd: str
     label: Optional[str]
 
     def __init__(
@@ -264,6 +266,9 @@ class MoveInstruction(Instruction):
 
 class MoveImmediateInstruction(MoveInstruction):
 
+    rd: str
+    immediate: int
+
     def __init__(
         self,
         *args,
@@ -279,6 +284,9 @@ class MoveImmediateInstruction(MoveInstruction):
 
 class MoveNegateInstruction(MoveInstruction):
 
+    rd: str
+    rn: str
+
     def __init__(
         self,
         *args,
@@ -292,6 +300,9 @@ class MoveNegateInstruction(MoveInstruction):
         return result
 
 class MoveNegateImmediateInstruction(MoveInstruction):
+
+    rd: str
+    immediate: int
 
     def __init__(
         self,
@@ -308,6 +319,9 @@ class MoveNegateImmediateInstruction(MoveInstruction):
 
 class MoveRegisterInstruction(MoveInstruction):
 
+    rd: str
+    rn: str
+
     def __init__(
         self,
         *args,
@@ -322,6 +336,8 @@ class MoveRegisterInstruction(MoveInstruction):
         return result
 
 class CompareInstruction(Instruction):
+
+    rd: str
 
     def __init__(
         self,
@@ -341,6 +357,10 @@ class CompareInstruction(Instruction):
         return result
 
 class DualOpInstruction(Instruction):
+
+    operator: str
+    rd: str
+    rn: str
 
     def __init__(
         self,
@@ -364,6 +384,9 @@ class DualOpInstruction(Instruction):
         return result
 
 class NegationInstruction(Instruction):
+
+    rd: str
+    rn: str
 
     def __init__(
         self,

@@ -100,7 +100,7 @@ class IR3Node:
 
         self.use_set.append(identifier)
     '''
-    
+
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
         sys.stdout.write(str(self.value))
@@ -215,7 +215,7 @@ class CMtd3Node(IR3Node):
     def set_statements(self, node: Any) -> None:
         self.statements = node
 
-    def get_arguments(self) -> List[str]:
+    def get_arguments(self) -> List[Tuple[Any, Any]]:
 
         result = []
 

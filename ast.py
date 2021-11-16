@@ -546,11 +546,11 @@ class MainClassNode(ASTNode):
 
         while not args_completed:
 
-            local_environment.append((current_args.value, current_args.type))
-
-            if not current_args.sibling:
+            if not current_args:
                 args_completed = True
                 break
+
+            local_environment.append((current_args.value, current_args.type))
 
             current_args = current_args.sibling
 
@@ -566,11 +566,11 @@ class MainClassNode(ASTNode):
 
         while not vars_completed:
 
-            local_environment.append((current_vars.value, current_vars.type))
-
-            if not current_vars.sibling:
+            if not current_vars:
                 vars_completed = True
                 break
+
+            local_environment.append((current_vars.value, current_vars.type))
 
             current_vars = current_vars.sibling
 
@@ -780,11 +780,11 @@ class ClassDeclNode(ASTNode):
 
         while not vars_completed:
 
-            local_environment.append((current_vars.value, current_vars.type))
-
-            if not current_vars.sibling:
+            if not current_vars:
                 vars_completed = True
                 break
+
+            local_environment.append((current_vars.value, current_vars.type))
 
             current_vars = current_vars.sibling
 
@@ -819,21 +819,22 @@ class ClassDeclNode(ASTNode):
 
         current_var = self.variable_declarations
 
-        while not var_processed:
-            if not current_var.child and not current_var.sibling:
-                var_processed = True
+        if current_var:
+            while not var_processed:
+                if not current_var.child and not current_var.sibling:
+                    var_processed = True
 
-            if current_var:
-                if current_var.value in var_names:
-                    raise TypeCheckError(
-                        str(current_var.value),
-                        "Field has the same name as an earlier declared field "
-                        "in class: [" + str(self.class_name) + "]\n")
-                else:
-                    var_names.append(current_var.value)
+                if current_var:
+                    if current_var.value in var_names:
+                        raise TypeCheckError(
+                            str(current_var.value),
+                            "Field has the same name as an earlier declared field "
+                            "in class: [" + str(self.class_name) + "]\n")
+                    else:
+                        var_names.append(current_var.value)
 
-            if current_var.sibling:
-                current_var = current_var.sibling
+                if current_var.sibling:
+                    current_var = current_var.sibling
 
     def _type_check_methods(self) -> None:
 

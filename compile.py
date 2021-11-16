@@ -59,6 +59,7 @@ from ir3 import (
     IfGoTo3Node,
     GoTo3Node,
     UnaryOp3Node,
+    IR3Tree,
 )
 
 from jlite_type import (
@@ -92,9 +93,20 @@ class Compiler:
 
     Attributes
     ----------
+    debug: bool
+    optimize: bool
+    verbose: bool
     ir3_generator: IR3Generator
+    control_flow_generator: ControlFlowGenerator
+    peephole_optimizer: PeepholeOptimizer
     address_descriptor: Dict[str, List[str]]
     register_descriptor: Dict[str, List[str]]
+    instruction_head: Instruction
+    instruction_data_tail: Instruction
+    instruction_tail: Instruction
+    instruction_count: int
+    data_label_count: int
+    branch_count: int
 
     Methods
     -------
@@ -2015,6 +2027,10 @@ class Compiler:
         md_args: List[str],
         liveness_data: Dict[str, List[int]]
     ) -> "Instruction":
+
+        new_instruction: Any
+        store_instruction: Any
+        var_fp_offset: Any
 
         if self.debug:
             sys.stdout.write("Converting stmt to assembly - Assignment\n")
