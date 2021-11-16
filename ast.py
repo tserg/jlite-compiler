@@ -1999,7 +1999,7 @@ class ReturnNode(ASTNode):
 
                 function_return_type = self.return_value._get_return_type_for_identifier(
                     env=env,
-                    debug=True
+                    debug=debug
                 )
 
                 if not function_return_type:
