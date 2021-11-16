@@ -28,6 +28,7 @@ from instruction import (
     LoadInstruction,
     StoreInstruction,
     MoveImmediateInstruction,
+    MoveNegateInstruction,
     MoveNegateImmediateInstruction,
     MoveRegisterInstruction,
     DualOpInstruction,
@@ -37,6 +38,7 @@ from instruction import (
     UnconditionalBranchInstruction,
     BranchInstruction,
     BranchLinkInstruction,
+    NegationInstruction,
 )
 
 from ir3 import (
@@ -1466,6 +1468,7 @@ class Compiler:
 
                 new_instruction = self._convert_println_to_assembly(
                     current_stmt,
+                    md_args,
                     current_instruction
                 )
 
@@ -1523,7 +1526,7 @@ class Compiler:
 
                 if self.debug:
                     sys.stdout.write("Converting stmt to assembly - Generated instruction: " + \
-                        new_instruction.assembly_code + "\n")
+                        new_instruction.__str__() + "\n")
 
                 if current_instruction:
                     if self.debug:
@@ -1658,11 +1661,11 @@ class Compiler:
     def _convert_println_to_assembly(
         self,
         println3node: PrintLn3Node,
+        md_args: List[str],
         current_instruction: Optional["Instruction"],
     ) -> "Instruction":
 
         print_data_label = "d" + str(self.data_label_count)
-        self.data_label_count += 1
 
         if self.debug:
             sys.stdout.write("Converting println to assembly - Expression: " + \
@@ -1676,8 +1679,6 @@ class Compiler:
             if println3node.is_raw_value:
                 # Check if it is raw integer
                     print_data = int(println3node.expression)
-                    instruction_load_print_value_assembly_code = "mov a2,#" + \
-                        str(print_data) + "\n"
 
                     instruction_load_print_value = MoveImmediateInstruction(
                         rd="a2",
@@ -1692,9 +1693,8 @@ class Compiler:
                 )
 
                 if identifier_in_register:
+
                     # Move value from existing register to a1
-                    instruction_load_print_value_assembly_code = "mov a2," + \
-                        identifier_in_register[0] + "\n"
 
                     instruction_load_print_value = MoveRegisterInstruction(
                         rd="a2",
@@ -1707,13 +1707,10 @@ class Compiler:
                         println3node.expression
                     )
 
-                    instruction_load_print_value_assembly_code = "ldr a2,[fp,#-" + \
-                        str(identifier_offset) + "]\n"
-
                     instruction_load_print_value = LoadInstruction(
                         rd="a2",
                         base_offset="fp",
-                        offset=identifier_offset
+                        offset=-identifier_offset
                     )
 
             instruction_initialise_print_data_assembly_code = print_data_label + \
@@ -1727,8 +1724,6 @@ class Compiler:
             # Check if it is a raw string
 
             if println3node.is_raw_value:
-
-                instruction_load_print_value_assembly_code = "mov a2,#0\n"
 
                 instruction_load_print_value = MoveImmediateInstruction(
                     rd="a2",
@@ -1744,7 +1739,6 @@ class Compiler:
                 if self.debug:
                     sys.stdout.write("Converting println to assembly - Identifier detected.\n")
 
-
                 print_data_label = self.address_descriptor[println3node.expression]['references'][0]
 
                 # Print data label should be the only reference for address descriptor
@@ -1756,16 +1750,12 @@ class Compiler:
 
                 if print_data_label[0] == 'd':
 
-                    instruction_load_print_value_assembly_code = "ldr a1,=" + print_data_label + "\n"
-
                     instruction_load_print_value = LoadInstruction(
                         rd="a1",
                         label=print_data_label
                     )
 
                 elif print_data_label[0] == 'v':
-
-                    instruction_load_print_value_assembly_code = "mov a1," + print_data_label + "\n"
 
                     instruction_load_print_value = MoveRegisterInstruction(
                         rd="a1",
@@ -1781,8 +1771,6 @@ class Compiler:
 
             if println3node.is_raw_value:
 
-                instruction_load_print_value_assembly_code = "mov a2,#0\n"
-
                 instruction_load_print_value = MoveImmediateInstruction(
                     rd="a2",
                     immediate=0
@@ -1797,7 +1785,7 @@ class Compiler:
                 if self.debug:
                     sys.stdout.write("Converting println to assembly - Identifier detected.\n")
 
-                print_true_label = print_data_label
+                print_true_label = print_data_label + "_true"
                 instruction_initialise_print_true_assembly_code = print_true_label + \
                     ': .asciz "true"\n'
 
@@ -1815,28 +1803,41 @@ class Compiler:
 
                 if identifier_in_register:
                     # Move value from existing register to a1
-                    instruction_load_print_value_assembly_code = "mov a1," + \
-                        identifier_in_register[0] + "\n"
 
-                    instruction_load_print_value = MoveRegisterInstruction(
+                    instruction_load_boolean = MoveRegisterInstruction(
                         rd="a1",
                         rn=identifier_in_register[0]
                     )
 
                 else:
                     # Load value from stack
-                    identifier_offset = self._get_variable_offset(
-                        println3node.expression
-                    )
+                    try:
+                        identifier_offset = self._get_variable_offset(
+                            println3node.expression
+                        )
 
-                    instruction_load_print_value_assembly_code = "ldr a1,[fp,#-" + \
-                        str(identifier_offset) + "]\n"
+                        instruction_load_boolean = LoadInstruction(
+                            rd="a1",
+                            base_offset="fp",
+                            offset=-identifier_offset
+                        )
 
-                    instruction_load_print_value = LoadInstruction(
-                        rd="a2",
-                        base_offset="fp",
-                        offset=-identifier_offset
-                    )
+                    except:
+
+                        # Calculate offset of class attribute in object
+
+                        current_class = md_args[0][1]
+
+                        class_attribute_offset = self._calculate_class_attribute_offset(
+                            class_name=current_class,
+                            attribute_name=println3node.expression
+                        )
+
+                        instruction_load_boolean = LoadInstruction(
+                            rd="a1",
+                            base_offset="a1",
+                            offset=class_attribute_offset
+                        )
 
         instruction_load_print_data=None
         if println3node.type == BasicType.BOOL and \
@@ -1868,13 +1869,16 @@ class Compiler:
             instruction_compare_boolean_with_false = CompareInstruction(
                 rd="a1",
                 immediate=0
-
             )
 
             # If true, value is 0/False branch
 
+            false_branch_label = "." + println3node.value + "_" + \
+                print_false_label + 'False'
+
             instruction_go_to_false_branch = ConditionalBranchInstruction(
-                operator="=="
+                operator="==",
+                label=false_branch_label
             )
 
             # Load argument for true
@@ -1886,16 +1890,17 @@ class Compiler:
 
             # Branch to exit
 
+            true_branch_label = "." + println3node.value + "_" + print_true_label + \
+                "_exit"
+
             instruction_branch_exit = UnconditionalBranchInstruction(
-                label="." + println3node.value + "_" + print_true_label + \
-                    "_exit"
+                label=true_branch_label
             )
 
             # False branch
 
             instruction_false_branch = LabelInstruction(
-                label="." + println3node.value + "_" + \
-                    print_false_label + 'False'
+                label=false_branch_label
             )
 
             # Load argument for false
@@ -1908,8 +1913,7 @@ class Compiler:
             # Exit branch
 
             instruction_exit_label = LabelInstruction(
-                label="._" + print_true_label + \
-                    "_exit"
+                label=true_branch_label
             )
 
             self._link_instructions([
@@ -1943,15 +1947,6 @@ class Compiler:
 
         if current_instruction and instruction_load_print_data:
             current_instruction.set_child(instruction_load_print_data)
-
-        '''
-        if not (println3node.type == BasicType.BOOL and \
-            not println3node.is_raw_value):
-
-            instruction_load_print_value = Instruction(
-                instruction=instruction_load_print_value_assembly_code
-            )
-        '''
 
         if instruction_load_print_data:
             # No need for additional loading for string identifier
@@ -2009,6 +2004,8 @@ class Compiler:
             instruction_printf,
             instruction_pop_arg_registers
         ])
+
+        self.data_label_count += 1
 
         return instruction_save_arg_registers
 
@@ -2184,6 +2181,9 @@ class Compiler:
 
             y_reg = registers['y'][0]
 
+            if self.debug:
+                sys.stdout.write("Unary op - y register: " + str(y_reg) + "\n")
+
             if (assignment3node.type == BasicType.INT and \
                     assignment3node.assigned_value.operator == '-'):
 
@@ -2245,7 +2245,7 @@ class Compiler:
                         offset=-var_y_offset
                     )
 
-                instruction_negate_y_value = MoveNegateImmediateInstruction(
+                instruction_negate_y_value = MoveNegateInstruction(
                     rd=x_register,
                     rn=y_reg
                 )
@@ -3373,10 +3373,25 @@ class Compiler:
                         offset=-var_fp_offset
                     )
 
-                    self._link_instructions([
-                        new_instruction_last,
-                        store_instruction
-                    ])
+                else:
+
+                    current_class = md_args[0][1]
+
+                    class_attribute_offset = self._calculate_class_attribute_offset(
+                        class_name=current_class,
+                        attribute_name=x_identifier
+                    )
+
+                    store_instruction = StoreInstruction(
+                        rd=x_register,
+                        base_offset="a1",
+                        offset=class_attribute_offset
+                    )
+
+                self._link_instructions([
+                    new_instruction_last,
+                    store_instruction
+                ])
 
         return new_instruction
 

@@ -335,7 +335,7 @@ class CompareInstruction(Instruction):
         if self.rn:
             result = "cmp " + self.rd + "," + self.rn
 
-        elif self.immediate:
+        else:
             result = "cmp " + self.rd + ",#" + str(self.immediate)
 
         return result
