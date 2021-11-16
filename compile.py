@@ -25,6 +25,18 @@ from typing import (
 
 from instruction import (
     Instruction,
+    LoadInstruction,
+    StoreInstruction,
+    MoveImmediateInstruction,
+    MoveNegateImmediateInstruction,
+    MoveRegisterInstruction,
+    DualOpInstruction,
+    CompareInstruction,
+    LabelInstruction,
+    ConditionalBranchInstruction,
+    UnconditionalBranchInstruction,
+    BranchInstruction,
+    BranchLinkInstruction,
 )
 
 from ir3 import (
@@ -69,31 +81,6 @@ ARG_REGISTER_TO_STACK_OFFSET = {
     'a2': 4,
     'a3': 8,
     'a4': 12
-}
-
-ARITHMETIC_OP = {
-    '+': 'add ',
-    '-': 'sub ',
-    '*': 'mul ',
-}
-
-BINARY_OP = {
-    '||': 'orr ',
-    '&&': 'and ',
-}
-
-BOOL_CONVERSION = {
-    'true': 'mvn ',
-    'false': 'mov ',
-}
-
-REL_OP = {
-    '>': 'bgt ',
-    '>=': 'bge ',
-    '<': 'blt ',
-    '<=': 'ble ',
-    '==': 'beq ',
-    '!=': 'bne '
 }
 
 class Compiler:
@@ -1121,12 +1108,10 @@ class Compiler:
     def _initialise_assembler_directive(self) -> "Instruction":
 
         instruction_data = Instruction(
-            self._get_incremented_instruction_count(),
             instruction=".data\n\n",
         )
 
         instruction_L1 = Instruction(
-            self._get_incremented_instruction_count(),
             instruction="L1:\n.text\n.global main\n\n"
         )
 
@@ -1229,18 +1214,15 @@ class Compiler:
         if method_name[0] == "%":
             method_name = method_name[1:]
 
-        instruction_start_label = Instruction(
-            self._get_incremented_instruction_count(),
-            "\n" + method_name + ":" + "\n"
+        instruction_start_label = LabelInstruction(
+            label=method_name
         )
 
         instruction_push_callee_saved = Instruction(
-            self._get_incremented_instruction_count(),
             instruction="stmfd sp!,{v1,v2,v3,v4,v5,fp,lr}\n"
         )
 
         instruction_set_frame_pointer = Instruction(
-            self._get_incremented_instruction_count(),
             instruction="add fp,sp,#24\n",
         )
 
@@ -1252,7 +1234,6 @@ class Compiler:
         )
 
         instruction_set_space_for_var_decl = Instruction(
-            self._get_incremented_instruction_count(),
             instruction="sub sp,fp,#" + str(var_decl_offset) + "\n"
         )
 
@@ -1289,20 +1270,17 @@ class Compiler:
 
         # Placeholder label to exit method
 
-        instruction_exit_label = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="\n" + exit_label + ":\n"
+        instruction_exit_label = LabelInstruction(
+            label=exit_label
         )
 
         # Restore callee-saved registers
 
         instruction_reset_frame_pointer = Instruction(
-            self._get_incremented_instruction_count(),
             instruction="sub sp,fp,#24\n"
         )
 
         instruction_pop_callee_saved = Instruction(
-            self._get_incremented_instruction_count(),
             instruction="ldmfd sp!,{v1,v2,v3,v4,v5,fp,pc}\n",
         )
 
@@ -1516,9 +1494,8 @@ class Compiler:
 
             elif type(current_stmt) == Label3Node:
 
-                new_instruction = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="\n." + str(current_stmt.label_id) + ":\n"
+                new_instruction = LabelInstruction(
+                    label="." + str(current_stmt.label_id)
                 )
 
             elif type(current_stmt) == IfGoTo3Node:
@@ -1531,15 +1508,13 @@ class Compiler:
 
             elif type(current_stmt) == GoTo3Node:
 
-                new_instruction = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="b ." + str(current_stmt.goto) + "\n"
+                new_instruction = UnconditionalBranchInstruction(
+                    label="." + str(current_stmt.goto)
                 )
 
             else:
 
                 new_instruction = Instruction(
-                    self._get_incremented_instruction_count(),
                     instruction="Uncaught statement detected\n",
                     parent=current_instruction
                 )
@@ -1588,12 +1563,10 @@ class Compiler:
         # Initialise storage variable for integer in data
 
         instruction_initialise_readln_data_storage_format = Instruction(
-            self._get_incremented_instruction_count(),
             instruction=read_data_string_label + ": .asciz \"%d\"\n"
         )
 
         instruction_initialise_readln_data_storage_identifier = Instruction(
-            self._get_incremented_instruction_count(),
             instruction=read_data_label + ": .word 0\n"
         )
 
@@ -1607,19 +1580,18 @@ class Compiler:
 
         # Actual instructions to read input
 
-        instruction_load_readln_format = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="ldr a1,=" + read_data_string_label + "\n"
+        instruction_load_readln_format = LoadInstruction(
+            rd="a1",
+            label=read_data_string_label
         )
 
-        instruction_load_readln_storage_identifier = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="ldr a2,=" + read_data_label + "\n"
+        instruction_load_readln_storage_identifier = LoadInstruction(
+            rd="a2",
+            label=read_data_label
         )
 
-        instruction_scanf = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="bl scanf\n"
+        instruction_scanf = BranchLinkInstruction(
+            label="scanf"
         )
 
         # Store data captured to identifier
@@ -1631,24 +1603,24 @@ class Compiler:
         )['x'][0]
 
 
-        instruction_load_read_value_address = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="ldr " + store_register + ",=" + read_data_label + "\n"
+        instruction_load_read_value_address = LoadInstruction(
+            rd=store_register,
+            label=read_data_label
         )
 
-        instruction_load_read_value = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="ldr " + store_register + ",[" + store_register + "]\n"
+        instruction_load_read_value = LoadInstruction(
+            rd=store_register,
+            base_offset=store_register
         )
 
         identifier_offset = self._get_variable_offset(
             readln3node.id3
         )
 
-        instruction_store_read_value_to_identifier = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="str " + store_register + ",[fp,#-" + \
-                str(identifier_offset) + "]\n"
+        instruction_store_read_value_to_identifier = StoreInstruction(
+            rd=store_register,
+            base_offset="fp",
+            offset=-identifier_offset
         )
 
         self._update_descriptors(
@@ -1660,7 +1632,6 @@ class Compiler:
         # in case there are nested function calls
 
         instruction_save_arg_registers = Instruction(
-            self._get_incremented_instruction_count(),
             instruction="stmfd sp!,{a1,a2,a3,a4}\n"
         )
 
@@ -1668,7 +1639,6 @@ class Compiler:
         # after nested function call
 
         instruction_pop_arg_registers = Instruction(
-            self._get_incremented_instruction_count(),
             instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
         )
 
@@ -1709,6 +1679,11 @@ class Compiler:
                     instruction_load_print_value_assembly_code = "mov a2,#" + \
                         str(print_data) + "\n"
 
+                    instruction_load_print_value = MoveImmediateInstruction(
+                        rd="a2",
+                        immediate=print_data
+                    )
+
             else:
 
                 # Check if identifier is in register
@@ -1721,6 +1696,11 @@ class Compiler:
                     instruction_load_print_value_assembly_code = "mov a2," + \
                         identifier_in_register[0] + "\n"
 
+                    instruction_load_print_value = MoveRegisterInstruction(
+                        rd="a2",
+                        rn=identifier_in_register[0]
+                    )
+
                 else:
                     # Load value from stack
                     identifier_offset = self._get_variable_offset(
@@ -1729,6 +1709,12 @@ class Compiler:
 
                     instruction_load_print_value_assembly_code = "ldr a2,[fp,#-" + \
                         str(identifier_offset) + "]\n"
+
+                    instruction_load_print_value = LoadInstruction(
+                        rd="a2",
+                        base_offset="fp",
+                        offset=identifier_offset
+                    )
 
             instruction_initialise_print_data_assembly_code = print_data_label + \
                 ": .asciz \"%i\"\n"
@@ -1743,6 +1729,11 @@ class Compiler:
             if println3node.is_raw_value:
 
                 instruction_load_print_value_assembly_code = "mov a2,#0\n"
+
+                instruction_load_print_value = MoveImmediateInstruction(
+                    rd="a2",
+                    immediate=0
+                )
 
                 instruction_initialise_print_data_assembly_code = print_data_label + \
                     ": .asciz " + println3node.expression[:-1] + '"' + "\n"
@@ -1767,9 +1758,19 @@ class Compiler:
 
                     instruction_load_print_value_assembly_code = "ldr a1,=" + print_data_label + "\n"
 
+                    instruction_load_print_value = LoadInstruction(
+                        rd="a1",
+                        label=print_data_label
+                    )
+
                 elif print_data_label[0] == 'v':
 
                     instruction_load_print_value_assembly_code = "mov a1," + print_data_label + "\n"
+
+                    instruction_load_print_value = MoveRegisterInstruction(
+                        rd="a1",
+                        rn=print_data_label
+                    )
 
         elif println3node.type == BasicType.BOOL:
 
@@ -1781,6 +1782,11 @@ class Compiler:
             if println3node.is_raw_value:
 
                 instruction_load_print_value_assembly_code = "mov a2,#0\n"
+
+                instruction_load_print_value = MoveImmediateInstruction(
+                    rd="a2",
+                    immediate=0
+                )
 
                 instruction_initialise_print_data_assembly_code = print_data_label + \
                     ": .asciz " + '"' + println3node.expression + '"' + "\n"
@@ -1812,6 +1818,11 @@ class Compiler:
                     instruction_load_print_value_assembly_code = "mov a1," + \
                         identifier_in_register[0] + "\n"
 
+                    instruction_load_print_value = MoveRegisterInstruction(
+                        rd="a1",
+                        rn=identifier_in_register[0]
+                    )
+
                 else:
                     # Load value from stack
                     identifier_offset = self._get_variable_offset(
@@ -1821,17 +1832,21 @@ class Compiler:
                     instruction_load_print_value_assembly_code = "ldr a1,[fp,#-" + \
                         str(identifier_offset) + "]\n"
 
+                    instruction_load_print_value = LoadInstruction(
+                        rd="a2",
+                        base_offset="fp",
+                        offset=-identifier_offset
+                    )
+
         instruction_load_print_data=None
         if println3node.type == BasicType.BOOL and \
             not println3node.is_raw_value:
 
             instruction_initialise_print_true = Instruction(
-                self._get_incremented_instruction_count(),
                 instruction=instruction_initialise_print_true_assembly_code,
             )
 
             instruction_initialise_print_false = Instruction(
-                self._get_incremented_instruction_count(),
                 instruction=instruction_initialise_print_false_assembly_code,
             )
 
@@ -1848,62 +1863,53 @@ class Compiler:
 
             # If true, get true label. If false, get false label
 
-            instruction_load_boolean = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction=instruction_load_print_value_assembly_code
-            )
-
             # Compare with 0
 
-            instruction_compare_boolean_with_false = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="cmp a1,#0\n"
+            instruction_compare_boolean_with_false = CompareInstruction(
+                rd="a1",
+                immediate=0
+
             )
 
             # If true, value is 0/False branch
 
-            instruction_go_to_false_branch = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="beq ." + println3node.value + "_" + \
-                    print_false_label + 'False\n'
+            instruction_go_to_false_branch = ConditionalBranchInstruction(
+                operator="=="
             )
 
             # Load argument for true
 
-            instruction_load_true = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="ldr a1,=" + print_true_label + "\n"
+            instruction_load_true = LoadInstruction(
+                rd="a1",
+                label=print_true_label
             )
 
             # Branch to exit
 
-            instruction_branch_exit = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="b ." + println3node.value + "_" + print_true_label + \
-                    "_exit\n"
+            instruction_branch_exit = UnconditionalBranchInstruction(
+                label="." + println3node.value + "_" + print_true_label + \
+                    "_exit"
             )
 
             # False branch
 
-            instruction_false_branch = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="." + println3node.value + "_" + \
-                    print_false_label + 'False:\n'
+            instruction_false_branch = LabelInstruction(
+                label="." + println3node.value + "_" + \
+                    print_false_label + 'False'
             )
 
             # Load argument for false
 
-            instruction_load_false = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="ldr a1,=" + print_false_label + "\n"
+            instruction_load_false = LoadInstruction(
+                rd="a1",
+                label=print_false_label
             )
 
             # Exit branch
 
-            instruction_exit_label = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="._" + print_true_label + \
-                    "_exit:\n"
+            instruction_exit_label = LabelInstruction(
+                label="._" + print_true_label + \
+                    "_exit"
             )
 
             self._link_instructions([
@@ -1923,29 +1929,29 @@ class Compiler:
         elif not (println3node.type == BasicType.STRING and not println3node.is_raw_value):
 
             instruction_initialise_print_data = Instruction(
-                self._get_incremented_instruction_count(),
                 instruction=instruction_initialise_print_data_assembly_code,
             )
 
             self.instruction_data_tail.insert_child(instruction_initialise_print_data)
             self.instruction_data_tail = instruction_initialise_print_data
 
-            instruction_load_print_data = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="ldr a1,=" + print_data_label + "\n",
+            instruction_load_print_data = LoadInstruction(
+                rd="a1",
+                label=print_data_label,
                 parent=current_instruction
             )
 
         if current_instruction and instruction_load_print_data:
             current_instruction.set_child(instruction_load_print_data)
 
+        '''
         if not (println3node.type == BasicType.BOOL and \
             not println3node.is_raw_value):
 
             instruction_load_print_value = Instruction(
-                self._get_incremented_instruction_count(),
                 instruction=instruction_load_print_value_assembly_code
             )
+        '''
 
         if instruction_load_print_data:
             # No need for additional loading for string identifier
@@ -1954,9 +1960,8 @@ class Compiler:
                 instruction_load_print_value
             ])
 
-        instruction_printf = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="bl printf\n"
+        instruction_printf = BranchLinkInstruction(
+            label="printf"
         )
 
         self._link_instructions([
@@ -1968,7 +1973,6 @@ class Compiler:
         # in case there are nested function calls
 
         instruction_save_arg_registers = Instruction(
-            self._get_incremented_instruction_count(),
             instruction="stmfd sp!,{a1,a2,a3,a4}\n"
         )
 
@@ -1976,7 +1980,6 @@ class Compiler:
         # after nested function call
 
         instruction_pop_arg_registers = Instruction(
-            self._get_incremented_instruction_count(),
             instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
         )
 
@@ -2063,20 +2066,26 @@ class Compiler:
                 if assignment3node.type == BasicType.INT:
 
                     # x = CONSTANT
-                    new_instruction = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="mov " + x_register + ",#" + \
-                            str(assigned_value) + "\n"
+                    new_instruction = MoveImmediateInstruction(
+                        rd=x_register,
+                        immediate=assigned_value
                     )
 
                 elif assignment3node.type == BasicType.BOOL:
 
-                    mv_operator = BOOL_CONVERSION[assigned_value]
+                    if assigned_value == 'true':
 
-                    new_instruction = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction=mv_operator + x_register + ",#0\n"
-                    )
+                        new_instruction = MoveNegateImmediateInstruction(
+                            rd=x_register,
+                            immediate=0
+                        )
+
+                    elif assigned_value == 'false':
+
+                        new_instruction = MoveImmediateInstruction(
+                            rd=x_register,
+                            immediate=0
+                        )
 
             elif assignment3node.type == BasicType.STRING:
 
@@ -2091,7 +2100,6 @@ class Compiler:
                     ": .asciz " + assigned_value[:-1] + '"' + "\n"
 
                 instruction_add_string_to_data = Instruction(
-                    self._get_incremented_instruction_count(),
                     instruction=instruction_initialise_string_data_assembly_code
                 )
 
@@ -2103,9 +2111,9 @@ class Compiler:
                     label=string_data_label
                 )
 
-                new_instruction = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + x_register + ",=" + string_data_label + "\n"
+                new_instruction = LoadInstruction(
+                    rd=x_register,
+                    label=string_data_label
                 )
 
             else:
@@ -2115,7 +2123,6 @@ class Compiler:
                         str(assignment3node.type) + "\n")
 
                 new_instruction = Instruction(
-                    self._get_incremented_instruction_count(),
                     instruction="Error in simple assignment.\n"
                 )
 
@@ -2129,15 +2136,15 @@ class Compiler:
             )
 
             # Set argument register to the space required
-            instruction_create_space = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mov a1,#" + str(space_required) + "\n"
+            instruction_create_space = MoveImmediateInstruction(
+                rd="a1",
+                immediate=space_required
             )
 
             # Create space in memory
-            instruction_malloc = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="bl malloc\n"
+            instruction_malloc = BranchLinkInstruction(
+                instruction="bl malloc\n",
+                label="malloc"
             )
 
             # Get offset of object
@@ -2148,9 +2155,10 @@ class Compiler:
 
             # Store address returned in stack
 
-            instruction_store_base_address = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="str a1,[fp,#-" + str(object_offset) + "]\n"
+            instruction_store_base_address = StoreInstruction(
+                rd="a1",
+                base_offset="fp",
+                offset=-object_offset
             )
 
             self._link_instructions([
@@ -2183,15 +2191,15 @@ class Compiler:
                     assignment3node.assigned_value.operand
                 ]['offset']
 
-                instruction_load_y_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
-                        "]\n"
+                instruction_load_y_value = LoadInstruction(
+                    rd=y_reg,
+                    base_offset="fp",
+                    offset=-var_y_offset
                 )
 
-                instruction_not_y_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="neg " + x_register + "," + y_reg + "\n"
+                instruction_not_y_value = NegationInstruction(
+                    rd=x_register,
+                    rn=y_reg
                 )
 
                 self._link_instructions([
@@ -2221,9 +2229,9 @@ class Compiler:
 
                 if var_y_is_arg:
 
-                    instruction_load_y_value = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="mov " + y_reg + "," + var_y_is_arg + "\n"
+                    instruction_load_y_value = MoveRegisterInstruction(
+                        rd=y_reg,
+                        rn=var_y_is_arg
                     )
 
                 else:
@@ -2231,15 +2239,15 @@ class Compiler:
                         assignment3node.assigned_value.operand
                     ]['offset']
 
-                    instruction_load_y_value = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
-                            "]\n"
+                    instruction_load_y_value = LoadInstruction(
+                        rd=y_reg,
+                        base_offset="fp",
+                        offset=-var_y_offset
                     )
 
-                instruction_negate_y_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="mvn " + x_register + "," + y_reg + "\n"
+                instruction_negate_y_value = MoveNegateImmediateInstruction(
+                    rd=x_register,
+                    rn=y_reg
                 )
 
                 self._link_instructions([
@@ -2293,22 +2301,13 @@ class Compiler:
                     assignment3node.assigned_value.operator != '/') or \
                 assignment3node.type == BasicType.BOOL:
 
-                move_instruction = "mov "
-                if assignment3node.type == BasicType.INT:
+                if assignment3node.type == BasicType.BOOL:
 
-
-                    operator_instruction = ARITHMETIC_OP[assignment3node.assigned_value.operator]
-
-                elif assignment3node.type == BasicType.BOOL:
-
-                    operator_instruction = BINARY_OP[assignment3node.assigned_value.operator]
                     # Convert raw values if any
                     if y_is_raw:
-                        move_instruction = "mvn "
                         y_value = 0
 
                     if z_is_raw:
-                        move_instruction = "mvn "
                         z_value = 0
 
                 if self.debug:
@@ -2327,15 +2326,16 @@ class Compiler:
 
                         z_reg_identifier = 'placeholder'
 
-                        instruction_load_mul_raw_y = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction=move_instruction + registers['y'][0] + ",#" + str(y_value) + "\n"
+                        instruction_load_mul_raw_y = MoveImmediateInstruction(
+                            rd=registers['y'][0],
+                            immediate=y_value
                         )
 
-                        instruction_binop = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction=operator_instruction + x_register + \
-                                "," + z_value + "," + registers['y'][0] + "\n"
+                        instruction_binop = DualOpInstruction(
+                            operator=assignment3node.assigned_value.operator,
+                            rd=x_register,
+                            rn=z_value,
+                            rm=registers['y'][0]
                         )
 
                         self._link_instructions([
@@ -2345,10 +2345,11 @@ class Compiler:
 
                     else:
 
-                        instruction_binop = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction=operator_instruction + x_register + \
-                                "," + z_value + ",#" + str(y_value) + "\n"
+                        instruction_binop = DualOpInstruction(
+                            operator=assignment3node.assigned_value.operator,
+                            rd=x_register,
+                            rn=z_value,
+                            immediate=y_value
                         )
 
                     if not z_is_arg:
@@ -2357,10 +2358,10 @@ class Compiler:
 
                         var_z_offset = self.address_descriptor[assignment3node.assigned_value.right_operand]['offset']
 
-                        new_instruction = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="ldr " + z_value + ",[fp,#-" + \
-                                str(var_z_offset) + "]\n"
+                        new_instruction = LoadInstruction(
+                            rd=z_value,
+                            base_offset="fp",
+                            offset=-var_z_offset
                         )
 
                         self._update_descriptors(
@@ -2388,9 +2389,9 @@ class Compiler:
                         # If z is an argument, load z from the argument register
                         # to the assigned register
 
-                        instruction_move_from_argument_register = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction=move_instruction + z_value + "," + z_is_arg + "\n"
+                        instruction_move_from_argument_register = MoveRegisterInstruction(
+                            rd=z_value,
+                            rn=z_is_arg
                         )
 
                         self._update_descriptors(
@@ -2428,15 +2429,16 @@ class Compiler:
 
                         y_reg_identifier = 'placeholder'
 
-                        instruction_load_mul_raw_z = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="mov " + registers['z'][0] + ",#" + str(z_value) + "\n"
+                        instruction_load_mul_raw_z = MoveImmediateInstruction(
+                            rd=registers['z'][0],
+                            immediate=z_value
                         )
 
-                        instruction_binop = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction=operator_instruction + x_register + \
-                                "," + y_value + "," + registers['z'][0] + "\n"
+                        instruction_binop = DualOpInstruction(
+                            operator=assignment3node.assigned_value.operator,
+                            rd=x_register,
+                            rn=y_value,
+                            rm=registers['z'][0]
                         )
 
                         self._link_instructions([
@@ -2446,10 +2448,11 @@ class Compiler:
 
                     else:
 
-                        instruction_binop = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction=operator_instruction + x_register + \
-                                "," + y_value + ",#" + str(z_value) + "\n"
+                        instruction_binop = DualOpInstruction(
+                            operator=assignment3node.assigned_value.operator,
+                            rd=x_register,
+                            rn=y_value,
+                            immediate=z_value
                         )
 
                     if not y_is_arg:
@@ -2458,10 +2461,10 @@ class Compiler:
 
                         var_y_offset = self.address_descriptor[assignment3node.assigned_value.left_operand]['offset']
 
-                        new_instruction = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="ldr " + y_value + ",[fp,#-" + \
-                                str(var_y_offset) + "]\n"
+                        new_instruction = LoadInstruction(
+                            rd=y_value,
+                            base_offset="fp",
+                            offset=-var_y_offset
                         )
 
                         self._update_descriptors(
@@ -2487,9 +2490,9 @@ class Compiler:
 
                         # If z is a raw value, load y
 
-                        instruction_move_from_argument_register = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="mov " + y_value + "," + y_is_arg + "\n"
+                        instruction_move_from_argument_register = MoveRegisterInstruction(
+                            rd=y_value,
+                            rn=y_is_arg
                         )
 
                         self._update_descriptors(
@@ -2538,10 +2541,10 @@ class Compiler:
 
                         var_y_offset = self.address_descriptor[assignment3node.assigned_value.left_operand]['offset']
 
-                        new_instruction = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="ldr " + y_value + ",[fp,#-" + \
-                                str(var_y_offset) + "]\n"
+                        new_instruction = LoadInstruction(
+                            rd=y_value,
+                            base_offset="fp",
+                            offset=-var_y_offset
                         )
 
                         self._update_descriptors(
@@ -2551,10 +2554,10 @@ class Compiler:
 
                         var_z_offset = self.address_descriptor[assignment3node.assigned_value.right_operand]['offset']
 
-                        instruction_load_z = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="ldr " + z_value + ",[fp,#-" + \
-                                str(var_z_offset) + "]\n"
+                        instruction_load_z = LoadInstruction(
+                            rd=z_value,
+                            base_offset="fp",
+                            offset=-var_z_offset
                         )
 
                         self._update_descriptors(
@@ -2563,10 +2566,11 @@ class Compiler:
                         )
 
 
-                        instruction_binop = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction=operator_instruction + x_register + \
-                                "," + y_value + "," + z_value + "\n"
+                        instruction_binop = DualOpInstruction(
+                            operator=assignment3node.assigned_value.operator,
+                            rd=x_register,
+                            rn=y_value,
+                            rm=z_value
                         )
 
                         self._link_instructions([
@@ -2581,9 +2585,9 @@ class Compiler:
                             sys.stdout.write("Converting stmt to assembly - Assignment - " + \
                                 "x = y + z - Loading y and z - Only y is arg" + "\n")
 
-                        instruction_move_from_argument_register = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="mov " + y_value + "," + y_is_arg + "\n",
+                        instruction_move_from_argument_register = MoveRegisterInstruction(
+                            rd=y_value,
+                            rn=y_is_arg
                         )
 
                         self._update_descriptors(
@@ -2593,10 +2597,10 @@ class Compiler:
 
                         var_z_offset = self.address_descriptor[assignment3node.assigned_value.right_operand]['offset']
 
-                        instruction_load_z = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="ldr " + z_value + ",[fp,#-" + \
-                                str(var_z_offset) + "]\n"
+                        instruction_load_z = LoadInstruction(
+                            rd=z_value,
+                            base_offset="fp",
+                            offset=-var_z_offset
                         )
 
                         self._update_descriptors(
@@ -2604,10 +2608,11 @@ class Compiler:
                             identifier=assignment3node.assigned_value.right_operand
                         )
 
-                        instruction_binop = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction=operator_instruction + x_register + \
-                                "," + y_value + "," + z_value + "\n"
+                        instruction_binop = DualOpInstruction(
+                            operator=assignment3node.assigned_value.operator,
+                            rd=x_register,
+                            rn=y_value,
+                            rm=z_value
                         )
 
                         self._link_instructions([
@@ -2624,9 +2629,9 @@ class Compiler:
                             sys.stdout.write("Converting stmt to assembly - Assignment - " + \
                                 "x = y + z - Loading y and z - Only z is arg" + "\n")
 
-                        instruction_move_from_argument_register = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="mov " + z_value + "," + z_is_arg + "\n",
+                        instruction_move_from_argument_register = MoveRegisterInstruction(
+                            rd=z_value,
+                            rn=z_is_arg
                         )
 
                         self._update_descriptors(
@@ -2636,10 +2641,10 @@ class Compiler:
 
                         var_y_offset = self.address_descriptor[assignment3node.assigned_value.left_operand]['offset']
 
-                        instruction_load_y = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="ldr " + y_value + ",[fp,#-" + \
-                                str(var_y_offset) + "]\n"
+                        instruction_load_y = LoadInstruction(
+                            rd=y_value,
+                            base_offset="fp",
+                            offset=-var_y_offset
                         )
 
                         self._update_descriptors(
@@ -2650,10 +2655,11 @@ class Compiler:
                         instruction_move_from_argument_register.set_child(instruction_load_y)
 
 
-                        instruction_binop = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction=operator_instruction + x_register + \
-                                "," + y_value + "," + z_value + "\n"
+                        instruction_binop = DualOpInstruction(
+                            operator=assignment3node.assigned_value.operator,
+                            rd=x_register,
+                            rn=y_value,
+                            rm=z_value
                         )
 
                         self._link_instructions([
@@ -2670,9 +2676,9 @@ class Compiler:
                             sys.stdout.write("Converting stmt to assembly - Assignment - " + \
                                 "x = y + z - Loading y and z - Both args" + "\n")
 
-                        instruction_move_y_from_argument_register = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="mov " + y_value + "," + y_is_arg + "\n",
+                        instruction_move_y_from_argument_register = MoveRegisterInstruction(
+                            rd=y_value,
+                            rn=y_is_arg
                         )
 
                         self._update_descriptors(
@@ -2680,9 +2686,9 @@ class Compiler:
                             identifier=assignment3node.assigned_value.left_operand
                         )
 
-                        instruction_move_z_from_argument_register = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction="mov " + z_value + "," + z_is_arg + "\n"
+                        instruction_move_z_from_argument_register = MoveRegisterInstruction(
+                            rd=z_value,
+                            rn=z_is_arg
                         )
 
                         self._update_descriptors(
@@ -2690,10 +2696,11 @@ class Compiler:
                             identifier=assignment3node.assigned_value.right_operand
                         )
 
-                        instruction_binop = Instruction(
-                            self._get_incremented_instruction_count(),
-                            instruction=operator_instruction + x_register + \
-                                "," + y_value + "," + z_value + "\n"
+                        instruction_binop = DualOpInstruction(
+                            operator=assignment3node.assigned_value.operator,
+                            rd=x_register,
+                            rn=y_value,
+                            rm=z_value
                         )
 
                         self._link_instructions([
@@ -2713,7 +2720,6 @@ class Compiler:
                         "String concatenation and integer division are not handled" + "\n")
 
                 new_instruction = Instruction(
-                    self._get_incremented_instruction_count(),
                     instruction="String concatenation and integer division are not handled\n"
                 )
 
@@ -2788,10 +2794,9 @@ class Compiler:
             )
 
             if var_y_is_arg:
-                instruction_load_y_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="mov " + registers['y'][0] + "," + \
-                        var_y_is_arg + "\n"
+                instruction_load_y_value = MoveRegisterInstruction(
+                    rd=registers['y'][0],
+                    rn=var_y_is_arg
                 )
 
             else:
@@ -2800,10 +2805,10 @@ class Compiler:
                     assignment3node.assigned_value.left_operand
                 ]['offset']
 
-                instruction_load_y_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + registers['y'][0] + ",[fp,#-" + \
-                        str(var_y_offset) + "]\n",
+                instruction_load_y_value = LoadInstruction(
+                    rd=registers['y'][0],
+                    base_offset="fp",
+                    offset=-var_y_offset
                 )
 
             # Load second operand
@@ -2814,10 +2819,9 @@ class Compiler:
             )
 
             if var_z_is_arg:
-                instruction_load_z_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="mov " + registers['z'][0] + "," + \
-                        var_z_is_arg + "\n"
+                instruction_load_z_value = MoveRegisterInstruction(
+                    rd=registers['z'][0],
+                    rn=var_z_is_arg
                 )
 
             else:
@@ -2826,23 +2830,21 @@ class Compiler:
                     assignment3node.assigned_value.right_operand
                 ]['offset']
 
-                instruction_load_z_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + registers['z'][0] + ",[fp,#-" + \
-                        str(var_z_offset) + "]\n"
+                instruction_load_z_value = LoadInstruction(
+                    rd=registers['z'][0],
+                    base_offset="fp",
+                    offset=-var_z_offset
                 )
 
             # Compare
 
-            instruction_compare = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="cmp " + registers['y'][0] + "," + \
-                    registers['z'][0] + "\n"
+            instruction_compare = CompareInstruction(
+                rd=registers['y'][0],
+                rn=registers['z'][0]
             )
 
             # If true, go to branch to set to True
 
-            rel_instruction = REL_OP[assignment3node.assigned_value.operator]
             branch_index = self.branch_count
             self.branch_count += 1
 
@@ -2851,40 +2853,37 @@ class Compiler:
             exit_branch_label = "." + str(assignment3node.identifier) + \
                 "_exit_" + str(branch_index)
 
-            instruction_conditional_branch = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction=rel_instruction + true_branch_label + "\n"
+            instruction_conditional_branch = ConditionalBranchInstruction(
+                operator=assignment3node.assigned_value.operator,
+                label=true_branch_label
             )
 
             # Otherwise, set to False and branch to exit
 
-            instruction_set_value_to_false = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mov " + registers['x'][0] + ",#0\n"
+            instruction_set_value_to_false = MoveImmediateInstruction(
+                rd=registers['x'][0],
+                immediate=0
             )
 
-            instruction_branch_exit = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="b " + exit_branch_label + "\n"
+            instruction_branch_exit = UnconditionalBranchInstruction(
+                label=exit_branch_label
             )
 
             # True branch
 
-            instruction_true_branch_label = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction=true_branch_label + ":\n"
+            instruction_true_branch_label = LabelInstruction(
+                label=true_branch_label
             )
 
-            instruction_set_value_to_true = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mvn " + registers['x'][0] + ",#0\n"
+            instruction_set_value_to_true = MoveNegateImmediateInstruction(
+                rd=registers['x'][0],
+                immediate=0
             )
 
             # Exit branch label
 
-            instruction_exit_label = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction=exit_branch_label + ":\n"
+            instruction_exit_label = LabelInstruction(
+                label=exit_branch_label
             )
 
             # Link instructions
@@ -2917,17 +2916,18 @@ class Compiler:
             if this_arg_identifier == 'this':
                 # If first argument is a reference to 'this', retain the first argument register
 
-                instruction_load_arguments = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="mov a1,a1\n"
+                instruction_load_arguments = MoveRegisterInstruction(
+                    rd="a1",
+                    rn="a1"
                 )
 
             else:
                 base_address_offset = self.address_descriptor[this_arg_identifier]['offset']
 
-                instruction_load_arguments = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr a1,[fp,#-" + str(base_address_offset) +"]\n"
+                instruction_load_arguments = LoadInstruction(
+                    rd="a1",
+                    base_offset="fp",
+                    offset=-base_address_offset
                 )
 
             next_arg = method_call_node.arguments.child
@@ -2954,10 +2954,9 @@ class Compiler:
                             sys.stdout.write("Converting stmt to assembly - MethodCall3 - raw value arg detected.\n")
 
                         if next_arg.type == BasicType.INT:
-                            instruction_load_next_argument = Instruction(
-                                self._get_incremented_instruction_count(),
-                                instruction="mov " + next_arg_reg + ",#" + \
-                                    str(next_arg.value) + "\n"
+                            instruction_load_next_argument = MoveImmediateInstruction(
+                                rd=next_arg_reg,
+                                immediate=next_arg.value
                             )
 
                         if next_arg.type == BasicType.STRING:
@@ -2972,7 +2971,6 @@ class Compiler:
                                 ": .asciz " + next_arg.value[:-1] + '"' + "\n"
 
                             instruction_add_string_to_data = Instruction(
-                                self._get_incremented_instruction_count(),
                                 instruction=instruction_initialise_string_data_assembly_code
                             )
 
@@ -2982,20 +2980,26 @@ class Compiler:
                             # No need to update labels because it is a string constant
                             # that will not be reused
 
-                            instruction_load_next_argument = Instruction(
-                                self._get_incremented_instruction_count(),
-                                instruction="ldr " + next_arg_reg + ",=" + string_data_label + "\n"
+                            instruction_load_next_argument = LoadInstruction(
+                                rd=next_arg_reg,
+                                label=string_data_label
                             )
 
                         if next_arg.type == BasicType.BOOL:
 
-                            mv_instruction = BOOL_CONVERSION[next_arg.value]
+                            if next_arg.value == 'true':
 
-                            instruction_load_next_argument = Instruction(
-                                self._get_incremented_instruction_count(),
-                                instruction=mv_instruction + next_arg_reg + \
-                                    ",#0\n"
-                            )
+                                instruction_load_next_argument = MoveNegateImmediateInstruction(
+                                    rd=next_arg_reg,
+                                    immediate=0
+                                )
+
+                            elif next_arg.value == 'false':
+
+                                instruction_load_next_argument = MoveImmediateInstruction(
+                                    rd=next_arg_reg,
+                                    immediate=0
+                                )
 
                     else:
 
@@ -3022,10 +3026,10 @@ class Compiler:
 
                                 arg_reg_stack_offset = ARG_REGISTER_TO_STACK_OFFSET[next_arg_in_reg]
 
-                                instruction_load_next_argument = Instruction(
-                                    self._get_incremented_instruction_count(),
-                                    instruction="ldr " + next_arg_reg + ",[sp,#" + \
-                                        str(arg_reg_stack_offset) + "]\n"
+                                instruction_load_next_argument = LoadInstruction(
+                                    rd=next_arg_reg,
+                                    base_offset="sp",
+                                    offset=arg_reg_stack_offset
                                 )
 
                             else:
@@ -3035,10 +3039,10 @@ class Compiler:
 
                                 var_offset = self.address_descriptor[next_arg.value]['offset']
 
-                                instruction_load_next_argument = Instruction(
-                                    self._get_incremented_instruction_count(),
-                                    instruction="ldr " + next_arg_reg + ",[fp,#-" + \
-                                        str(var_offset) + "]\n"
+                                instruction_load_next_argument = LoadInstruction(
+                                    rd=next_arg_reg,
+                                    base_offset="fp",
+                                    offset=-var_offset
                                 )
                         # move to an argument register
 
@@ -3054,14 +3058,13 @@ class Compiler:
 
             instruction_load_arguments_last_child = instruction_load_arguments.get_last_child()
 
-            instruction_branch_to_function= Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="bl " + method_call_node.method_id[1:] + "\n"
+            instruction_branch_to_function= BranchLinkInstruction(
+                label=method_call_node.method_id[1:]
             )
 
-            instruction_move_return_value_to_x_register = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mov " + x_register + ",a1\n"
+            instruction_move_return_value_to_x_register = MoveRegisterInstruction(
+                rd=x_register,
+                rn="a1"
             )
 
             self._link_instructions([
@@ -3074,7 +3077,6 @@ class Compiler:
             # in case there are nested function calls
 
             instruction_save_arg_registers = Instruction(
-                self._get_incremented_instruction_count(),
                 instruction="stmfd sp!,{a1,a2,a3,a4}\n"
             )
 
@@ -3082,7 +3084,6 @@ class Compiler:
             # after nested function call
 
             instruction_pop_arg_registers = Instruction(
-                self._get_incremented_instruction_count(),
                 instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
             )
 
@@ -3113,10 +3114,9 @@ class Compiler:
                     "x = y - y register: " + str(y_register) + "\n")
                 sys.stdout.write("x register: " + str(x_register) + "\n")
 
-            instruction_assign = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mov " + x_register + "," + y_register + \
-                    "\n",
+            instruction_assign = MoveRegisterInstruction(
+                rd=x_register,
+                rn=y_register
             )
 
             # Load y if it is not an argument
@@ -3132,9 +3132,9 @@ class Compiler:
                     # Load base address into a register
                     base_address_register = registers['y'][0]
 
-                    instruction_load_base_address = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="mov " + base_address_register + ",a1\n",
+                    instruction_load_base_address = MoveRegisterInstruction(
+                        rd=base_address_register,
+                        rn="a1"
                     )
 
                     self._update_descriptors(
@@ -3159,10 +3159,10 @@ class Compiler:
                     # Load base address into a register
                     base_address_register = registers['y'][0]
 
-                    instruction_load_base_address = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="ldr " + base_address_register + ",[fp,#-" + \
-                            str(object_address_offset) + "]\n",
+                    instruction_load_base_address = LoadInstruction(
+                        rd=base_address_register,
+                        base_offset="fp",
+                        offset=-object_address_offset
                     )
 
                     self._update_descriptors(
@@ -3178,10 +3178,10 @@ class Compiler:
 
                 # Generate instruction
 
-                instruction_load_class_attribute = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + base_address_register + ",[" + base_address_register + \
-                        ",#" + str(class_attribute_offset) + "]\n"
+                instruction_load_class_attribute = LoadInstruction(
+                    rd=base_address_register,
+                    base_offset=base_address_register,
+                    offset=class_attribute_offset
                 )
 
                 self._update_descriptors(
@@ -3204,10 +3204,10 @@ class Compiler:
 
                 var_y_offset = self.address_descriptor[assignment3node.assigned_value]['offset']
 
-                new_instruction = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + y_register + ",[fp,#-" + \
-                        str(var_y_offset) + "]\n"
+                new_instruction = LoadInstruction(
+                    rd=y_register,
+                    base_offset="fp",
+                    offset=-var_y_offset
                 )
 
                 self._update_descriptors(
@@ -3275,9 +3275,9 @@ class Compiler:
                     # Load base address into a register from the first argument
                     base_address_register = registers['z'][0]
 
-                    instruction_load_base_address = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="mov " + base_address_register + ",a1\n"
+                    instruction_load_base_address = MoveRegisterInstruction(
+                        rd=base_address_register,
+                        rn="a1"
                     )
 
                     # Calculate offset of class attribute in object
@@ -3297,10 +3297,10 @@ class Compiler:
 
                     # Generate instruction
 
-                    instruction_store_to_class_attribute = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="str " + x_register + ",[" + base_address_register + \
-                            ",#" + str(class_attribute_offset) + "]\n"
+                    instruction_store_to_class_attribute = StoreInstruction(
+                        rd=x_register,
+                        base_offset=base_address_register,
+                        offset=class_attribute_offset
                     )
 
                     self._link_instructions([
@@ -3320,10 +3320,10 @@ class Compiler:
                     # Load base address into a register
                     base_address_register = registers['z'][0]
 
-                    instruction_load_base_address = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="ldr " + base_address_register + ",[fp,#-" + \
-                            str(object_address_offset) + "]\n"
+                    instruction_load_base_address = LoadInstruction(
+                        rd=base_address_register,
+                        base_offset="fp",
+                        offset=-object_address_offset
                     )
 
                     # Calculate offset of class attribute in object
@@ -3334,10 +3334,10 @@ class Compiler:
 
                     # Generate instruction
 
-                    instruction_store_to_class_attribute = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="str " + x_register + ",[" + base_address_register + \
-                            ",#" + str(class_attribute_offset) + "]\n"
+                    instruction_store_to_class_attribute = StoreInstruction(
+                        rd=x_register,
+                        base_offset=base_address_register,
+                        offset=class_attribute_offset
                     )
 
                     self._link_instructions([
@@ -3367,10 +3367,10 @@ class Compiler:
                             str(type(assignment3node.identifier)) + " in register " + \
                             x_register + " with offset " + str(var_fp_offset) + "\n")
 
-                    store_instruction = Instruction(
-                        self._get_incremented_instruction_count(),
-                        instruction="str " + x_register + ",[fp,#-" + \
-                            str(var_fp_offset) + "]\n"
+                    store_instruction = StoreInstruction(
+                        rd=x_register,
+                        base_offset="fp",
+                        offset=-var_fp_offset
                     )
 
                     self._link_instructions([
@@ -3393,9 +3393,8 @@ class Compiler:
 
         # Create method exit branch instruction
 
-        instruction_branch_md_exit = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction="b " + md_exit_label + "\n"
+        instruction_branch_md_exit = UnconditionalBranchInstruction(
+            label=md_exit_label
         )
 
         # Check if return value identifier is already in a register
@@ -3411,9 +3410,9 @@ class Compiler:
             if self.debug:
                 sys.stdout.write("Converting return statement to assembly - Already an argument.\n")
 
-            instruction_move_to_argument_reg = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mov a1," + return_identifier_reg + "\n"
+            instruction_move_to_argument_reg = MoveRegisterInstruction(
+                rd="a1",
+                rn=return_identifier_reg
             )
 
             self._link_instructions([
@@ -3429,9 +3428,9 @@ class Compiler:
             if self.debug:
                 sys.stdout.write("Converting return statement to assembly - Already in register.\n")
 
-            instruction_move_to_argument_reg = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mov a1," + return_identifier_reg + "\n"
+            instruction_move_to_argument_reg = MoveRegisterInstruction(
+                rd="a1",
+                rn=return_identifier_reg
             )
 
             self._link_instructions([
@@ -3458,10 +3457,10 @@ class Compiler:
 
         if return_identifier_offset:
 
-            new_instruction = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="ldr " + return_identifier_reg + ",[fp,#-" + \
-                    str(return_identifier_offset) + "]" + "\n"
+            new_instruction = LoadInstruction(
+                rd=return_identifier_reg,
+                base_offset="fp",
+                offset=-return_identifier_offset
             )
 
             self._update_descriptors(
@@ -3471,9 +3470,9 @@ class Compiler:
 
             # Otherwise, load from stack
 
-            instruction_move_to_argument_reg = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mov a1," + return_identifier_reg + "\n"
+            instruction_move_to_argument_reg = MoveRegisterInstruction(
+                rd="a1",
+                rn=return_identifier_reg
             )
 
             self._link_instructions([
@@ -3508,9 +3507,10 @@ class Compiler:
 
             # Load base address + offset in register a1 into a1
 
-            new_instruction = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="ldr a1,[a1,#" + str(class_attribute_offset) + "]\n"
+            new_instruction = LoadInstruction(
+                rd="a1",
+                base_offset="a1",
+                offset=class_attribute_offset
             )
 
             self._link_instructions([
@@ -3543,28 +3543,28 @@ class Compiler:
             if self.debug:
                 sys.stdout.write("Converting if-goto to assembly - Identifier as condition.\n")
 
-            rel_instruction = "beq "
+            rel_operator = "=="
 
             # Load identifier
 
             var_y_offset = self.address_descriptor[ir3_node.rel_exp]['offset']
 
-            instruction_load_y_value = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
-                    "]\n"
+            instruction_load_y_value = LoadInstruction(
+                rd=y_reg,
+                base_offset="fp",
+                offset=-var_y_offset
             )
 
-            instruction_load_true_value = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mvn " + z_reg + ",#0\n"
+            instruction_load_true_value = MoveNegateImmediateInstruction(
+                rd=z_reg,
+                immediate=0
             )
 
             # Compare
 
-            instruction_compare = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="cmp " + y_reg + "," + z_reg + "\n"
+            instruction_compare = CompareInstruction(
+                rd=y_reg,
+                rn=z_reg
             )
 
             self._link_instructions([
@@ -3580,7 +3580,7 @@ class Compiler:
                 sys.stdout.write("Md args: " + str(md_args) + "\n")
                 sys.stdout.write("Attribute identifier: " +str(ir3_node.rel_exp.value) + "\n")
 
-            rel_instruction = "beq "
+            rel_operator = "=="
 
             # Load identifier
 
@@ -3598,10 +3598,10 @@ class Compiler:
                 if self.debug:
                     sys.stdout.write("Offset found in attribute")
 
-                instruction_load_y_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + y_reg + ",[a1,#" + str(var_y_offset) + \
-                        "]\n"
+                instruction_load_y_value = LoadInstruction(
+                    rd=y_reg,
+                    base_offset="a1",
+                    offset=var_y_offset
                 )
 
             else:
@@ -3610,26 +3610,26 @@ class Compiler:
                     ir3_node.rel_exp.value
                 ]['offset']
 
-                instruction_load_y_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
-                        "]\n"
+                instruction_load_y_value = LoadInstruction(
+                    rd=y_reg,
+                    base_offset="fp",
+                    offset=-var_y_offset
                 )
 
             if self.debug:
                 sys.stdout.write("Converting if-goto to assembly - Offset: " + \
                     str(var_y_offset) + "\n")
 
-            instruction_load_true_value = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="mvn " + z_reg + ",#0\n"
+            instruction_load_true_value = MoveNegateImmediateInstruction(
+                rd=z_reg,
+                immediate=0
             )
 
             # Compare
 
-            instruction_compare = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="cmp " + y_reg + "," + z_reg + "\n"
+            instruction_compare = CompareInstruction(
+                rd=y_reg,
+                rn=z_reg
             )
 
             self._link_instructions([
@@ -3651,9 +3651,9 @@ class Compiler:
             )
 
             if var_y_is_arg:
-                instruction_load_y_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="mov " + y_reg + "," + var_y_is_arg + "\n"
+                instruction_load_y_value = MoveRegisterInstruction(
+                    rd=y_reg,
+                    rn=var_y_is_arg
                 )
 
             else:
@@ -3662,10 +3662,10 @@ class Compiler:
                     ir3_node.rel_exp.left_operand
                 ]['offset']
 
-                instruction_load_y_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + y_reg + ",[fp,#-" + str(var_y_offset) + \
-                        "]\n"
+                instruction_load_y_value = LoadInstruction(
+                    rd=y_reg,
+                    base_offset="fp",
+                    offset=-var_y_offset
                 )
 
             var_z_is_arg = self._check_if_in_arguments(
@@ -3674,9 +3674,9 @@ class Compiler:
             )
 
             if var_z_is_arg:
-                instruction_load_z_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="mov " + z_reg + "," + var_z_is_arg + "\n"
+                instruction_load_z_value = MoveRegisterInstruction(
+                    rd=z_reg,
+                    rn=var_z_is_arg
                 )
 
             else:
@@ -3686,23 +3686,23 @@ class Compiler:
                 ]['offset']
 
 
-                instruction_load_z_value = Instruction(
-                    self._get_incremented_instruction_count(),
-                    instruction="ldr " + z_reg + ",[fp,#-" + str(var_z_offset) + \
-                        "]\n"
+                instruction_load_z_value = LoadInstruction(
+                    rd=z_reg,
+                    base_offset="fp",
+                    offset=-var_z_offset
                 )
 
             # Compare
 
-            instruction_compare = Instruction(
-                self._get_incremented_instruction_count(),
-                instruction="cmp " + y_reg + "," + z_reg + \
-                    "\n"
+            instruction_compare = CompareInstruction(
+                rd=y_reg,
+                rn=z_reg
             )
 
             # If true, go to branch to set to True
 
-            rel_instruction = REL_OP[ir3_node.rel_exp.operator]
+            rel_operator = "=="
+
             branch_index = self.branch_count
             self.branch_count += 1
 
@@ -3721,9 +3721,9 @@ class Compiler:
 
         true_label = "." + str(ir3_node.goto)
 
-        instruction_branch_to_true = Instruction(
-            self._get_incremented_instruction_count(),
-            instruction=rel_instruction + true_label + "\n"
+        instruction_branch_to_true = ConditionalBranchInstruction(
+            operator=rel_operator,
+            label=true_label
         )
 
         self._link_instructions([
@@ -3813,7 +3813,11 @@ class Compiler:
                 completed = True
                 break
 
-            f.write(current_instruction.assembly_code)
+            if type(current_instruction) == LabelInstruction:
+                f.write("\n")
+
+            f.write(current_instruction.__str__())
+            f.write("\n")
             current_instruction = current_instruction.child
 
     def compile(

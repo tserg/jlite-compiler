@@ -4,24 +4,60 @@ from typing import (
     Optional,
 )
 
+DUAL_OP = {
+    '+': 'add ',
+    '-': 'sub ',
+    '*': 'mul ',
+    '||': 'orr ',
+    '&&': 'and ',
+}
+
+REL_OP = {
+    '>': 'bgt ',
+    '>=': 'bge ',
+    '<': 'blt ',
+    '<=': 'ble ',
+    '==': 'beq ',
+    '!=': 'bne '
+}
+
 class Instruction:
 
-    line_no: int
+    line_no: Optional[int]
     parent: Optional["Instruction"]
     child: Optional["Instruction"]
-    assembly_code: str
+    assembly_code: Optional[str]
+
+    rd: Optional[str]
+    rm: Optional[str]
+    rn: Optional[str]
+    immediate: Optional[int]
+    offset: Optional[int]
+    base_offset: Optional[str]
 
     def __init__(
         self,
-        line_no: int,
-        instruction: Optional[str]='',
+        instruction: Optional[str]=None,
         parent: Optional["Instruction"]=None,
-        child: Optional["Instruction"]=None
+        child: Optional["Instruction"]=None,
+        rd: Optional[str]=None,
+        rm: Optional[str]=None,
+        rn: Optional[str]=None,
+        immediate: Optional[int]=None,
+        base_offset: Optional[str]=None,
+        offset: Optional[int]=None
     ) -> None:
-        self.line_no = line_no
+        self.line_no = None
         self.assembly_code = instruction
         self.child = child
         self.parent = parent
+
+        self.rd = rd
+        self.rm = rm
+        self.rn = rn
+        self.immediate = immediate
+        self.base_offset = base_offset
+        self.offset = offset
 
     def set_instruction_line_no(self, line_no: int) -> None:
 
@@ -57,11 +93,287 @@ class Instruction:
         return self.child.get_last_child()
 
     def pretty_print(self) -> None:
-        sys.stdout.write(self.assembly_code)
+
+        if self.assembly_code:
+            sys.stdout.write(self.assembly_code)
+
+        else:
+
+            sys.stdout.write(self.__str__())
+            sys.stdout.write("\n")
 
         if self.child:
             self.child.pretty_print()
 
-    def __str__(self):
+    def __str__(self) -> str:
 
         return self.assembly_code
+
+class LabelInstruction(Instruction):
+
+    label: Optional[str]
+
+    def __init__(
+        self,
+        label: Optional[str]=None,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.label = label
+
+    def __str__(self) -> str:
+
+        result = self.label + ":"
+
+        return result
+
+    def pretty_print(self) -> None:
+
+        sys.stdout.write("\n")
+        sys.stdout.write(self.__str__())
+        sys.stdout.write("\n")
+
+        if self.child:
+            self.child.pretty_print()
+
+class BranchInstruction(Instruction):
+
+    label: str
+
+    def __init__(
+        self,
+        label: str,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.label = label
+
+class UnconditionalBranchInstruction(BranchInstruction):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+    def __str__(self) -> str:
+
+        result = "b " + self.label
+        return result
+
+class ConditionalBranchInstruction(BranchInstruction):
+
+    operator: str
+
+    def __init__(
+        self,
+        operator: str,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.operator = operator
+
+    def __str__(self) -> str:
+
+        result = REL_OP[self.operator] + self.label
+        return result
+
+class BranchLinkInstruction(BranchInstruction):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+    def __str__(self) -> str:
+
+        result = "bl " + self.label
+        return result
+
+class LoadInstruction(Instruction):
+
+    label: Optional[str]
+
+    def __init__(
+        self,
+        label: Optional[str]=None,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.label = label
+
+    def __str__(self) -> str:
+
+        result = "ldr " + self.rd + ","
+
+        if self.label:
+            result += "=" + self.label
+
+        elif self.base_offset:
+
+            result += "[" + str(self.base_offset)
+
+            if self.offset:
+                result += ",#" + str(self.offset) + "]"
+            else:
+                result += "]"
+
+        return result
+
+class StoreInstruction(Instruction):
+
+    label: Optional[str]
+
+    def __init__(
+        self,
+        label: Optional[str]=None,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.label = label
+
+    def __str__(self) -> str:
+
+        result = "str " + self.rd + ","
+
+        if self.label:
+            result += "=" + self.label
+
+        elif self.base_offset:
+
+            result += "[" + str(self.base_offset)
+
+            if self.offset:
+                result += ",#" + str(self.offset) + "]"
+            else:
+                result += "]"
+
+        return result
+
+class MoveInstruction(Instruction):
+
+    pass
+
+class MoveImmediateInstruction(MoveInstruction):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+    def __str__(self) -> str:
+
+        result = "mov " + self.rd + ",#" + str(self.immediate)
+
+        return result
+
+class MoveNegateInstruction(MoveInstruction):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+    def __str__(self) -> str:
+
+        result = "mvn " + self.rd + "," + self.rn
+        return result
+
+class MoveNegateImmediateInstruction(MoveInstruction):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+    def __str__(self) -> str:
+
+        result = "mvn " + self.rd + ",#" + str(self.immediate)
+
+        return result
+
+class MoveRegisterInstruction(MoveInstruction):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+    def __str__(self) -> str:
+
+        result = "mov " + self.rd + "," + self.rn
+
+        return result
+
+class CompareInstruction(Instruction):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+    def __str__(self) -> str:
+
+        if self.rn:
+            result = "cmp " + self.rd + "," + self.rn
+
+        elif self.immediate:
+            result = "cmp " + self.rd + ",#" + str(self.immediate)
+
+        return result
+
+class DualOpInstruction(Instruction):
+
+    def __init__(
+        self,
+        operator: str,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.operator = operator
+
+    def __str__(self) -> str:
+
+        operator = DUAL_OP[self.operator]
+
+        if self.rm:
+            result = operator + self.rd + "," + self.rn + "," + self.rm
+
+        elif self.immediate:
+            result = operator + self.rd + "," + self.rn + ",#" + str(self.immediate)
+
+        return result
+
+class NegationInstruction(Instruction):
+
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ) -> None:
+        super().__init__(*args, **kwargs)
+
+    def __str__(self) -> str:
+
+        result = "neg " + self.rd + "," + self.rn
+
+        return result
