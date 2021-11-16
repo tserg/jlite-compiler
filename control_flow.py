@@ -432,3 +432,10 @@ class ControlFlowGenerator:
 
             self._annotate_int_constants_and_propagate(cmtd3_node)
             self._optimise_algebraic_identities(cmtd3_node)
+
+            self._reset()
+
+            self._initialise_var_decl(cmtd3_node)
+            self._label_ir3_nodes(cmtd3_node)
+            self._label_basic_blocks(cmtd3_node)
+            self._derive_edges(cmtd3_node)
