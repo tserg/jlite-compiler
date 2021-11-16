@@ -12,6 +12,11 @@ from ir3 import (
 
 from instruction import (
     Instruction,
+    MoveRegisterInstruction,
+    LabelInstruction,
+    LoadInstruction,
+    StoreInstruction,
+    UnconditionalBranchInstruction,
 )
 
 class PeepholeOptimizer:
@@ -78,13 +83,13 @@ class PeepholeOptimizer:
         previous_instruction_parent: "Instruction",
     ) -> Tuple["Instruction", "Instruction", "Instruction"]:
 
-        if (current_instruction.assembly_code[:3] == 'ldr' and \
-            previous_instruction.assembly_code[:3] == 'str' and \
-            current_instruction.assembly_code[3:] == previous_instruction.assembly_code[3:]) or \
-            (current_instruction.assembly_code[:3] == 'ldr' and \
-            previous_instruction.assembly_code[:3] == 'ldr' and \
-            previous_instruction_parent.assembly_code[:3] == 'str' and \
-            current_instruction.assembly_code[3:] == previous_instruction_parent.assembly_code[3:]):
+        if (type(current_instruction) == LoadInstruction and \
+            type(previous_instruction) == StoreInstruction and \
+            current_instruction.__str__()[3:] == previous_instruction.__str__()[3:]) or \
+            (type(current_instruction) == LoadInstruction == 'ldr' and \
+            type(previous_instruction) == LoadInstruction == 'ldr' and \
+            type(previous_instruction_parent) == StoreInstruction == 'str' and \
+            current_instruction.__str__()[3:] == previous_instruction_parent.__str__()[3:]):
 
             # Check for immediate load stores
 
@@ -134,8 +139,8 @@ class PeepholeOptimizer:
         instruction: "Instruction"
     ) -> "Instruction":
 
-        if instruction.assembly_code[:3] == "mov" and \
-            instruction.assembly_code[4:6] == instruction.assembly_code[7:9]:
+        if type(instruction) == MoveRegisterInstruction and \
+            instruction.rd == instruction.rn:
 
             current_instruction_parent = instruction.parent
             current_instruction_child = instruction.child
@@ -153,8 +158,8 @@ class PeepholeOptimizer:
         previous_instruction: "Instruction"
     ) -> "Instruction":
 
-        if previous_instruction.assembly_code[:2] == "b " and \
-            current_instruction.assembly_code[-2] != ':':
+        if type(previous_instruction) == UnconditionalBranchInstruction and \
+            type(current_instruction) != LabelInstruction:
 
             current_instruction_child = current_instruction.child
 
@@ -163,12 +168,8 @@ class PeepholeOptimizer:
 
             if self.debug:
                 sys.stdout.write("Peephole optimisation - Unreachable instruction detected.\n")
-                sys.stdout.write("Previous instruction: " + previous_instruction.assembly_code + "\n")
-                sys.stdout.write("Current instruction: " + current_instruction.assembly_code + "\n")
-                sys.stdout.write("Current instruction last letter: " + current_instruction.assembly_code[-2] + "\n")
-                sys.stdout.write("Compare current instruction last letter: " + \
-                    str(current_instruction.assembly_code[-2]== ":") + "\n")
-
+                sys.stdout.write("Previous instruction: " + previous_instruction.__str__() + "\n")
+                sys.stdout.write("Current instruction: " + current_instruction.__str__() + "\n")
 
             return current_instruction_child
 
@@ -181,31 +182,19 @@ class PeepholeOptimizer:
         previous_instruction_parent: "Instruction"
     ) -> Tuple["Instruction", "Instruction"]:
 
-        if previous_instruction.assembly_code[:2] == "b ":
+        if type(previous_instruction) == UnconditionalBranchInstruction:
 
-
-
-            if current_instruction.assembly_code[-2] == ':':
+            if type(current_instruction) == LabelInstruction:
 
                 if self.debug:
                     sys.stdout.write("Peephole optimisation: checking for jump: \n")
-
                     sys.stdout.write("Previous instruction: " + \
-                        str(previous_instruction.assembly_code))
-                    sys.stdout.write("Previous instruction + 2 - 1: " + \
-                        str(previous_instruction.assembly_code[2:-1]) + "\n")
-                    #sys.stdout.write(str(previous_instruction.assembly_code[2:]) + "\n")
-                    #sys.stdout.write(str(previous_instruction.assembly_code[2:] == current_instruction.assembly_code[:-2]) + "\n")
-
+                        previous_instruction.__str__())
                     sys.stdout.write("Current instruction: " + \
-                        str(current_instruction.assembly_code) + "\n")
-                    sys.stdout.write("Current instruction + 2 - 2: " + \
-                        str(current_instruction.assembly_code[1:-2]) + "\n")
-                    sys.stdout.write("Last letter of current instruction: " + \
-                        str(current_instruction.assembly_code[-2]) + "\n")
-                    #sys.stdout.write(str(current_instruction.assembly_code[1:-2]) + "\n")
+                        current_instruction.__str__() + "\n")
 
-                if previous_instruction.assembly_code[2:-1] == current_instruction.assembly_code[1:-2]:
+
+                if previous_instruction.label == current_instruction.label:
 
                     previous_instruction_parent.set_child(current_instruction)
                     current_instruction.set_parent(previous_instruction_parent)
