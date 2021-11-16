@@ -254,7 +254,7 @@ class ControlFlowGenerator:
 
         pass
 
-    def _optimise_algebraic_identities(
+    def _optimize_algebraic_identities(
         self,
         cmtd3_node: "CMtd3Node"
     ) -> None:
@@ -280,8 +280,7 @@ class ControlFlowGenerator:
                 if type(assigned_value) == BinOp3Node and \
                     assigned_value.type == BasicType.INT:
 
-                    if assigned_value.operator in ["+", "*", "-"] and \
-                        assigned_value.type == BasicType.INT:
+                    if assigned_value.operator in ["+", "*", "-"]:
 
                         if assigned_value.left_operand_is_raw_value:
 
@@ -431,7 +430,7 @@ class ControlFlowGenerator:
         if self.optimize:
 
             self._annotate_int_constants_and_propagate(cmtd3_node)
-            self._optimise_algebraic_identities(cmtd3_node)
+            self._optimize_algebraic_identities(cmtd3_node)
 
             self._reset()
 
