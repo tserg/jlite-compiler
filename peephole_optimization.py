@@ -86,9 +86,9 @@ class PeepholeOptimizer:
         if (type(current_instruction) == LoadInstruction and \
             type(previous_instruction) == StoreInstruction and \
             current_instruction.__str__()[3:] == previous_instruction.__str__()[3:]) or \
-            (type(current_instruction) == LoadInstruction == 'ldr' and \
-            type(previous_instruction) == LoadInstruction == 'ldr' and \
-            type(previous_instruction_parent) == StoreInstruction == 'str' and \
+            (type(current_instruction) == LoadInstruction and \
+            type(previous_instruction) == LoadInstruction and \
+            type(previous_instruction_parent) == StoreInstruction and \
             current_instruction.__str__()[3:] == previous_instruction_parent.__str__()[3:]):
 
             # Check for immediate load stores
