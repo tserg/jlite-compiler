@@ -342,8 +342,8 @@ class IR3Generator:
                 int(ast_node.right_operand.value)
 
         elif ast_node.value == '/':
-            computed_value = int(ast_node.left_operand.value) / \
-                int(ast_node.right_operand.value)
+            computed_value = int(int(ast_node.left_operand.value) / \
+                int(ast_node.right_operand.value))
 
         return str(computed_value)
 
