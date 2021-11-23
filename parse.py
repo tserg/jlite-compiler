@@ -192,6 +192,8 @@ class Parser:
             after the Kleene closure
         """
 
+        original_lexer = copy.deepcopy(lexer)
+
         try:
 
             if self.debug:
@@ -249,6 +251,7 @@ class Parser:
                             )
         except:
             root_node = None
+            lexer = original_lexer
 
         if self.debug:
             sys.stdout.write("Kleene closure terminating with next token as: " + lexer.peek().value + "\n")
@@ -414,6 +417,8 @@ class Parser:
 
             if self.debug:
                 sys.stdout.write("VarDecl expression found, returned to ClassDecl." + "\n")
+                sys.stdout.write(str(type(t4)) + "\n")
+                sys.stdout.write("Next token in lexer: " + lexer.peek().value + "\n")
 
             t5, lexer = self._kleene_closure_loop(self._mddecl_expression, lexer, class_name=t2.value)
 
@@ -1832,6 +1837,12 @@ class Parser:
                 if self.debug:
                     sys.stdout.write("Atomalpha expression: '.' eaten. \n")
 
+                root_node = InstanceNode()
+
+                if self.debug:
+                    sys.stdout.write("Atomalpha expression: Root node created. \n")
+
+                root_node.set_atom(left_node)
 
                 t2 = self._eat("IDENTIFIER", current_lexer)
 
@@ -1841,24 +1852,19 @@ class Parser:
                 if t2.value not in self.symbol_table.keys():
                     self.symbol_table[t2.value] = "IDENTIFIER"
 
-                root_node = InstanceNode()
-
-                if self.debug:
-                    sys.stdout.write("Atomalpha expression: Root node created. \n")
-
-                root_node.set_atom(left_node)
-
-                if self.debug:
-                    sys.stdout.write("Atomalpha expression: Atom of root node set. \n")
-
                 root_node.set_identifier(t2)
 
                 if self.debug:
-                    sys.stdout.write('Atomalpha expression: Identifier of root node set: ' + root_node.value + "\n")
+                    sys.stdout.write('Atomalpha expression: Identifier of root node set: ' + t2.value + "\n")
+                    sys.stdout.write('Atomalpha expression: Type of identifier of root node: ' + str(type(t2)) + "\n")
 
-                t3, current_lexer = self._atomalpha_expression(current_lexer, root_node)
+                #t3, current_lexer = self._atomalpha_expression(current_lexer, root_node)
 
-                return t3, current_lexer
+                    sys.stdout.write("Atomalpha expression: Lexer peek 0: " + str(current_lexer.peek().value)+ " \n")
+                    sys.stdout.write("Atomalpha expression: Lexer peek 1: " + str(current_lexer.peek(1).value)+ " \n")
+                    sys.stdout.write("Atomalpha expression: Lexer peek 2: " + str(current_lexer.peek(2).value)+ " \n")
+
+                left_node = root_node
 
             elif next_token.token_name == "(":
                 current_lexer = copy.deepcopy(lexer)
@@ -1866,16 +1872,57 @@ class Parser:
                 t2, current_lexer = self._explist_expression(current_lexer)
 
                 if t2:
-                    left_node.add_child(t2)
+
+                    if self.debug:
+                        sys.stdout.write("ExpList expression node type: " + str(type(t2)) + "\n")
+
+                        if t2.expression:
+                            sys.stdout.write("ExpList expression node value: " + str(t2.expression.value) + "\n")
+                            sys.stdout.write("ExpList expression node child: " + str(t2.expression.child) + "\n")
+                            sys.stdout.write("ExpList expression node sibling: " + str(t2.expression.sibling) + "\n")
+                        #t2.pretty_print()
+
+                    if type(left_node) == InstanceNode:
+
+                        if self.debug:
+                            sys.stdout.write('Atomalpha expression: Appending method call to instance node.\n')
+                            sys.stdout.write("Argument node type: " + str(type(t2)) + "\n")
+
+
+                        left_node.identifier.add_child(t2)
+
+                    else:
+
+                        if self.debug:
+                            sys.stdout.write('Atomalpha expression: Appending method call to identifier node.\n')
+
+                        left_node.add_child(t2)
 
                 self._eat(")", current_lexer)
-                t4, current_lexer = self._atomalpha_expression(current_lexer, t2)
 
-                return left_node, current_lexer
+                if self.debug:
+                    sys.stdout.write("Atomalpha expression: Post function call. \n")
+                    sys.stdout.write("Atomalpha expression: Lexer peek 0: " + str(current_lexer.peek().value)+ " \n")
+                    sys.stdout.write("Atomalpha expression: Lexer peek 1: " + str(current_lexer.peek(1).value)+ " \n")
+                    sys.stdout.write("Atomalpha expression: Lexer peek 2: " + str(current_lexer.peek(2).value)+ " \n")
 
-            return (left_node, lexer)
+            if current_lexer.peek().value == '.' or \
+                current_lexer.peek().value == '(':
+
+                if self.debug:
+                    sys.stdout.write("Atomalpha expression - nested instance or method call.\n")
+
+                left_node, current_lexer = self._atomalpha_expression(
+                    current_lexer,
+                    left_node
+                )
+
+            return (left_node, current_lexer)
 
         except:
+            if self.debug:
+                sys.stdout.write('Atomalpha expression: Exception thrown.\n')
+
             return (left_node, lexer)
 
 
@@ -1893,12 +1940,15 @@ class Parser:
             if t2:
                 t1.add_sibling(t2)
 
-
             return (
                 explist_node, lexer
             )
 
         except:
+
+            if self.debug:
+                sys.stdout.write('ExpList expression: Exception thrown.\n')
+
             explist_node = ExpListNode('ExpList', 'expression_list')
             return (explist_node, lexer)
 
@@ -1969,7 +2019,7 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        parser = Parser(debug=False)
+        parser = Parser(debug=True)
         parser.parse(f)
 
         parser.pretty_print()

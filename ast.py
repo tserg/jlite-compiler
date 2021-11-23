@@ -106,7 +106,7 @@ class ASTNode:
             sys.stdout.write(delimiter)
 
         if self.sibling:
-
+            sys.stdout.write(delimiter)
             sys.stdout.write(preceding)
             self.sibling.pretty_print(delimiter, preceding)
 
@@ -1497,7 +1497,7 @@ class InstanceNode(ASTNode):
 
     def pretty_print(self, delimiter: str='', preceding: str='') -> None:
 
-        self.atom.pretty_print()
+        self.atom.pretty_print(delimiter, preceding)
         sys.stdout.write('.')
         self.identifier.pretty_print()
 
@@ -1653,12 +1653,23 @@ class InstanceNode(ASTNode):
                 str(self.atom.type) + '\n')
 
         try:
+
+            if debug:
+                sys.stdout.write("InstanceNode - Type check for identifier.\n")
+                sys.stdout.write("InstanceNode - Identifier type: " + str(type(self.identifier)) + "\n")
+                sys.stdout.write("InstanceNode - Identifier value: " + str(self.identifier.value) + "\n")
+
+                if self.identifier.child:
+                    sys.stdout.write("InstanceNode - Identifier child node: " + str(type(self.identifier.child)) + "\n")
+                    self.identifier.child.pretty_print()
+
             self.identifier.type_check(
                 env,
                 debug,
                 class_for_identifier_type_check,
                 return_type
             )
+
         except:
             pass
 
@@ -1731,6 +1742,8 @@ class InstanceNode(ASTNode):
                             # If there is exactly one possible method
                             if debug:
                                 sys.stdout.write("InstanceNode - Single method detected.\n")
+                                sys.stdout.write("InstanceNode - Type of child node: " + \
+                                    str(type(self.child)) + "\n")
 
                             # Type check expression list if it exists
                             if isinstance(self.child, ExpListNode) and \
@@ -1746,6 +1759,29 @@ class InstanceNode(ASTNode):
                                 )
 
                                 current_args = self.child.get_arguments(debug)
+                                current_args_count = len(current_args)
+
+                                if debug:
+                                    sys.stdout.write("InstanceNode - "
+                                        "Arguments list retrieved: " + \
+                                        str(current_args) + "\n")
+
+                            elif isinstance(self.identifier.child, ExpListNode) and \
+                                self.identifier.child.expression:
+
+                                if debug:
+                                    sys.stdout.write("InstanceNode - Overloaded method - ExpList node detected in nested method call.\n")
+
+                                env_copy = copy.deepcopy(env)
+
+                                self.identifier.child.type_check(
+                                    env_copy,
+                                    debug,
+                                    within_class,
+                                    return_type
+                                )
+
+                                current_args = self.identifier.child.get_arguments(debug)
                                 current_args_count = len(current_args)
 
                                 if debug:
@@ -1796,7 +1832,7 @@ class InstanceNode(ASTNode):
                             if isinstance(self.child, ExpListNode) and \
                                 self.child.expression:
                                 if debug:
-                                    sys.stdout.write("InstanceNode - Overloaded method - ExpList node detected.\n")
+                                    sys.stdout.write("InstanceNode - Overloaded method - ExpList node detected in method call.\n")
 
                                 env_copy = copy.deepcopy(env)
 
@@ -1814,6 +1850,30 @@ class InstanceNode(ASTNode):
                                     sys.stdout.write("InstanceNode - "
                                         "Arguments list retrieved: " + \
                                         str(current_args) + "\n")
+
+                            elif isinstance(self.identifier.child, ExpListNode) and \
+                                self.identifier.child.expression:
+
+                                if debug:
+                                    sys.stdout.write("InstanceNode - Overloaded method - ExpList node detected in nested method call.\n")
+
+                                env_copy = copy.deepcopy(env)
+
+                                self.identifier.child.type_check(
+                                    env_copy,
+                                    debug,
+                                    within_class,
+                                    return_type
+                                )
+
+                                current_args = self.identifier.child.get_arguments(debug)
+                                current_args_type = [self._get_arg_type(i, env_copy, debug=True) for i in current_args]
+
+                                if debug:
+                                    sys.stdout.write("InstanceNode - "
+                                        "Arguments list retrieved: " + \
+                                        str(current_args) + "\n")
+
 
                             current_args_count = len(current_args)
 
@@ -2016,11 +2076,34 @@ class ReturnNode(ASTNode):
 
             elif type(self.return_value.type) == BasicType:
                 self.type = self.return_value.type
+
+            else:
+
+                try:
+                    if type(self.return_value.type) == tuple and \
+                        type(self.return_value.type[0]) == BasicType and \
+                        type(self.return_value.type[1]) == str:
+
+                        self.type = self.return_value.type
+
+                    if debug:
+                        sys.stdout.write("ReturnNode - Class object return type.\n")
+
+                except:
+
+                    if debug:
+                        sys.stdout.write("ReturnNode - Unknown return type.\n")
+
         else:
             # Set type to Void if its return value is None
             self.type = BasicType.VOID
 
         if self.type != return_type:
+
+            if debug:
+                sys.stdout.write("ReturnNode: return type: " + str(return_type) + "\n")
+                sys.stdout.write("ReturnNode: current type: " + str(self.type) + "\n")
+
             raise TypeCheckError(self.return_value.value, "Return type " + \
                 str(self.return_value.type) + \
                 " is different from that declared for function in class [" + \

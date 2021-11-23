@@ -593,7 +593,10 @@ class IR3Generator:
         symbol_table: SymbolTableStack,
         ast_node: Any,
         var_decl_node: Any=None
-    ) -> VarDecl3Node:
+    ) -> Optional[VarDecl3Node]:
+
+        if not ast_node:
+            return None
 
         if self.debug:
             sys.stdout.write("Getting VarDecl - Value detected: " + \
@@ -1534,10 +1537,18 @@ class IR3Generator:
             if self.debug:
                 sys.stdout.write("Getting Exp - InstanceNode detected.\n")
 
-            if isinstance(ast_node.child, ExpListNode):
+            if isinstance(ast_node.child, ExpListNode) or \
+                isinstance(ast_node.identifier.child, ExpListNode):
                 # <id3>(<VList3>)
                 if self.debug:
                     sys.stdout.write("Getting Exp - Method call detected.\n")
+
+
+                exp_list_node = ast_node.child
+                if ast_node.identifier.child:
+
+                    if isinstance(ast_node.identifier.child, ExpListNode):
+                        exp_list_node = ast_node.identifier.child
 
                 st_lookup: Any = symbol_table.lookup(ast_node.identifier.value)
                 if st_lookup:
@@ -1547,7 +1558,7 @@ class IR3Generator:
 
                     if type(st_lookup) == list:
 
-                        args_type = ast_node.child.get_arguments_type()
+                        args_type = exp_list_node.get_arguments_type()
 
                         if self.debug:
                             sys.stdout.write("Getting Exp - Arguments of ExpListNode - " + \
@@ -1596,10 +1607,10 @@ class IR3Generator:
                         str(ast_node.atom.type) + "\n")
 
                 prior_instructions = None
-                if ast_node.child.expression:
+                if exp_list_node.expression:
                     args, prior_instructions = self._get_vlist(
                         symbol_table,
-                        ast_node.child.expression
+                        exp_list_node.expression
                     )
 
                     if self.debug:
@@ -2459,7 +2470,7 @@ def __main__():
 
     else:
         f = open(filepath, 'r')
-        gen = IR3Generator(debug=False)
+        gen = IR3Generator(debug=True)
         gen.generate_ir3(f)
         gen.pretty_print()
 
