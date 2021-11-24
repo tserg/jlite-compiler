@@ -1536,6 +1536,99 @@ class IR3Generator:
 
             if self.debug:
                 sys.stdout.write("Getting Exp - InstanceNode detected.\n")
+                sys.stdout.write("Getting Exp - InstanceNode - Atom: " + \
+                    ast_node.atom.value + "\n")
+                sys.stdout.write("Getting Exp - InstanceNode - Identifier: " + \
+                    ast_node.identifier.value + "\n")
+
+            atom_value = ast_node.atom.value
+            atom_type = ast_node.atom.type
+
+            if type(ast_node.atom) == InstanceNode:
+
+                if self.debug:
+                    sys.stdout.write("Getting Exp - InstanceNode - nested InstanceNode detected.\n")
+
+                expression_node = self._get_exp3(
+                    symbol_table,
+                    ast_node.atom
+                )
+
+                last_of_expression = self._get_last_child(expression_node)
+
+                last_of_expression, parent_of_last_of_expression = self._get_last_child(
+                    expression_node,
+                    return_last_parent=True
+                )
+
+                if type(last_of_expression) == ClassAttribute3Node:
+
+                    if last_of_expression and \
+                        parent_of_last_of_expression and \
+                        last_of_expression != parent_of_last_of_expression:
+
+                        if self.debug:
+                            sys.stdout.write("Getting Exp - InstanceNode - nested" + \
+                                " - unique last expression is ClassAttribute3Node.\n")
+                            sys.stdout.write("Getting Exp - InstanceNode - nested" + \
+                                " - Type of last expression ClassAttribute3Node: " + \
+                                str(last_of_expression.type) + "\n")
+
+
+                        # Define new temp variable for class attribute node
+                        temp_var = "_t"+str(self._get_temp_var_count())
+                        temp_var_node = VarDecl3Node(
+                            value=temp_var,
+                            type=last_of_expression.type
+                        )
+
+                        symbol_table.insert(temp_var, last_of_expression.type)
+
+                        # Assign value to temporary variable
+
+                        temp_var_assignment_node = Assignment3Node(type=last_of_expression.type)
+                        temp_var_assignment_node.set_identifier(temp_var)
+                        temp_var_assignment_node.set_assigned_value(last_of_expression)
+                        temp_var_node.add_child(temp_var_assignment_node)
+
+                        parent_of_last_of_expression.add_child(temp_var_node)
+                        last_of_expression = temp_var_assignment_node
+
+                        atom_value = temp_var_assignment_node.identifier
+                        atom_type = temp_var_assignment_node.type
+
+                    else:
+
+                        if self.debug:
+                            sys.stdout.write("Getting Exp - InstanceNode - nested" + \
+                                " - single ClassAttribute3Node.\n")
+
+                        # Create new temporary variable
+
+                        temp_var_nested = "_t"+str(self._get_temp_var_count())
+                        temp_var_nested_node = VarDecl3Node(
+                            value=temp_var_nested,
+                            type=ast_node.atom.type
+                        )
+
+                        symbol_table.insert(temp_var_nested, ast_node.atom.type)
+
+                        # Assign value to temporary variable
+
+                        temp_var_nested_assignment_node = Assignment3Node(type=ast_node.atom.type)
+                        temp_var_nested_assignment_node.set_identifier(temp_var_nested_node)
+                        temp_var_nested_assignment_node.set_assigned_value(last_of_expression)
+                        temp_var_nested_node.add_child(temp_var_nested_assignment_node)
+
+                        new_exp_node = temp_var_nested_node
+
+                        atom_value = last_of_expression
+                        atom_type = last_of_expression.type
+
+                else:
+
+                    atom_value = last_of_expression.identifier
+                    atom_type = last_of_expression.type
 
             if isinstance(ast_node.child, ExpListNode) or \
                 isinstance(ast_node.identifier.child, ExpListNode):
@@ -1597,14 +1690,14 @@ class IR3Generator:
                 )
 
                 class_instance_node = IR3Node(
-                    value=ast_node.atom.value,
-                    type=ast_node.atom.type
+                    value=atom_value,
+                    type=atom_type
                 )
 
                 if self.debug:
                     sys.stdout.write("Getting Exp - Method call detected - Class Instance value: " + \
-                        str(ast_node.atom.value) + " of type: " + \
-                        str(ast_node.atom.type) + "\n")
+                        str(atom_value) + " of type: " + \
+                        str(atom_type) + "\n")
 
                 prior_instructions = None
                 if exp_list_node.expression:
@@ -1624,6 +1717,13 @@ class IR3Generator:
                             sys.stdout.write("Getting Exp - Method call detected - No prior instructions.\n")
 
                     class_instance_node.add_child(args)
+
+                if self.debug:
+
+                    sys.stdout.write("Getting Exp - First argument node: " + \
+                        str(type(class_instance_node)) + "\n")
+                    sys.stdout.write("Getting Exp - First argument value: " + \
+                        str(class_instance_node.value)+ "\n")
 
                 md_call_node.set_arguments(class_instance_node)
 
@@ -1646,34 +1746,66 @@ class IR3Generator:
                 )
 
                 temp_var_node.add_child(temp_var_assignment_node)
-                new_exp_node = temp_var_node
+
+                try:
+
+                    temp_var_nested_node.add_child(temp_var_node)
+                    new_exp_node = temp_var_nested_node
+
+                except:
+
+                    new_exp_node = temp_var_node
 
                 if prior_instructions:
 
                     # Link prior instructions with temporary variable declaration
                     # for method call
-
                     prior_instructions_last = self._get_last_child(prior_instructions)
-                    prior_instructions_last.add_child(temp_var_node)
+                    try:
+
+                        prior_instructions_last.add_child(temp_var_nested_node)
+
+                    except:
+
+                        prior_instructions_last.add_child(temp_var_node)
+
                     new_exp_node = prior_instructions
 
             else:
                 # <id3>.<id3>
                 if self.debug:
                     sys.stdout.write("Getting Exp - Class attribute detected.\n")
+                    sys.stdout.write("Getting Exp - Class attribute AST value: " + \
+                        str(ast_node.value) + "\n")
+                    sys.stdout.write("Getting Exp - Class attribute AST type: " + \
+                        str(ast_node.type) + "\n")
 
                 new_exp_node = ClassAttribute3Node(
-                    type=ast_node.identifier.type,
-                    object_name=ast_node.atom.value,
+                    type=ast_node.type,
+                    object_name=atom_value,
                     target_attribute=ast_node.identifier.value,
                     class_name=ast_node.class_name
                 )
 
+                try:
+
+                    temp_var_nested_node.add_child(new_exp_node)
+                    new_exp_node = temp_var_nested_node
+
+                except:
+
+                    pass
+
                 if self.debug:
                     sys.stdout.write("Getting Exp - Class identifier: " + \
-                        str(ast_node.atom.value) + "\n")
+                        str(atom_value) + "\n")
                     sys.stdout.write("Getting Exp - Class attribute: " + \
                         str(ast_node.identifier.value) + "\n")
+
+            if type(ast_node.atom) == InstanceNode:
+
+                last_of_expression.add_child(new_exp_node)
+                new_exp_node = expression_node
 
         elif isinstance(ast_node, ClassInstanceNode):
             # new <cname>()
