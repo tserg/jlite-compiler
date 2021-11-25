@@ -895,7 +895,8 @@ class IR3Generator:
                 sys.stdout.write("Getting Stmt - Type: " + \
                     str(ast_node.type) + "\n")
 
-            new_stmt_node = Assignment3Node(type=ast_node.type)
+            new_assignment_node = Assignment3Node(type=ast_node.type)
+            new_stmt_node = new_assignment_node
 
             if isinstance(ast_node.identifier, InstanceNode):
 
@@ -903,18 +904,91 @@ class IR3Generator:
                     sys.stdout.write("Getting Stmt - "
                         "Class attribute assignment detected.\n")
 
+                object_name=ast_node.identifier.atom.value
+
+                if type(ast_node.identifier.atom) == InstanceNode:
+
+                    if self.debug:
+                        sys.stdout.write("Getting Stmt - "
+                            "Nested class attribute assignment detected.\n")
+
+                    nested_identifier_node = self._get_exp3(
+                        symbol_table,
+                        ast_node.identifier.atom
+                    )
+
+                    last_of_nested_identifier, parent_of_last_of_nested_identifier = self._get_last_child(
+                        nested_identifier_node,
+                        return_last_parent=True
+                    )
+
+                    if not parent_of_last_of_nested_identifier:
+                        parent_of_last_of_nested_identifier = nested_identifier_node
+
+                    if self.debug:
+                        sys.stdout.write("Getting Stmt - "
+                            "Nested class attribute identifer: " + \
+                            str(type(nested_identifier_node)) + "\n")
+                        sys.stdout.write("Getting Stmt - "
+                            "Nested class attribute identifer last child: " + \
+                            str(type(last_of_nested_identifier)) + "\n")
+                        sys.stdout.write("Getting Stmt - "
+                            "Nested class attribute identifer parent of last child: " + \
+                            str(type(parent_of_last_of_nested_identifier)) + "\n")
+
+                    # If single ClassAttribute3Node is retrieved, break it up
+                    # into its own variable declaration
+
+                    if type(last_of_nested_identifier) == ClassAttribute3Node:
+
+                        temp_id_var = "_t"+str(self._get_temp_var_count())
+                        temp_id_var_node = VarDecl3Node(
+                            value=temp_id_var,
+                            type=last_of_nested_identifier.type
+                        )
+
+                        symbol_table.insert(temp_id_var, last_of_nested_identifier.type)
+
+                        # Assign value to temporary variable
+
+                        temp_id_var_assignment_node = Assignment3Node(
+                            type=last_of_nested_identifier.type
+                        )
+                        temp_id_var_assignment_node.set_identifier(temp_id_var)
+                        temp_id_var_assignment_node.set_assigned_value(
+                            last_of_nested_identifier
+                        )
+
+
+                        # Link to nested node
+
+                        if nested_identifier_node == last_of_nested_identifier:
+                            nested_identifier_node = temp_id_var_node
+                        else:
+                            parent_of_last_of_nested_identifier.add_child(temp_id_var_node)
+
+                        temp_id_var_node.add_child(temp_id_var_assignment_node)
+                        temp_id_var_assignment_node.add_child(new_assignment_node)
+                        new_stmt_node = nested_identifier_node
+
+                        object_name = temp_id_var_node.value
+
+                    else:
+
+                        object_name = last_of_nested_identifier.identifier
+
                 class_attribute_node = ClassAttribute3Node(
                     type=ast_node.identifier.type,
-                    object_name=ast_node.identifier.atom.value,
+                    object_name=object_name,
                     target_attribute=ast_node.identifier.identifier.value,
                     class_name=ast_node.identifier.class_name
                 )
 
-                new_stmt_node.set_identifier(class_attribute_node)
+                new_assignment_node.set_identifier(class_attribute_node)
 
             else:
 
-                new_stmt_node.set_identifier(ast_node.identifier.value)
+                new_assignment_node.set_identifier(ast_node.identifier.value)
 
             if type(ast_node.assigned_value) == ASTNode:
                 if self.debug:
@@ -927,7 +1001,7 @@ class IR3Generator:
                         "AssignmentNode - Is raw value: " + \
                         str(ast_node.assigned_value.is_raw_value) + "\n")
 
-                new_stmt_node.set_assigned_value(
+                new_assignment_node.set_assigned_value(
                     ast_node.assigned_value.value,
                     ast_node.assigned_value.is_raw_value
                 )
@@ -937,7 +1011,7 @@ class IR3Generator:
                     sys.stdout.write("Getting Stmt - AssignmentNode - "
                         "Expression detected.\n")
 
-                expression_node = self._get_exp3(
+                assigned_expression_node = self._get_exp3(
                     symbol_table,
                     ast_node.assigned_value
                 )
@@ -945,16 +1019,33 @@ class IR3Generator:
                 if self.debug:
                     sys.stdout.write("Getting Stmt - AssignmentNode - "
                         "Expression found: " + \
-                        str(expression_node) + "\n")
+                        str(assigned_expression_node) + "\n")
 
-                if expression_node.child:
-                    expression_last_node = self._get_last_child(expression_node)
-                    new_stmt_node.set_assigned_value(expression_last_node.identifier)
-                    expression_last_node.add_child(new_stmt_node)
+                if assigned_expression_node.child:
+                    assigned_expression_last_node = self._get_last_child(assigned_expression_node)
+                    new_assignment_node.set_assigned_value(
+                        assigned_expression_last_node.identifier
+                    )
 
-                    new_stmt_node = expression_node
+                    if isinstance(ast_node.identifier, InstanceNode) and \
+                        type(ast_node.identifier.atom) == InstanceNode:
+
+                        temp_id_var_assignment_node.add_child(assigned_expression_node)
+                        assigned_expression_last_node.add_child(new_assignment_node)
+
+                    else:
+                        assigned_expression_last_node.add_child(new_assignment_node)
+
+                        new_stmt_node = assigned_expression_node
                 else:
-                    new_stmt_node.set_assigned_value(expression_node)
+                    new_assignment_node.set_assigned_value(
+                        assigned_expression_node
+                    )
+
+            if isinstance(ast_node.identifier, InstanceNode) and \
+                type(ast_node.identifier.atom) == InstanceNode:
+
+                new_stmt_node = nested_identifier_node
 
         elif isinstance(ast_node, IfElseNode):
 
