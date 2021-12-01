@@ -390,6 +390,73 @@ class IR3Generator:
 
         return condition_node
 
+    def _derive_nested_class_attribute(
+        self,
+        ir3_node: Any,
+        symbol_table: SymbolTableStack
+    ) -> Any:
+
+        if self.debug:
+            sys.stdout.write("Checking for nested class attributes.\n")
+
+        completed = False
+        start_node = ir3_node
+        current_node = ir3_node
+        previous_node = None
+
+        while not completed:
+
+            if not current_node:
+                completed = True
+                break
+
+            if type(current_node) == ClassAttribute3Node:
+
+                if self.debug:
+                    sys.stdout.write("Nested class attribute found.\n")
+
+                temp_var = "_t"+str(self._get_temp_var_count())
+                temp_var_node = VarDecl3Node(
+                    value=temp_var,
+                    type=current_node.type
+                )
+
+                if self.debug:
+                    sys.stdout.write("Nested class attribute found - temp var: " + \
+                        temp_var + "\n")
+
+                symbol_table.insert(temp_var, current_node.type)
+
+                # Assign value to temporary variable
+
+                temp_var_assignment_node = Assignment3Node(type=current_node.type)
+                temp_var_assignment_node.set_identifier(temp_var)
+                temp_var_assignment_node.set_assigned_value(current_node)
+
+                temp_var_node.add_child(temp_var_assignment_node)
+
+                next_node = current_node.child
+
+                if not previous_node:
+                    start_node = temp_var_node
+
+                else:
+                    previous_node.add_child(temp_var_node)
+
+                temp_var_assignment_node.add_child(current_node.child)
+
+                current_node.child = None
+                current_node = temp_var_assignment_node
+                previous_node = temp_var_assignment_node
+
+            else:
+
+                previous_node = current_node
+                current_node = current_node.child
+
+        return start_node
+
+
     def _program_expression(
         self,
         ast: Any
@@ -912,9 +979,12 @@ class IR3Generator:
                         sys.stdout.write("Getting Stmt - "
                             "Nested class attribute assignment detected.\n")
 
-                    nested_identifier_node = self._get_exp3(
-                        symbol_table,
-                        ast_node.identifier.atom
+                    nested_identifier_node = self._derive_nested_class_attribute(
+                        self._get_exp3(
+                            symbol_table,
+                            ast_node.identifier.atom
+                        ),
+                        symbol_table
                     )
 
                     last_of_nested_identifier, parent_of_last_of_nested_identifier = self._get_last_child(
@@ -939,6 +1009,7 @@ class IR3Generator:
                     # If single ClassAttribute3Node is retrieved, break it up
                     # into its own variable declaration
 
+                    '''
                     if type(last_of_nested_identifier) == ClassAttribute3Node:
 
                         temp_id_var = "_t"+str(self._get_temp_var_count())
@@ -976,6 +1047,8 @@ class IR3Generator:
                     else:
 
                         object_name = last_of_nested_identifier.identifier
+                    '''
+                    object_name = last_of_nested_identifier.identifier
 
                 class_attribute_node = ClassAttribute3Node(
                     type=ast_node.identifier.type,
@@ -1011,9 +1084,12 @@ class IR3Generator:
                     sys.stdout.write("Getting Stmt - AssignmentNode - "
                         "Expression detected.\n")
 
-                assigned_expression_node = self._get_exp3(
-                    symbol_table,
-                    ast_node.assigned_value
+                assigned_expression_node = self._derive_nested_class_attribute(
+                    self._get_exp3(
+                        symbol_table,
+                        ast_node.assigned_value
+                    ),
+                    symbol_table
                 )
 
                 if self.debug:
@@ -1023,6 +1099,7 @@ class IR3Generator:
 
                 if assigned_expression_node.child:
                     assigned_expression_last_node = self._get_last_child(assigned_expression_node)
+
                     new_assignment_node.set_assigned_value(
                         assigned_expression_last_node.identifier
                     )
@@ -1640,9 +1717,12 @@ class IR3Generator:
                 if self.debug:
                     sys.stdout.write("Getting Exp - InstanceNode - nested InstanceNode detected.\n")
 
-                expression_node = self._get_exp3(
-                    symbol_table,
-                    ast_node.atom
+                expression_node = self._derive_nested_class_attribute(
+                    self._get_exp3(
+                        symbol_table,
+                        ast_node.atom
+                    ),
+                    symbol_table
                 )
 
                 last_of_expression = self._get_last_child(expression_node)
@@ -1652,6 +1732,7 @@ class IR3Generator:
                     return_last_parent=True
                 )
 
+                '''
                 if type(last_of_expression) == ClassAttribute3Node:
 
                     if last_of_expression and \
@@ -1720,6 +1801,9 @@ class IR3Generator:
 
                     atom_value = last_of_expression.identifier
                     atom_type = last_of_expression.type
+                '''
+                atom_value = last_of_expression.identifier
+                atom_type = last_of_expression.type
 
             if isinstance(ast_node.child, ExpListNode) or \
                 isinstance(ast_node.identifier.child, ExpListNode):

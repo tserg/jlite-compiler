@@ -1,7 +1,6 @@
-# CS4212 Project Report [AY2021/2022 Semester 2]
+# Overview
 
-- Name: Tse Rong Gary
-- Student ID: A0110500L
+Compiler for JLITE (toy Java language) to Python.
 
 ## Introduction
 
@@ -27,6 +26,7 @@ jlite-compiler
  ├── symbol_table.py            # SymbolTable class
  └── TseRongGary_pa1_readme.md
  └── TseRongGary_pa2_readme.md
+ └── TseRongGary_pa3_report.pdf
 ```
 
 Notes
@@ -614,11 +614,15 @@ The `ControlFlowGenerator` contains the following optimizations:
 
 ## Known Gaps
 - Errors in Kleene's closure are not raised, and are discarded.
+- Nested method calls and class attribute references are not supported.
+-
 
 ## Areas for improvement
 
 - Use a stack to store consumed tokens for backtracking instead of creating a deep copy to reduce memory usage.
 - Restore the environment stack at the end of a function instead of creating a deep copy to reduce memory usage.
+- Add new error class for semantic errors.
+- Functions with more than 4 arguments are not supported.
 
 ## References
 - [1] http://www1.cs.columbia.edu/~sedwards/classes/2003/w4115/ast.pdf

@@ -477,6 +477,12 @@ class Compiler:
         excluded_registers: List[str]=[]
     ) -> Optional[List[Any]]:
 
+        if self.debug:
+
+            sys.stdout.write("Checking if identifier in register.\n")
+            sys.stdout.write("Current address_descriptor: " + \
+                str(self.address_descriptor) + "\n")
+
         try:
             x_address_descriptor = self.address_descriptor[identifier]['references']
             is_in_register = [i for i in REGISTERS if i in x_address_descriptor and \
@@ -1352,60 +1358,6 @@ class Compiler:
                     sys.stdout.write("Add var decl to address descriptor: " + \
                         str(self.address_descriptor) + "\n")
 
-                '''
-                elif type(current_var_decl.type) == tuple:
-
-                    # If it is a class object
-
-                    if self.debug:
-                        sys.stdout.write("Calculating space for object decl: " + \
-                            str(current_var_decl.value) + " of class " + \
-                            str(current_var_decl.type[1])+ "\n")
-
-                    # Look for object class in class data
-
-                    object_class = current_var_decl.type[1]
-
-                    completed = False
-                    current_class_data = ir3_class_data
-
-                    while not completed:
-
-                        if not current_class_data:
-                            completed = True
-                            break
-
-                        if object_class == current_class_data.class_name:
-
-                            # Get identifiers of class attributes
-
-                            object_attributes = current_class_data.get_var_decl_identifiers()
-
-                            relative_offset = 0
-
-                            for a in object_attributes:
-
-                                # For each class attribute, increment the offset
-                                # and declare a new variable
-
-                                fp_offset += 4
-
-                                a_identifier = current_var_decl.value + "." + \
-                                    a
-
-                                self._declare_new_variable(
-                                    a_identifier,
-                                    fp_offset,
-                                    relative_offset
-                                )
-
-                                relative_offset += 4
-
-                            completed = True
-                            break
-
-                        current_class_data = current_class_data.child
-                '''
             current_var_decl = current_var_decl.child
 
         current_stmt = ir3_node.statements
@@ -2160,27 +2112,79 @@ class Compiler:
                 label="malloc"
             )
 
-            # Get offset of object
+            # Restore argument registers from stack to restore argument values
+            # after creating object
 
-            object_offset = self.address_descriptor[
-                assignment3node.identifier
-            ]['offset']
-
-            # Store address returned in stack
-
-            instruction_store_base_address = StoreInstruction(
-                rd="a1",
-                base_offset="fp",
-                offset=-object_offset
+            instruction_save_arg_registers = Instruction(
+                instruction="stmfd sp!,{a1,a2,a3,a4}\n"
             )
 
-            self._link_instructions([
-                instruction_create_space,
-                instruction_malloc,
-                instruction_store_base_address
-            ])
+            instruction_pop_arg_registers = Instruction(
+                instruction="ldmfd sp!,{a1,a2,a3,a4}\n"
+            )
 
-            new_instruction = instruction_create_space
+            # Get offset of object
+
+            if self.debug:
+                sys.stdout.write("Address descriptor: " + str(self.address_descriptor) + "\n")
+
+
+            try:
+                object_offset = self.address_descriptor[
+                    assignment3node.identifier
+                ]['offset']
+
+                # Store address returned in stack
+
+                instruction_store_base_address = StoreInstruction(
+                    rd="a1",
+                    base_offset="fp",
+                    offset=-object_offset
+                )
+
+                self._link_instructions([
+                    instruction_save_arg_registers,
+                    instruction_create_space,
+                    instruction_malloc,
+                    instruction_store_base_address,
+                    instruction_pop_arg_registers
+                ])
+
+            except:
+
+                if type(assignment3node.identifier) == ClassAttribute3Node:
+
+                    class_attribute_offset = self._calculate_class_attribute_offset(
+                        class_name=assignment3node.identifier.class_name,
+                        attribute_name=assignment3node.identifier.target_attribute
+                    )
+
+                    instruction_load_class_instance_address = LoadInstruction(
+                        rd=x_register,
+                        base_offset="sp",
+                        offset=0
+                    )
+
+                    instruction_store_base_address = StoreInstruction(
+                        rd="a1",
+                        base_offset=x_register,
+                        offset=class_attribute_offset
+                    )
+
+                    self._link_instructions([
+                        instruction_save_arg_registers,
+                        instruction_create_space,
+                        instruction_malloc,
+                        instruction_load_class_instance_address,
+                        instruction_store_base_address,
+                        instruction_pop_arg_registers
+                    ])
+
+                else:
+
+                    pass
+
+            new_instruction = instruction_save_arg_registers
 
         elif type(assignment3node.assigned_value) == UnaryOp3Node:
 
@@ -3328,10 +3332,15 @@ class Compiler:
                     store_instruction = instruction_load_base_address
 
                 else:
+
                     # Get base address of object
                     object_address_offset = self.address_descriptor[
                         assignment3node.identifier.object_name
                     ]['offset']
+
+                    if self.debug:
+                        sys.stdout.write("Converting stmt to assembly - object base address: " + \
+                            str(object_address_offset) + "\n")
 
                     # Load base address into a register
                     base_address_register = registers['z'][0]
@@ -3347,6 +3356,10 @@ class Compiler:
                     class_attribute_offset = self._calculate_class_attribute_offset(
                         ir3_node=assignment3node.identifier
                     )
+
+                    if self.debug:
+                        sys.stdout.write("Converting stmt to assembly - class attribute address: " + \
+                            str(class_attribute_offset) + "\n")
 
                     # Generate instruction
 
@@ -3432,6 +3445,11 @@ class Compiler:
 
         return_identifier = ir3_node.return_value
 
+        if self.debug:
+            sys.stdout.write("Converting stmt to assembly - Return value: " + \
+                str(ir3_node.return_value) + "\n")
+
+
         return_identifier_reg = self._check_if_in_arguments(
             ir3_node.return_value,
             md_args
@@ -3458,6 +3476,9 @@ class Compiler:
 
             if self.debug:
                 sys.stdout.write("Converting return statement to assembly - Already in register.\n")
+
+                sys.stdout.write("Register descriptors after obtaining identifier in address descriptor: " + \
+                    str(self.register_descriptor) + "\n")
 
             instruction_move_to_argument_reg = MoveRegisterInstruction(
                 rd="a1",
