@@ -1,6 +1,6 @@
 # Overview
 
-Compiler for JLITE (toy Java language) to Python.
+Compiler for JLITE (toy Java language) to ARM assembly implemented in Python.
 
 ## Introduction
 
